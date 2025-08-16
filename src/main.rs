@@ -1,45 +1,9 @@
-//! Using Argon2 to limit generating keys that hashes to an ID
+//! Use PoW then hash.
 
-use argon2::{Algorithm, Argon2, Params, Version};
 use ed25519_dalek::SigningKey;
 use rand::{RngCore, thread_rng};
 use sha2::{Digest, Sha256};
 use std::time::Instant;
-
-/// Default Argon2 configuration - moderate difficulty for ID generation
-fn get_default_argon2() -> Argon2<'static> {
-    // Minimal parameters
-    let params = Params::new(
-        32,   // memory cost (32 KB)
-        3,    // time cost (3 iterations)
-        1,    // parallelism (1 thread)
-        None, // output length (None = default 32 bytes)
-    )
-    .unwrap();
-
-    // Argon2::new(Algorithm::default(), Version::default(), params)
-    Argon2::default()
-}
-
-/// Generate Argon2 hash of public key (this becomes the basis for ID)
-fn argon2_hash_pubkey(public_key: &[u8]) -> [u8; 32] {
-    let argon2 = get_default_argon2();
-    let salt = b"malakut_m.alt_id_system_v1_salt_32b"; // Exactly 32 bytes for salt
-
-    let mut output = [0u8; 32];
-    argon2
-        .hash_password_into(public_key, salt, &mut output)
-        .expect("Argon2 hash failed");
-
-    output
-}
-
-/// Extract ID from Argon2 hash (first 5 bytes)
-fn extract_id(argon2_hash: &[u8; 32]) -> [u8; 5] {
-    let mut id = [0u8; 5];
-    id.copy_from_slice(&argon2_hash[0..5]);
-    id
-}
 
 /// Check if hash meets PoW target (has required leading zero bits)
 fn check_pow_target(hash: &[u8], required_zero_bits: u8) -> bool {
@@ -57,11 +21,18 @@ fn check_pow_target(hash: &[u8], required_zero_bits: u8) -> bool {
     zero_bits >= required_zero_bits
 }
 
+fn hash_pow(public_key: &[u8; 32], nonce: u64) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(nonce.to_le_bytes());
+    hasher.update(&public_key);
+    hasher.finalize()[..].try_into().unwrap()
+}
+
 /// Complete user workflow: generate keypair, find nonce, create ID
-fn user_create_id(pow_difficulty: u8) -> (SigningKey, [u8; 5], u64, u64) {
+fn user_create_id(target_difficulty: u8) -> (SigningKey, [u8; 5], u64, u64) {
     println!(
         "User creating ID with {} leading zero bits PoW...",
-        pow_difficulty
+        target_difficulty
     );
     let start_total = Instant::now();
 
@@ -71,41 +42,19 @@ fn user_create_id(pow_difficulty: u8) -> (SigningKey, [u8; 5], u64, u64) {
     rng.fill_bytes(&mut seed);
     let signing_key = SigningKey::from_bytes(&seed);
     let public_key = signing_key.verifying_key();
+    let public_key = public_key.as_bytes();
 
-    // Step 2: Generate Argon2 hash of public key (expensive, but done once)
-    println!("  Computing Argon2 hash of public key...");
-    let start_argon2 = Instant::now();
-    let argon2_hash = argon2_hash_pubkey(public_key.as_bytes());
-    let argon2_time = start_argon2.elapsed().as_millis() as u64;
-    println!("  Argon2 hash completed in {}ms", argon2_time);
-
-    // Step 3: Extract ID from Argon2 hash
-    let id = extract_id(&argon2_hash);
-    println!("  Generated ID: {}", hex::encode(id));
-
-    // Step 4: Find nonce for PoW (hash(nonce || argon2_hash) < target)
     println!("  Finding PoW nonce...");
     let start_pow = Instant::now();
     let mut nonce = 0u64;
 
+    let id;
+
     loop {
-        // Compute hash(nonce || argon2_hash)
-        let mut hasher = Sha256::new();
-        hasher.update(nonce.to_le_bytes());
-        hasher.update(&argon2_hash);
-        let pow_hash = hasher.finalize();
+        if let Some(_id) = calculate_id(public_key, nonce, target_difficulty) {
+            id = _id;
 
-        if check_pow_target(&pow_hash, pow_difficulty) {
-            let pow_time = start_pow.elapsed().as_millis() as u64;
-            let total_time = start_total.elapsed().as_millis() as u64;
-
-            println!("  PoW nonce found: {} in {}ms", nonce, pow_time);
-            println!(
-                "  Total user time: {}ms (Argon2: {}ms, PoW: {}ms)",
-                total_time, argon2_time, pow_time
-            );
-
-            return (signing_key, id, nonce, total_time);
+            break;
         }
 
         nonce += 1;
@@ -115,13 +64,38 @@ fn user_create_id(pow_difficulty: u8) -> (SigningKey, [u8; 5], u64, u64) {
             println!("    PoW attempt {}, elapsed: {}s", nonce, elapsed);
         }
     }
+
+    println!("  Generated ID: {}", hex::encode(id));
+
+    let total_time = start_total.elapsed().as_millis() as u64;
+
+    println!("  Total user time: {total_time}ms");
+
+    (signing_key, id, nonce, total_time)
+}
+
+fn calculate_id(public_key: &[u8; 32], nonce: u64, target_difficulty: u8) -> Option<[u8; 5]> {
+    let pow_hash = hash_pow(public_key, nonce);
+    if !check_pow_target(&pow_hash, target_difficulty) {
+        return None;
+    };
+
+    let mut hasher = Sha256::new();
+    hasher.update("mns.alt");
+    hasher.update(pow_hash);
+    let hash = &hasher.finalize()[..];
+
+    let mut id = [0u8; 5];
+    id.copy_from_slice(&hash[0..5]);
+
+    Some(id)
 }
 
 /// Verifier workflow: given public key, ID, and nonce, verify the claim
 fn verify_id(
-    public_key: &[u8],
-    claimed_id: [u8; 5],
+    public_key: &[u8; 32],
     nonce: u64,
+    claimed_id: [u8; 5],
     pow_difficulty: u8,
 ) -> (bool, u64) {
     println!(
@@ -131,43 +105,26 @@ fn verify_id(
     );
     let start = Instant::now();
 
-    // Step 1: Compute Argon2 hash of public key (expensive!)
-    let argon2_hash = argon2_hash_pubkey(public_key);
+    let valid = calculate_id(public_key, nonce, pow_difficulty)
+        .map(|calculate_id| calculate_id == claimed_id)
+        .unwrap_or_default();
 
-    // Step 2: Check if ID matches first 5 bytes of Argon2 hash
-    let computed_id = extract_id(&argon2_hash);
-    if computed_id != claimed_id {
-        let duration = start.elapsed().as_millis() as u64;
-        println!(
-            "  ID verification FAILED: computed {}, claimed {}",
-            hex::encode(computed_id),
-            hex::encode(claimed_id)
-        );
-        return (false, duration);
-    }
-
-    // Step 3: Verify PoW: hash(nonce || argon2_hash) meets target
-    let mut hasher = Sha256::new();
-    hasher.update(nonce.to_le_bytes());
-    hasher.update(&argon2_hash);
-    let pow_hash = hasher.finalize();
-
-    let pow_valid = check_pow_target(&pow_hash, pow_difficulty);
     let duration = start.elapsed().as_millis() as u64;
 
-    if pow_valid {
-        println!("  Verification SUCCESS in {}ms", duration);
-    } else {
-        println!("  PoW verification FAILED in {}ms", duration);
+    if valid {
+        println!("  ID verification SUCCEEDED IN {duration} ms");
+        return (true, duration);
     }
 
-    (pow_valid, duration)
+    println!("  ID verification FAILED");
+
+    (false, duration)
 }
 
 /// Attacker workflow: find different public key that generates same ID and valid PoW
 fn attacker_find_collision(
     target_id: [u8; 5],
-    pow_difficulty: u8,
+    target_difficulty: u8,
     max_attempts: u64,
 ) -> Option<(u64, u64)> {
     println!(
@@ -176,21 +133,16 @@ fn attacker_find_collision(
     );
     println!(
         "Required: same 5-byte ID + valid {}-bit PoW",
-        pow_difficulty
+        target_difficulty
     );
     let start = Instant::now();
 
     let mut rng = thread_rng();
-    let mut valid_ids_found = 0u64;
-    let mut valid_pows_found = 0u64;
 
     for attempt in 0..max_attempts {
         if attempt % 10 == 0 && attempt > 0 {
             let elapsed = start.elapsed().as_secs();
-            println!(
-                "  Attempt {}: {}s elapsed, {} matching IDs, {} valid PoWs",
-                attempt, elapsed, valid_ids_found, valid_pows_found
-            );
+            println!("  Attempt {}: {}s elapsed", attempt, elapsed);
         }
 
         // Generate different keypair
@@ -198,27 +150,15 @@ fn attacker_find_collision(
         rng.fill_bytes(&mut seed);
         let signing_key = SigningKey::from_bytes(&seed);
         let public_key = signing_key.verifying_key();
+        let public_key = public_key.as_bytes();
 
-        // Compute expensive Argon2 hash
-        let argon2_hash = argon2_hash_pubkey(public_key.as_bytes());
-        let computed_id = extract_id(&argon2_hash);
+        // Now try to find a valid PoW nonce
+        let mut nonce = 0u64;
+        let max_nonce_attempts = 1000000; // Limit nonce search
 
-        // Check if ID matches target
-        if computed_id == target_id {
-            valid_ids_found += 1;
-            println!("    MATCHING ID FOUND! Attempt {}", attempt);
-
-            // Now try to find a valid PoW nonce
-            let mut nonce = 0u64;
-            let max_nonce_attempts = 1000000; // Limit nonce search
-
-            for _ in 0..max_nonce_attempts {
-                let mut hasher = Sha256::new();
-                hasher.update(nonce.to_le_bytes());
-                hasher.update(&argon2_hash);
-                let pow_hash = hasher.finalize();
-
-                if check_pow_target(&pow_hash, pow_difficulty) {
+        for _ in 0..max_nonce_attempts {
+            if let Some(computed_id) = calculate_id(public_key, nonce, target_difficulty) {
+                if computed_id == target_id {
                     let duration = start.elapsed().as_millis() as u64;
                     println!("    FULL COLLISION FOUND!");
                     println!("    Matching ID: {}", hex::encode(computed_id));
@@ -228,28 +168,27 @@ fn attacker_find_collision(
                         duration,
                         attempt + 1
                     );
+
                     return Some((duration, attempt + 1));
+                } else {
+                    // println!(
+                    //     "  Found valid PoW but not the same ID {}: {}s elapsed, {computed_id:?} != {target_id:?}",
+                    //     attempt,
+                    //     start.elapsed().as_secs()
+                    // );
                 }
+            };
 
-                nonce += 1;
-            }
-
-            println!(
-                "    Found matching ID but no valid PoW within {} nonce attempts",
-                max_nonce_attempts
-            );
-            valid_pows_found += 1;
+            nonce += 1;
         }
+
+        // Check if ID matches target
     }
 
     let duration = start.elapsed().as_millis() as u64;
     println!(
         "  Attack failed after {} attempts in {}ms",
         max_attempts, duration
-    );
-    println!(
-        "  Found {} matching IDs, {} with valid PoW",
-        valid_ids_found, valid_pows_found
     );
     None
 }
@@ -259,7 +198,7 @@ fn main() {
     println!("================================\n");
 
     // Test with different PoW difficulties
-    for pow_difficulty in [24] {
+    for pow_difficulty in [30] {
         println!(
             "=== PoW Difficulty: {} leading zero bits ===\n",
             pow_difficulty
@@ -273,7 +212,7 @@ fn main() {
 
         // 2. VERIFIER CHECKS ID
         let (is_valid, verification_time) =
-            verify_id(public_key.as_bytes(), user_id, nonce, pow_difficulty);
+            verify_id(public_key.as_bytes(), nonce, user_id, pow_difficulty);
 
         if !is_valid {
             println!("ERROR: Verification failed for legitimate user!");
@@ -284,7 +223,7 @@ fn main() {
 
         // 3. ATTACKER ATTEMPTS COLLISION
         println!("--- Attacker Analysis ---");
-        let max_attacker_attempts = 50; // Limited due to Argon2 cost
+        let max_attacker_attempts = 2_000_000; // Limited due to Argon2 cost
         let collision_result =
             attacker_find_collision(user_id, pow_difficulty, max_attacker_attempts);
 
