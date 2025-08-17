@@ -11,7 +11,7 @@ use ed25519_dalek::SigningKey;
 ///
 /// It should be high enough to make it significantly more difficult for an attacker to find
 /// another genesis public key and nonce that hashes to the same Name.
-const NAME_GENERATION_DIFFICULTY: u8 = 17;
+const NAME_GENERATION_DIFFICULTY: u8 = 16;
 /// Controls how fast can someone timestamp newly generated Names and claim them forever.
 ///
 /// Usually a user would generate the name first, and only publish their SingnedPacket once
@@ -21,7 +21,7 @@ const NAME_GENERATION_DIFFICULTY: u8 = 17;
 /// for squatting.
 const TIMESTAMPING_DIFFICULTY: u8 = 24;
 
-const NAME_GENERATION_SALT: &str = "mns/name_generation_salt";
+const NAME_GENERATION_SALT: &str = "mns/name-generation_salt";
 const TIMESTAMPING_SALT: &str = "mns/timestamping_salt";
 
 // Claim Proof: Name Generation Work + Timestamp Work + Timestamp Proof
