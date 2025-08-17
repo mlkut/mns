@@ -11,7 +11,7 @@ use ed25519_dalek::SigningKey;
 ///
 /// It should be high enough to make it significantly more difficult for an attacker to find
 /// another genesis public key and nonce that hashes to the same Name.
-const NAME_GENERATION_DIFFICULTY: u8 = 16;
+const NAME_GENERATION_DIFFICULTY: u8 = 10;
 /// Controls how fast can someone timestamp newly generated Names and claim them forever.
 ///
 /// Usually a user would generate the name first, and only publish their SingnedPacket once
@@ -31,6 +31,10 @@ const TIMESTAMPING_SALT: &str = "mns/timestamping_salt";
 
 // TODO: P2P Treap of fresh names pending timestamping... to be timestamped at once ...
 // Basically a p2p version of OTS.
+//
+
+// TODO: Commit to a UNIX timestamp + the nonce, and make sure that timestamp isn't too old.
+
 //
 // TODO: builtin key rotation
 
@@ -131,10 +135,19 @@ fn generate_name_hash(hasher: &mut Sha256, public_key: &[u8; 32], nonce: u64) ->
 }
 
 fn hash_pow(hasher: &mut Sha256, salt: &str, base: &[u8; 32], nonce: u64) -> [u8; 32] {
-    hasher.update(salt.as_bytes());
-    hasher.update(&base);
-    hasher.update(nonce.to_le_bytes());
-    hasher.finalize_reset()[..].try_into().unwrap()
+    // hasher.update(salt.as_bytes());
+    // hasher.update(&base);
+    // hasher.update(nonce.to_le_bytes());
+    // hasher.finalize_reset()[..].try_into().unwrap()
+
+    let mut bytes = vec![];
+    bytes.extend_from_slice(salt.as_bytes());
+    bytes.extend_from_slice(base);
+
+    let hashx = hashx::HashX::new(&bytes).unwrap();
+    let hash: [u8; 32] = hashx.hash_to_bytes(nonce);
+
+    hash
 }
 
 fn check_pow_target(hash: &[u8], required_zero_bits: u8) -> bool {
@@ -165,11 +178,11 @@ mod tests {
 
         println!("Generated {x:?} in {} ms", start.elapsed().as_millis());
 
-        let start = Instant::now();
-        let genesis = x.genesis();
-        println!(
-            "Generated the genesis for {x:?} in {} ms",
-            start.elapsed().as_millis()
-        );
+        // let start = Instant::now();
+        // let genesis = x.genesis();
+        // println!(
+        //     "Generated the genesis for {x:?} in {} ms",
+        //     start.elapsed().as_millis()
+        // );
     }
 }
