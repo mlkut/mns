@@ -1,20 +1,48 @@
 use rand::{RngCore, thread_rng};
 use sha2::{Digest, Sha256};
-use std::{fmt::Debug, time::Instant};
+use std::fmt::Debug;
 
 use ed25519_dalek::SigningKey;
 
-// TODO: decide on the exact number, or make it adaptive based on something?
-const TARGET_DIFFICULTY: u8 = 20;
+/// Controls how fast can a user generate (and examine) a name from the genesis public key.
+///
+/// It should be small enough that a user can generate a name in couple of second on a mobile phone,
+/// in case they got a specially unlucky random name.
+///
+/// It should be high enough to make it significantly more difficult for an attacker to find
+/// another genesis public key and nonce that hashes to the same Name.
+const NAME_GENERATION_DIFFICULTY: u8 = 17;
+/// Controls how fast can someone timestamp newly generated Names and claim them forever.
+///
+/// Usually a user would generate the name first, and only publish their SingnedPacket once
+/// they find a valid timestamping work for this difficulty.
+///
+/// The longer this takes, the slower initial publishing may take, but the harder it would be
+/// for squatting.
+const TIMESTAMPING_DIFFICULTY: u8 = 24;
+
+const NAME_GENERATION_SALT: &str = "mns/name_generation_salt";
+const TIMESTAMPING_SALT: &str = "mns/timestamping_salt";
+
+// Claim Proof: Name Generation Work + Timestamp Work + Timestamp Proof
+//
+// TODO: Adaptive difficulties based on Bitcoin difficulty...
+// Timestamping has to happen within a day/week? of generating the Timestamping work...
+
+// TODO: P2P Treap of fresh names pending timestamping... to be timestamped at once ...
+// Basically a p2p version of OTS.
+//
+// TODO: builtin key rotation
 
 pub struct Keypair {
+    hasher: Sha256,
     signing_key: SigningKey,
-    nonce: u64,
-    name: [u8; 5],
+    name_generation_nonce: u64,
+    name_hash: [u8; 32],
 }
 
 impl Keypair {
-    fn generate() -> Keypair {
+    pub fn generate() -> Keypair {
         // TODO: use generate_random() instead
         let mut rng = thread_rng();
         let mut seed = [0u8; 32];
@@ -24,36 +52,56 @@ impl Keypair {
         let public_key = signing_key.verifying_key();
         let public_key = public_key.as_bytes();
 
-        let mut nonce = 0u64;
+        let mut name_generation_nonce = 0u64;
 
-        let name;
-
-        let start_pow = Instant::now();
         let mut hasher = Sha256::new();
-        loop {
-            if let Some(_name) = calculate_name(&mut hasher, public_key, nonce, TARGET_DIFFICULTY) {
-                name = _name;
-
-                break;
+        let name_hash = loop {
+            if let Some(name_hash) =
+                generate_name_hash(&mut hasher, public_key, name_generation_nonce)
+            {
+                break name_hash;
             }
 
-            nonce += 1;
-
-            if nonce % 50000 == 0 {
-                let elapsed = start_pow.elapsed().as_secs();
-                tracing::debug!("PoW attempt {}, elapsed: {}s", nonce, elapsed);
-            }
-        }
+            name_generation_nonce += 1;
+        };
 
         Keypair {
+            hasher,
             signing_key,
-            name,
-            nonce,
+            name_hash,
+            name_generation_nonce,
         }
     }
 
+    pub fn genesis(&mut self) -> ([u8; 32], u64, u64) {
+        let mut timestamping_nonce = 0;
+
+        loop {
+            let timestamping_work = hash_pow(
+                &mut self.hasher,
+                TIMESTAMPING_SALT,
+                &self.name_hash,
+                timestamping_nonce,
+            );
+            if check_pow_target(&timestamping_work, TIMESTAMPING_DIFFICULTY) {
+                break;
+            };
+
+            timestamping_nonce += 1;
+        }
+
+        (
+            // TODO: signature over SignedPacket
+            self.signing_key.verifying_key().as_bytes().to_owned(),
+            self.name_generation_nonce,
+            timestamping_nonce,
+        )
+    }
+
     pub fn name(&self) -> String {
-        let input = base32::encode(base32::Alphabet::Z, &self.name);
+        let name = &self.name_hash[0..5];
+
+        let input = base32::encode(base32::Alphabet::Z, name);
 
         let first_part = &input[..4];
         let second_part = &input[4..];
@@ -68,32 +116,25 @@ impl Debug for Keypair {
     }
 }
 
-fn calculate_name(
-    hasher: &mut Sha256,
-    public_key: &[u8; 32],
-    nonce: u64,
-    target_difficulty: u8,
-) -> Option<[u8; 5]> {
-    let pow_hash = hash_pow(public_key, nonce);
-    if !check_pow_target(&pow_hash, target_difficulty) {
+fn generate_name_hash(hasher: &mut Sha256, public_key: &[u8; 32], nonce: u64) -> Option<[u8; 32]> {
+    let name_genreation_work = hash_pow(hasher, NAME_GENERATION_SALT, public_key, nonce);
+    if !check_pow_target(&name_genreation_work, NAME_GENERATION_DIFFICULTY) {
         return None;
     };
 
-    hasher.update("mns.alt");
-    hasher.update(pow_hash);
-    let hash = &hasher.finalize_reset()[..];
+    hasher.update(NAME_GENERATION_SALT);
+    hasher.update(name_genreation_work);
+    // TODO: better type casting.
+    let hash = hasher.finalize_reset()[..].try_into().expect("infallible");
 
-    let mut id = [0u8; 5];
-    id.copy_from_slice(&hash[0..5]);
-
-    Some(id)
+    Some(hash)
 }
 
-fn hash_pow(public_key: &[u8; 32], nonce: u64) -> [u8; 32] {
-    let mut hasher = Sha256::new();
+fn hash_pow(hasher: &mut Sha256, salt: &str, base: &[u8; 32], nonce: u64) -> [u8; 32] {
+    hasher.update(salt.as_bytes());
+    hasher.update(&base);
     hasher.update(nonce.to_le_bytes());
-    hasher.update(&public_key);
-    hasher.finalize()[..].try_into().unwrap()
+    hasher.finalize_reset()[..].try_into().unwrap()
 }
 
 fn check_pow_target(hash: &[u8], required_zero_bits: u8) -> bool {
@@ -113,12 +154,22 @@ fn check_pow_target(hash: &[u8], required_zero_bits: u8) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Instant;
+
     use super::*;
 
     #[test]
     fn basic() {
-        let x = Keypair::generate();
+        let start = Instant::now();
+        let mut x = Keypair::generate();
 
-        println!("Generated {x:?}");
+        println!("Generated {x:?} in {} ms", start.elapsed().as_millis());
+
+        let start = Instant::now();
+        let genesis = x.genesis();
+        println!(
+            "Generated the genesis for {x:?} in {} ms",
+            start.elapsed().as_millis()
+        );
     }
 }
