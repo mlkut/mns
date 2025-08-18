@@ -1,5 +1,5 @@
+use argon2::Argon2;
 use rand::{RngCore, thread_rng};
-use randomx_rs::{RandomXCache, RandomXFlag, RandomXVM};
 use std::fmt::Debug;
 
 use ed25519_dalek::SigningKey;
@@ -13,7 +13,7 @@ use ed25519_dalek::SigningKey;
 ///
 /// It should be high enough to make it significantly more difficult for an attacker to find
 /// another genesis public key and nonce that hashes to the same Name.
-const NAME_GENERATION_DIFFICULTY: u8 = 8;
+const NAME_GENERATION_DIFFICULTY: u8 = 5;
 /// Controls how fast can someone timestamp newly generated Names and claim them forever.
 ///
 /// Usually a user would generate the name first, and only publish their SingnedPacket once
@@ -23,7 +23,6 @@ const NAME_GENERATION_DIFFICULTY: u8 = 8;
 /// for squatting.
 const TIMESTAMPING_DIFFICULTY: u8 = 8;
 
-const RANDOMX_KEY: &str = "mns/randomx/key";
 const NAME_GENERATION_SALT: &str = "mns/name-generation_salt";
 const TIMESTAMPING_SALT: &str = "mns/timestamping_salt";
 
@@ -39,17 +38,25 @@ const TIMESTAMPING_SALT: &str = "mns/timestamping_salt";
 // TODO: builtin key rotation
 
 pub struct Mns {
-    vm: RandomXVM,
+    argon2: Argon2<'static>,
 }
 
 impl Mns {
     pub fn init() -> Self {
-        // TODO: check that this works the same everywhere...
-        let flags = RandomXFlag::get_recommended_flags();
-        let cache = RandomXCache::new(flags, RANDOMX_KEY.as_bytes()).unwrap();
-        let vm = RandomXVM::new(flags, Some(cache.clone()), None).unwrap();
+        let argon2 = Argon2::new(
+            argon2::Algorithm::Argon2id,
+            argon2::Version::V0x13,
+            argon2::Params::new(
+                // (argon2::Params::DEFAULT_M_COST / 19).into(),
+                (argon2::Params::DEFAULT_M_COST / 19).into(),
+                argon2::Params::DEFAULT_T_COST.into(),
+                argon2::Params::DEFAULT_P_COST.into(),
+                argon2::Params::DEFAULT_OUTPUT_LEN.into(),
+            )
+            .unwrap(),
+        );
 
-        Self { vm }
+        Self { argon2 }
     }
 
     pub fn generate(&self) -> Keypair {
@@ -65,7 +72,8 @@ impl Mns {
         let mut name_generation_nonce = 0u64;
 
         let name_hash = loop {
-            if let Some(name_hash) = generate_name_hash(&self.vm, public_key, name_generation_nonce)
+            if let Some(name_hash) =
+                generate_name_hash(&self.argon2, public_key, name_generation_nonce)
             {
                 break name_hash;
             }
@@ -82,7 +90,7 @@ impl Mns {
 
     pub fn verify_name(&self, keypair: &Keypair) -> bool {
         let expected_name = generate_name_hash(
-            &self.vm,
+            &self.argon2,
             &keypair.public_key(),
             keypair.name_generation_nonce,
         );
@@ -98,7 +106,7 @@ impl Mns {
         let mut timestamping_nonce = 0_u64;
         loop {
             let timestamping_work = hash_pow(
-                &self.vm,
+                &self.argon2,
                 TIMESTAMPING_SALT,
                 &keypair.name_hash,
                 timestamping_nonce,
@@ -116,7 +124,7 @@ impl Mns {
     pub fn verify_timestamp_pow(&self, keypair: &Keypair, timestamping_nonce: u64) -> bool {
         check_pow_target(
             &hash_pow(
-                &self.vm,
+                &self.argon2,
                 TIMESTAMPING_SALT,
                 &keypair.public_key(),
                 timestamping_nonce,
@@ -155,30 +163,32 @@ impl Debug for Keypair {
     }
 }
 
-fn generate_name_hash(vm: &RandomXVM, public_key: &[u8; 32], nonce: u64) -> Option<[u8; 32]> {
-    let name_genreation_work = hash_pow(vm, NAME_GENERATION_SALT, public_key, nonce);
+fn generate_name_hash(argon2: &Argon2, public_key: &[u8; 32], nonce: u64) -> Option<[u8; 32]> {
+    let name_genreation_work = hash_pow(argon2, NAME_GENERATION_SALT, public_key, nonce);
     if !check_pow_target(&name_genreation_work, NAME_GENERATION_DIFFICULTY) {
         return None;
     };
 
-    // TODO: better type casting.
-    let hash = vm
-        .calculate_hash(&name_genreation_work)
-        .unwrap()
-        .try_into()
-        .unwrap();
+    let mut hash = [0u8; 32];
+    argon2
+        .hash_password_into(public_key, NAME_GENERATION_SALT.as_bytes(), &mut hash)
+        .expect("Argon2 hash failed");
 
     Some(hash)
 }
 
-fn hash_pow(vm: &RandomXVM, salt: &str, base: &[u8; 32], nonce: u64) -> [u8; 32] {
+fn hash_pow(argon2: &Argon2, salt: &str, base: &[u8; 32], nonce: u64) -> [u8; 32] {
     let mut bytes = vec![];
     bytes.extend_from_slice(salt.as_bytes());
     bytes.extend_from_slice(base);
     bytes.extend_from_slice(&nonce.to_be_bytes());
 
-    // TODO: better type casting.
-    vm.calculate_hash(&bytes).unwrap().try_into().unwrap()
+    let mut hash = [0u8; 32];
+    argon2
+        .hash_password_into(&bytes, salt.as_bytes(), &mut hash)
+        .expect("Argon2 hash failed");
+
+    hash
 }
 
 fn check_pow_target(hash: &[u8], required_zero_bits: u8) -> bool {
