@@ -21,7 +21,7 @@ const NAME_GENERATION_DIFFICULTY: u8 = 8;
 ///
 /// The longer this takes, the slower initial publishing may take, but the harder it would be
 /// for squatting.
-const TIMESTAMPING_DIFFICULTY: u8 = 8;
+const TIMESTAMPING_DIFFICULTY: u8 = 16;
 
 const RANDOMX_KEY: &str = "mns/randomx/key";
 const NAME_GENERATION_SALT: &str = "mns/name-generation_salt";
@@ -81,14 +81,14 @@ impl Mns {
     }
 
     pub fn verify_name(&self, keypair: &Keypair) -> bool {
-        let expected_name = generate_name_hash(
+        let expected_name_hash = generate_name_hash(
             &self.vm,
             &keypair.public_key(),
             keypair.name_generation_nonce,
         );
 
-        if let Some(expected_name) = expected_name {
-            return keypair.name_hash == expected_name;
+        if let Some(expected_name_hash) = expected_name_hash {
+            return keypair.name_hash == expected_name_hash;
         }
 
         false
@@ -114,11 +114,23 @@ impl Mns {
     }
 
     pub fn verify_timestamp_pow(&self, keypair: &Keypair, timestamping_nonce: u64) -> bool {
+        let expected_name_hash = generate_name_hash(
+            &self.vm,
+            &keypair.public_key(),
+            keypair.name_generation_nonce,
+        );
+
+        if let Some(expected_name_hash) = expected_name_hash {
+            if keypair.name_hash != expected_name_hash {
+                return false;
+            }
+        }
+
         check_pow_target(
             &hash_pow(
                 &self.vm,
                 TIMESTAMPING_SALT,
-                &keypair.public_key(),
+                &keypair.name_hash,
                 timestamping_nonce,
             ),
             TIMESTAMPING_DIFFICULTY,
@@ -227,6 +239,7 @@ mod tests {
             start.elapsed().as_millis()
         );
 
+        let start = Instant::now();
         assert!(mns.verify_timestamp_pow(&keypair, timestamping_nonce));
         println!(
             "Validated {keypair:?} timestamping pow in {:?}...",
