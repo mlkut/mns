@@ -6,6 +6,9 @@ use ed25519_dalek::SigningKey;
 
 // TODO: benchmark to get appropriate difficulties
 
+// TODO: make Name generation take as long as the user wants (with minimum),
+// by increasing the pow... then in the case of collision, fallback to the timestamp.
+
 /// Controls how fast can a user generate (and examine) a name from the genesis public key.
 ///
 /// It should be small enough that a user can generate a name in couple of second on a mobile phone,
@@ -47,9 +50,8 @@ impl Mns {
             argon2::Algorithm::Argon2id,
             argon2::Version::V0x13,
             argon2::Params::new(
-                // (argon2::Params::DEFAULT_M_COST / 19).into(),
-                (argon2::Params::DEFAULT_M_COST / 19).into(),
-                argon2::Params::DEFAULT_T_COST.into(),
+                2 * 1024, // Faster verification and hopefully still GPU resistant!
+                1,        // Faster verification
                 argon2::Params::DEFAULT_P_COST.into(),
                 argon2::Params::DEFAULT_OUTPUT_LEN.into(),
             )
