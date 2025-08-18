@@ -21,7 +21,7 @@ const NAME_GENERATION_DIFFICULTY: u8 = 5;
 ///
 /// The longer this takes, the slower initial publishing may take, but the harder it would be
 /// for squatting.
-const TIMESTAMPING_DIFFICULTY: u8 = 8;
+const TIMESTAMPING_DIFFICULTY: u8 = 16;
 
 const NAME_GENERATION_SALT: &str = "mns/name-generation_salt";
 const TIMESTAMPING_SALT: &str = "mns/timestamping_salt";
@@ -89,29 +89,29 @@ impl Mns {
     }
 
     pub fn verify_name(&self, keypair: &Keypair) -> bool {
-        let expected_name = generate_name_hash(
+        let expected_name_hash = generate_name_hash(
             &self.argon2,
             &keypair.public_key(),
             keypair.name_generation_nonce,
         );
 
-        if let Some(expected_name) = expected_name {
-            return keypair.name_hash == expected_name;
+        if let Some(expected_name_hash) = expected_name_hash {
+            return keypair.name_hash == expected_name_hash;
         }
 
         false
     }
 
-    pub fn genesis(&self, keypair: &Keypair) -> u64 {
+    pub fn timestamp_pow(&self, keypair: &Keypair) -> u64 {
         let mut timestamping_nonce = 0_u64;
         loop {
-            let timestamping_work = hash_pow(
+            let timestamping_pow = hash_pow(
                 &self.argon2,
                 TIMESTAMPING_SALT,
                 &keypair.name_hash,
                 timestamping_nonce,
             );
-            if check_pow_target(&timestamping_work, TIMESTAMPING_DIFFICULTY) {
+            if check_pow_target(&timestamping_pow, TIMESTAMPING_DIFFICULTY) {
                 break;
             };
 
@@ -122,15 +122,26 @@ impl Mns {
     }
 
     pub fn verify_timestamp_pow(&self, keypair: &Keypair, timestamping_nonce: u64) -> bool {
-        check_pow_target(
-            &hash_pow(
-                &self.argon2,
-                TIMESTAMPING_SALT,
-                &keypair.public_key(),
-                timestamping_nonce,
-            ),
-            TIMESTAMPING_DIFFICULTY,
-        )
+        let expected_name_hash = generate_name_hash(
+            &self.argon2,
+            &keypair.public_key(),
+            keypair.name_generation_nonce,
+        );
+
+        if let Some(expected_name_hash) = expected_name_hash {
+            if keypair.name_hash != expected_name_hash {
+                return false;
+            }
+        }
+
+        let timestamping_pow = &hash_pow(
+            &self.argon2,
+            TIMESTAMPING_SALT,
+            &keypair.name_hash,
+            timestamping_nonce,
+        );
+
+        check_pow_target(timestamping_pow, TIMESTAMPING_DIFFICULTY)
     }
 }
 
@@ -231,12 +242,13 @@ mod tests {
         println!("Validated {keypair:?} name in {:?}...", start.elapsed());
 
         let start = Instant::now();
-        let timestamping_nonce = mns.genesis(&keypair);
+        let timestamping_nonce = mns.timestamp_pow(&keypair);
         println!(
-            "Generated the genesis for {keypair:?} in {} ms",
+            "Generated the timestamp PoW for {keypair:?} in {} ms",
             start.elapsed().as_millis()
         );
 
+        let start = Instant::now();
         assert!(mns.verify_timestamp_pow(&keypair, timestamping_nonce));
         println!(
             "Validated {keypair:?} timestamping pow in {:?}...",
