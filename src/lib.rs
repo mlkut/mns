@@ -1,10 +1,14 @@
-use argon2::Argon2;
 use rand::{RngCore, thread_rng};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use sha2::{Digest, Sha256};
 use std::fmt::Debug;
 
-use ed25519_dalek::SigningKey;
+use ed25519_dalek::{Signer, SigningKey, Verifier};
 
 // TODO: benchmark to get appropriate difficulties
+
+// TODO: make Name generation take as long as the user wants (with minimum),
+// by increasing the pow... then in the case of collision, fallback to the timestamp.
 
 /// Controls how fast can a user generate (and examine) a name from the genesis public key.
 ///
@@ -13,7 +17,7 @@ use ed25519_dalek::SigningKey;
 ///
 /// It should be high enough to make it significantly more difficult for an attacker to find
 /// another genesis public key and nonce that hashes to the same Name.
-const NAME_GENERATION_DIFFICULTY: u8 = 5;
+const NAME_GENERATION_DIFFICULTY: u8 = 20;
 /// Controls how fast can someone timestamp newly generated Names and claim them forever.
 ///
 /// Usually a user would generate the name first, and only publish their SingnedPacket once
@@ -21,10 +25,10 @@ const NAME_GENERATION_DIFFICULTY: u8 = 5;
 ///
 /// The longer this takes, the slower initial publishing may take, but the harder it would be
 /// for squatting.
-const TIMESTAMPING_DIFFICULTY: u8 = 16;
+const TIMESTAMPING_DIFFICULTY: u8 = 20;
 
-const NAME_GENERATION_SALT: &str = "mns/name-generation_salt";
-const TIMESTAMPING_SALT: &str = "mns/timestamping_salt";
+const NAME_GENERATION_TAG: &[u8; 19] = b"mns/name-generation";
+const TIMESTAMPING_TAG: &[u8; 16] = b"mns/timestamping";
 
 // Claim Proof: Name Generation Work + Timestamp Work + Timestamp Proof
 //
@@ -38,122 +42,123 @@ const TIMESTAMPING_SALT: &str = "mns/timestamping_salt";
 // TODO: builtin key rotation
 
 pub struct Mns {
-    argon2: Argon2<'static>,
+    hasher: Sha256,
 }
 
 impl Mns {
     pub fn init() -> Self {
-        let argon2 = Argon2::new(
-            argon2::Algorithm::Argon2id,
-            argon2::Version::V0x13,
-            argon2::Params::new(
-                // (argon2::Params::DEFAULT_M_COST / 19).into(),
-                (argon2::Params::DEFAULT_M_COST / 19).into(),
-                argon2::Params::DEFAULT_T_COST.into(),
-                argon2::Params::DEFAULT_P_COST.into(),
-                argon2::Params::DEFAULT_OUTPUT_LEN.into(),
-            )
-            .unwrap(),
-        );
-
-        Self { argon2 }
+        Self {
+            hasher: Sha256::new(),
+        }
     }
 
-    pub fn generate(&self) -> Keypair {
+    pub fn generate(&mut self) -> Claim {
         // TODO: use generate_random() instead
         let mut rng = thread_rng();
         let mut seed = [0u8; 32];
         rng.fill_bytes(&mut seed);
 
         let signing_key = SigningKey::from_bytes(&seed);
-        let public_key = signing_key.verifying_key();
-        let public_key = public_key.as_bytes();
 
-        let mut name_generation_nonce = 0u64;
+        let (signature, nonce) = (0u64..u64::MAX)
+            .into_par_iter()
+            .map(|nonce| {
+                sigpow(
+                    NAME_GENERATION_TAG,
+                    &signing_key,
+                    NAME_GENERATION_DIFFICULTY,
+                    nonce,
+                )
+                .map(|signature| (signature, nonce))
+            })
+            .find_any(|result| result.is_some())
+            .flatten()
+            .expect("find pow");
 
-        let name_hash = loop {
-            if let Some(name_hash) =
-                generate_name_hash(&self.argon2, public_key, name_generation_nonce)
-            {
-                break name_hash;
-            }
-
-            name_generation_nonce += 1;
-        };
-
-        Keypair {
+        Claim {
             signing_key,
-            name_hash,
-            name_generation_nonce,
+            signature,
+            name_generation_nonce: nonce,
         }
     }
 
-    pub fn verify_name(&self, keypair: &Keypair) -> bool {
-        let expected_name_hash = generate_name_hash(
-            &self.argon2,
-            &keypair.public_key(),
-            keypair.name_generation_nonce,
-        );
-
-        if let Some(expected_name_hash) = expected_name_hash {
-            return keypair.name_hash == expected_name_hash;
+    pub fn verify_name(&mut self, keypair: &Claim) -> bool {
+        if !check_powsig_signature(
+            &mut self.hasher,
+            NAME_GENERATION_DIFFICULTY,
+            &keypair.signature,
+        ) {
+            return false;
         }
 
-        false
+        let mut msg = vec![];
+        msg.extend_from_slice(NAME_GENERATION_TAG);
+        msg.extend_from_slice(&keypair.name_generation_nonce.to_be_bytes());
+
+        keypair
+            .signing_key
+            .verifying_key()
+            .verify(&msg, &keypair.signature.try_into().unwrap())
+            .is_ok()
     }
 
-    pub fn timestamp_pow(&self, keypair: &Keypair) -> u64 {
-        let mut timestamping_nonce = 0_u64;
-        loop {
-            let timestamping_pow = hash_pow(
-                &self.argon2,
-                TIMESTAMPING_SALT,
-                &keypair.name_hash,
-                timestamping_nonce,
-            );
-            if check_pow_target(&timestamping_pow, TIMESTAMPING_DIFFICULTY) {
-                break;
-            };
-
-            timestamping_nonce += 1;
-        }
-
-        timestamping_nonce
+    pub fn timestamp_pow(&mut self, keypair: &Claim) -> ([u8; 64], u64) {
+        (0u64..u64::MAX)
+            .into_par_iter()
+            .map(|nonce| {
+                sigpow(
+                    TIMESTAMPING_TAG,
+                    &keypair.signing_key,
+                    TIMESTAMPING_DIFFICULTY,
+                    nonce,
+                )
+                .map(|signature| (signature, nonce))
+            })
+            .find_any(|result| result.is_some())
+            .flatten()
+            .expect("find pow")
     }
 
-    pub fn verify_timestamp_pow(&self, keypair: &Keypair, timestamping_nonce: u64) -> bool {
-        let expected_name_hash = generate_name_hash(
-            &self.argon2,
-            &keypair.public_key(),
-            keypair.name_generation_nonce,
-        );
-
-        if let Some(expected_name_hash) = expected_name_hash {
-            if keypair.name_hash != expected_name_hash {
-                return false;
-            }
+    pub fn verify_timestamp_pow(
+        &mut self,
+        keypair: &Claim,
+        timestamp_signature: &[u8; 64],
+        timestamping_nonce: u64,
+    ) -> bool {
+        if !check_powsig_signature(
+            &mut self.hasher,
+            TIMESTAMPING_DIFFICULTY,
+            timestamp_signature,
+        ) {
+            return false;
         }
 
-        let timestamping_pow = &hash_pow(
-            &self.argon2,
-            TIMESTAMPING_SALT,
-            &keypair.name_hash,
-            timestamping_nonce,
-        );
+        let mut msg = vec![];
+        msg.extend_from_slice(TIMESTAMPING_TAG);
+        msg.extend_from_slice(&timestamping_nonce.to_be_bytes());
 
-        check_pow_target(timestamping_pow, TIMESTAMPING_DIFFICULTY)
+        if keypair
+            .signing_key
+            .verifying_key()
+            .verify(&msg, &timestamp_signature.try_into().unwrap())
+            .is_err()
+        {
+            return false;
+        }
+
+        self.verify_name(keypair)
     }
 }
 
-pub struct Keypair {
+pub struct Claim {
     signing_key: SigningKey,
     name_generation_nonce: u64,
-    name_hash: [u8; 32],
+    signature: [u8; 64],
 }
 
-impl Keypair {
+impl Claim {
     pub fn name(&self) -> String {
-        let name = &self.name_hash[0..5];
+        let name = &self.signature[0..5];
 
         let input = base32::encode(base32::Alphabet::Z, name);
 
@@ -168,38 +173,38 @@ impl Keypair {
     }
 }
 
-impl Debug for Keypair {
+impl Debug for Claim {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Keypair ({}.mns.alt)", self.name())
+        write!(f, "Claim ({}.mns.alt)", self.name())
     }
 }
 
-fn generate_name_hash(argon2: &Argon2, public_key: &[u8; 32], nonce: u64) -> Option<[u8; 32]> {
-    let name_genreation_work = hash_pow(argon2, NAME_GENERATION_SALT, public_key, nonce);
-    if !check_pow_target(&name_genreation_work, NAME_GENERATION_DIFFICULTY) {
-        return None;
+fn sigpow(tag: &[u8], signing_key: &SigningKey, target: u8, nonce: u64) -> Option<[u8; 64]> {
+    let mut hasher = Sha256::new();
+
+    let mut msg = vec![];
+    msg.extend_from_slice(tag);
+    msg.extend_from_slice(&nonce.to_be_bytes());
+
+    let signature = signing_key.sign(&msg).to_bytes();
+
+    if check_powsig_signature(&mut hasher, target, &signature) {
+        return Some(signature);
     };
 
-    let mut hash = [0u8; 32];
-    argon2
-        .hash_password_into(public_key, NAME_GENERATION_SALT.as_bytes(), &mut hash)
-        .expect("Argon2 hash failed");
-
-    Some(hash)
+    None
 }
 
-fn hash_pow(argon2: &Argon2, salt: &str, base: &[u8; 32], nonce: u64) -> [u8; 32] {
-    let mut bytes = vec![];
-    bytes.extend_from_slice(salt.as_bytes());
-    bytes.extend_from_slice(base);
-    bytes.extend_from_slice(&nonce.to_be_bytes());
+fn check_powsig_signature(hasher: &mut Sha256, target: u8, signature: &[u8; 64]) -> bool {
+    hasher.update(&signature);
+    // TODO: better type casting
+    let pow = &hasher.finalize_reset()[..];
 
-    let mut hash = [0u8; 32];
-    argon2
-        .hash_password_into(&bytes, salt.as_bytes(), &mut hash)
-        .expect("Argon2 hash failed");
+    if check_pow_target(pow, target) {
+        return true;
+    };
 
-    hash
+    return false;
 }
 
 fn check_pow_target(hash: &[u8], required_zero_bits: u8) -> bool {
@@ -226,7 +231,7 @@ mod tests {
     #[test]
     fn basic() {
         let start = Instant::now();
-        let mns = Mns::init();
+        let mut mns = Mns::init();
         println!("init {:?}", start.elapsed());
 
         let start = Instant::now();
@@ -242,14 +247,14 @@ mod tests {
         println!("Validated {keypair:?} name in {:?}...", start.elapsed());
 
         let start = Instant::now();
-        let timestamping_nonce = mns.timestamp_pow(&keypair);
+        let (timestamping_signature, timestamping_nonce) = mns.timestamp_pow(&keypair);
         println!(
             "Generated the timestamp PoW for {keypair:?} in {} ms",
             start.elapsed().as_millis()
         );
 
         let start = Instant::now();
-        assert!(mns.verify_timestamp_pow(&keypair, timestamping_nonce));
+        assert!(mns.verify_timestamp_pow(&keypair, &timestamping_signature, timestamping_nonce));
         println!(
             "Validated {keypair:?} timestamping pow in {:?}...",
             start.elapsed()
