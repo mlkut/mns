@@ -1,4 +1,5 @@
 use rand::{RngCore, thread_rng};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use sha2::{Digest, Sha256};
 use std::fmt::Debug;
 
@@ -16,7 +17,7 @@ use ed25519_dalek::{Signer, SigningKey, Verifier};
 ///
 /// It should be high enough to make it significantly more difficult for an attacker to find
 /// another genesis public key and nonce that hashes to the same Name.
-const NAME_GENERATION_DIFFICULTY: u8 = 16;
+const NAME_GENERATION_DIFFICULTY: u8 = 20;
 /// Controls how fast can someone timestamp newly generated Names and claim them forever.
 ///
 /// Usually a user would generate the name first, and only publish their SingnedPacket once
@@ -59,21 +60,20 @@ impl Mns {
 
         let signing_key = SigningKey::from_bytes(&seed);
 
-        let mut nonce: u64 = 0;
-
-        let signature = loop {
-            if let Some(signature) = sigpow(
-                &mut self.hasher,
-                NAME_GENERATION_TAG,
-                &signing_key,
-                NAME_GENERATION_DIFFICULTY,
-                nonce,
-            ) {
-                break signature;
-            };
-
-            nonce += 1;
-        };
+        let (signature, nonce) = (0u64..u64::MAX)
+            .into_par_iter()
+            .map(|nonce| {
+                sigpow(
+                    NAME_GENERATION_TAG,
+                    &signing_key,
+                    NAME_GENERATION_DIFFICULTY,
+                    nonce,
+                )
+                .map(|signature| (signature, nonce))
+            })
+            .find_any(|result| result.is_some())
+            .flatten()
+            .expect("find pow");
 
         Claim {
             signing_key,
@@ -103,23 +103,20 @@ impl Mns {
     }
 
     pub fn timestamp_pow(&mut self, keypair: &Claim) -> ([u8; 64], u64) {
-        let mut nonce: u64 = 0;
-
-        let signature = loop {
-            if let Some(signature) = sigpow(
-                &mut self.hasher,
-                TIMESTAMPING_TAG,
-                &keypair.signing_key,
-                TIMESTAMPING_DIFFICULTY,
-                nonce,
-            ) {
-                break signature;
-            };
-
-            nonce += 1;
-        };
-
-        (signature, nonce)
+        (0u64..u64::MAX)
+            .into_par_iter()
+            .map(|nonce| {
+                sigpow(
+                    TIMESTAMPING_TAG,
+                    &keypair.signing_key,
+                    TIMESTAMPING_DIFFICULTY,
+                    nonce,
+                )
+                .map(|signature| (signature, nonce))
+            })
+            .find_any(|result| result.is_some())
+            .flatten()
+            .expect("find pow")
     }
 
     pub fn verify_timestamp_pow(
@@ -182,20 +179,16 @@ impl Debug for Claim {
     }
 }
 
-fn sigpow(
-    hasher: &mut Sha256,
-    tag: &[u8],
-    signing_key: &SigningKey,
-    target: u8,
-    nonce: u64,
-) -> Option<[u8; 64]> {
+fn sigpow(tag: &[u8], signing_key: &SigningKey, target: u8, nonce: u64) -> Option<[u8; 64]> {
+    let mut hasher = Sha256::new();
+
     let mut msg = vec![];
     msg.extend_from_slice(tag);
     msg.extend_from_slice(&nonce.to_be_bytes());
 
     let signature = signing_key.sign(&msg).to_bytes();
 
-    if check_powsig_signature(hasher, target, &signature) {
+    if check_powsig_signature(&mut hasher, target, &signature) {
         return Some(signature);
     };
 
