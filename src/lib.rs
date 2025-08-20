@@ -1,3 +1,4 @@
+use equix::{EquiX, Solution, verify_bytes};
 use rand::{RngCore, thread_rng};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use sha2::{Digest, Sha256};
@@ -17,7 +18,7 @@ use ed25519_dalek::{Signer, SigningKey, Verifier};
 ///
 /// It should be high enough to make it significantly more difficult for an attacker to find
 /// another genesis public key and nonce that hashes to the same Name.
-const NAME_GENERATION_DIFFICULTY: u8 = 20;
+const NAME_GENERATION_DIFFICULTY: u8 = 10;
 /// Controls how fast can someone timestamp newly generated Names and claim them forever.
 ///
 /// Usually a user would generate the name first, and only publish their SingnedPacket once
@@ -41,124 +42,14 @@ const TIMESTAMPING_TAG: &[u8; 16] = b"mns/timestamping";
 //
 // TODO: builtin key rotation
 
-pub struct Mns {
-    hasher: Sha256,
-}
-
-impl Mns {
-    pub fn init() -> Self {
-        Self {
-            hasher: Sha256::new(),
-        }
-    }
-
-    pub fn generate(&mut self) -> Claim {
-        // TODO: use generate_random() instead
-        let mut rng = thread_rng();
-        let mut seed = [0u8; 32];
-        rng.fill_bytes(&mut seed);
-
-        let signing_key = SigningKey::from_bytes(&seed);
-
-        let (signature, nonce) = (0u64..u64::MAX)
-            .into_par_iter()
-            .map(|nonce| {
-                sigpow(
-                    NAME_GENERATION_TAG,
-                    &signing_key,
-                    NAME_GENERATION_DIFFICULTY,
-                    nonce,
-                )
-                .map(|signature| (signature, nonce))
-            })
-            .find_any(|result| result.is_some())
-            .flatten()
-            .expect("find pow");
-
-        Claim {
-            signing_key,
-            signature,
-            name_generation_nonce: nonce,
-        }
-    }
-
-    pub fn verify_name(&mut self, keypair: &Claim) -> bool {
-        if !check_powsig_signature(
-            &mut self.hasher,
-            NAME_GENERATION_DIFFICULTY,
-            &keypair.signature,
-        ) {
-            return false;
-        }
-
-        let mut msg = vec![];
-        msg.extend_from_slice(NAME_GENERATION_TAG);
-        msg.extend_from_slice(&keypair.name_generation_nonce.to_be_bytes());
-
-        keypair
-            .signing_key
-            .verifying_key()
-            .verify(&msg, &keypair.signature.try_into().unwrap())
-            .is_ok()
-    }
-
-    pub fn timestamp_pow(&mut self, keypair: &Claim) -> ([u8; 64], u64) {
-        (0u64..u64::MAX)
-            .into_par_iter()
-            .map(|nonce| {
-                sigpow(
-                    TIMESTAMPING_TAG,
-                    &keypair.signing_key,
-                    TIMESTAMPING_DIFFICULTY,
-                    nonce,
-                )
-                .map(|signature| (signature, nonce))
-            })
-            .find_any(|result| result.is_some())
-            .flatten()
-            .expect("find pow")
-    }
-
-    pub fn verify_timestamp_pow(
-        &mut self,
-        keypair: &Claim,
-        timestamp_signature: &[u8; 64],
-        timestamping_nonce: u64,
-    ) -> bool {
-        if !check_powsig_signature(
-            &mut self.hasher,
-            TIMESTAMPING_DIFFICULTY,
-            timestamp_signature,
-        ) {
-            return false;
-        }
-
-        let mut msg = vec![];
-        msg.extend_from_slice(TIMESTAMPING_TAG);
-        msg.extend_from_slice(&timestamping_nonce.to_be_bytes());
-
-        if keypair
-            .signing_key
-            .verifying_key()
-            .verify(&msg, &timestamp_signature.try_into().unwrap())
-            .is_err()
-        {
-            return false;
-        }
-
-        self.verify_name(keypair)
-    }
-}
-
 pub struct Claim {
-    signing_key: SigningKey,
-    name_generation_nonce: u64,
-    signature: [u8; 64],
+    owner: Vec<u8>,
+    name_generation_proof: ([u8; 16], u64),
 }
 
 impl Claim {
     pub fn name(&self) -> String {
-        let name = &self.signature[0..5];
+        let name = &self.owner[1..5];
 
         let input = base32::encode(base32::Alphabet::Z, name);
 
@@ -166,10 +57,6 @@ impl Claim {
         let second_part = &input[4..];
 
         format!("{}_{}", first_part, second_part)
-    }
-
-    pub fn public_key(&self) -> [u8; 32] {
-        self.signing_key.verifying_key().to_bytes()
     }
 }
 
@@ -179,32 +66,135 @@ impl Debug for Claim {
     }
 }
 
-fn sigpow(tag: &[u8], signing_key: &SigningKey, target: u8, nonce: u64) -> Option<[u8; 64]> {
+pub fn generate() -> Claim {
+    let owner = owner();
+
+    let name_generation_proof = (0u64..u64::MAX)
+        .into_par_iter()
+        .map(|nonce| {
+            attempt_pow(
+                NAME_GENERATION_TAG,
+                &owner,
+                NAME_GENERATION_DIFFICULTY,
+                nonce,
+            )
+            .map(|solution| (solution, nonce))
+        })
+        .find_any(|result| result.is_some())
+        .flatten()
+        .expect("find pow");
+
+    Claim {
+        owner,
+        name_generation_proof,
+    }
+}
+
+pub fn verify_name(claim: &Claim) -> bool {
+    let (solution, nonce) = claim.name_generation_proof;
+
+    let mut challenge = vec![];
+    challenge.extend_from_slice(NAME_GENERATION_TAG);
+    challenge.extend_from_slice(&claim.owner);
+    challenge.extend_from_slice(&nonce.to_be_bytes());
+
     let mut hasher = Sha256::new();
+    hasher.update(&challenge);
+    hasher.update(&solution);
+    let pow = &hasher.finalize()[..];
 
-    let mut msg = vec![];
-    msg.extend_from_slice(tag);
-    msg.extend_from_slice(&nonce.to_be_bytes());
+    let start = std::time::Instant::now();
+    dbg!(start.elapsed());
+    let start = std::time::Instant::now();
 
-    let signature = signing_key.sign(&msg).to_bytes();
+    if !check_pow_target(&pow, NAME_GENERATION_DIFFICULTY) {
+        return false;
+    };
 
-    if check_powsig_signature(&mut hasher, target, &signature) {
-        return Some(signature);
+    return equix::verify_bytes(&challenge, &solution).is_ok();
+
+    dbg!(start.elapsed());
+    let start = std::time::Instant::now();
+
+    dbg!(start.elapsed());
+    let start = std::time::Instant::now();
+    let solution = &Solution::try_from_bytes(&solution).unwrap();
+    dbg!(("solution", start.elapsed()));
+    let start = std::time::Instant::now();
+
+    let x = EquiX::new(&challenge).unwrap();
+    dbg!(("new", start.elapsed()));
+    let start = std::time::Instant::now();
+
+    let x = x.verify(solution).is_ok();
+    dbg!(("verify", start.elapsed()));
+
+    x
+}
+
+// pub fn timestamp_pow(keypair: &Claim) -> ([u8; 64], u64) {
+//     (0u64..u64::MAX)
+//         .into_par_iter()
+//         .map(|nonce| {
+//             attempt_pow(
+//                 TIMESTAMPING_TAG,
+//                 &keypair.signing_key,
+//                 TIMESTAMPING_DIFFICULTY,
+//                 nonce,
+//             )
+//             .map(|signature| (signature, nonce))
+//         })
+//         .find_any(|result| result.is_some())
+//         .flatten()
+//         .expect("find pow")
+// }
+//
+// pub fn verify_timestamp_pow(
+//     keypair: &Claim,
+//     timestamp_signature: &[u8; 64],
+//     timestamping_nonce: u64,
+// ) -> bool {
+//     let mut hasher = Sha256::new();
+//
+//     if !check_powsig_signature(&mut hasher, TIMESTAMPING_DIFFICULTY, timestamp_signature) {
+//         return false;
+//     }
+//
+//     let mut msg = vec![];
+//     msg.extend_from_slice(TIMESTAMPING_TAG);
+//     msg.extend_from_slice(&timestamping_nonce.to_be_bytes());
+//
+//     if keypair
+//         .signing_key
+//         .verifying_key()
+//         .verify(&msg, &timestamp_signature.try_into().unwrap())
+//         .is_err()
+//     {
+//         return false;
+//     }
+//
+//     Self::verify_name(keypair)
+// }
+
+fn attempt_pow(tag: &[u8], data: &[u8], target: u8, nonce: u64) -> Option<[u8; 16]> {
+    let mut challenge = vec![];
+    challenge.extend_from_slice(tag);
+    challenge.extend_from_slice(data);
+    challenge.extend_from_slice(&nonce.to_be_bytes());
+
+    if let Ok(Some(solution)) =
+        EquiX::new(&challenge).map(|x| x.solve().first().map(|x| x.to_bytes()))
+    {
+        challenge.extend_from_slice(&solution);
+
+        let pow = hash(&challenge);
+
+        if check_pow_target(&pow, target) {
+            return Some(solution);
+        };
     };
 
     None
-}
-
-fn check_powsig_signature(hasher: &mut Sha256, target: u8, signature: &[u8; 64]) -> bool {
-    hasher.update(&signature);
-    // TODO: better type casting
-    let pow = &hasher.finalize_reset()[..];
-
-    if check_pow_target(pow, target) {
-        return true;
-    };
-
-    return false;
 }
 
 fn check_pow_target(hash: &[u8], required_zero_bits: u8) -> bool {
@@ -222,6 +212,31 @@ fn check_pow_target(hash: &[u8], required_zero_bits: u8) -> bool {
     zero_bits >= required_zero_bits
 }
 
+fn hash(msg: &[u8]) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(msg);
+    hasher.finalize().into()
+}
+
+fn owner() -> Vec<u8> {
+    // TODO: use generate_random() instead
+    let mut rng = thread_rng();
+    let mut seed = [0u8; 32];
+    rng.fill_bytes(&mut seed);
+
+    let signing_key = SigningKey::from_bytes(&seed);
+    let public_key = signing_key.verifying_key();
+
+    let signature = signing_key.sign(NAME_GENERATION_TAG);
+
+    let mut owner = vec![];
+    owner.extend_from_slice(public_key.as_bytes());
+    owner.extend_from_slice(signature.r_bytes());
+    owner.extend_from_slice(signature.s_bytes());
+
+    owner
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::Instant;
@@ -231,33 +246,33 @@ mod tests {
     #[test]
     fn basic() {
         let start = Instant::now();
-        let mut mns = Mns::init();
         println!("init {:?}", start.elapsed());
 
         let start = Instant::now();
-        let keypair = mns.generate();
+        let claim = generate();
 
-        println!(
-            "Generated {keypair:?} in {} ms",
-            start.elapsed().as_millis()
-        );
+        println!("Generated {claim:?} in {} ms", start.elapsed().as_millis());
 
         let start = Instant::now();
-        assert!(mns.verify_name(&keypair));
-        println!("Validated {keypair:?} name in {:?}...", start.elapsed());
+        assert!(verify_name(&claim));
+        println!("Validated {claim:?} claim in {:?}...", start.elapsed());
 
-        let start = Instant::now();
-        let (timestamping_signature, timestamping_nonce) = mns.timestamp_pow(&keypair);
-        println!(
-            "Generated the timestamp PoW for {keypair:?} in {} ms",
-            start.elapsed().as_millis()
-        );
-
-        let start = Instant::now();
-        assert!(mns.verify_timestamp_pow(&keypair, &timestamping_signature, timestamping_nonce));
-        println!(
-            "Validated {keypair:?} timestamping pow in {:?}...",
-            start.elapsed()
-        );
+        // let start = Instant::now();
+        // let (timestamping_signature, timestamping_nonce) = timestamp_pow(&keypair);
+        // println!(
+        //     "Generated the timestamp PoW for {keypair:?} in {} ms",
+        //     start.elapsed().as_millis()
+        // );
+        //
+        // let start = Instant::now();
+        // assert!(verify_timestamp_pow(
+        //     &keypair,
+        //     &timestamping_signature,
+        //     timestamping_nonce
+        // ));
+        // println!(
+        //     "Validated {keypair:?} timestamping pow in {:?}...",
+        //     start.elapsed()
+        // );
     }
 }
