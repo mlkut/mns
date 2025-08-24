@@ -1,9 +1,9 @@
-use std::fmt::Display;
+use std::{fmt::Display, str::FromStr};
 
 const CONSONANTS: &[u8; 16] = b"bdfghjklmnprstvz";
 const VOWELS: &[u8; 4] = b"aiou";
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Name([u8; 5]);
 
 impl Display for Name {
@@ -35,43 +35,134 @@ impl TryFrom<&[u8]> for Name {
     }
 }
 
+impl FromStr for Name {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Name(decode(s)?))
+    }
+}
+
 fn encode(bytes: &[u8; 5]) -> String {
-    let mut result = String::with_capacity(13); // 6 chars + dash + 6 chars = 13
+    let val = u64::from_be_bytes([
+        0, 0, 0, // padding
+        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4],
+    ]);
 
-    // Convert 5 bytes to 40 bits
-    let val = ((bytes[0] as u64) << 32)
-        | ((bytes[1] as u64) << 24)
-        | ((bytes[2] as u64) << 16)
-        | ((bytes[3] as u64) << 8)
-        | (bytes[4] as u64);
-
-    // First word: bits 39-20 (20 bits for CVCCVC)
-    let first_word_bits = (val >> 20) & 0xFFFFF;
-    encode_word(first_word_bits, &mut result);
-
+    let mut result = String::with_capacity(13);
+    encode_word((val >> 20) & 0xFFFFF, &mut result);
     result.push('_');
-
-    // Second word: bits 19-0 (20 bits for CVCCVC)
-    let second_word_bits = val & 0xFFFFF;
-    encode_word(second_word_bits, &mut result);
-
+    encode_word(val & 0xFFFFF, &mut result);
     result
 }
 
-// Helper function to encode a 20-bit value as CVCCVC pattern
 fn encode_word(bits: u64, result: &mut String) {
-    // CVCCVC pattern: 4+2+4+4+2+4 = 20 bits total
-    let c1 = ((bits >> 16) & 0xF) as usize; // bits 16-19 (4 bits)
-    let v1 = ((bits >> 14) & 0x3) as usize; // bits 14-15 (2 bits)
-    let c2 = ((bits >> 10) & 0xF) as usize; // bits 10-13 (4 bits)
-    let c3 = ((bits >> 6) & 0xF) as usize; // bits 6-9 (4 bits)
-    let v2 = ((bits >> 4) & 0x3) as usize; // bits 4-5 (2 bits)
-    let c4 = (bits & 0xF) as usize; // bits 0-3 (4 bits)
+    // Use a single unsafe block for maximum performance (if safe)
+    unsafe {
+        result.as_mut_vec().extend_from_slice(&[
+            CONSONANTS[((bits >> 16) & 0xF) as usize],
+            VOWELS[((bits >> 14) & 0x3) as usize],
+            CONSONANTS[((bits >> 10) & 0xF) as usize],
+            CONSONANTS[((bits >> 6) & 0xF) as usize],
+            VOWELS[((bits >> 4) & 0x3) as usize],
+            CONSONANTS[(bits & 0xF) as usize],
+        ]);
+    }
+}
 
-    result.push(CONSONANTS[c1] as char);
-    result.push(VOWELS[v1] as char);
-    result.push(CONSONANTS[c2] as char);
-    result.push(CONSONANTS[c3] as char);
-    result.push(VOWELS[v2] as char);
-    result.push(CONSONANTS[c4] as char);
+fn decode(encoded: &str) -> Result<[u8; 5], &'static str> {
+    // Quick length check first
+    if encoded.len() != 13 || !encoded.is_ascii() {
+        return Err("Invalid format: must be 13 ASCII characters with underscore");
+    }
+
+    // Use bytes directly for faster processing
+    let bytes = encoded.as_bytes();
+
+    // Find the underscore position manually for better performance
+    if bytes.iter().position(|&b| b == b'_') != Some(6) {
+        return Err("Underscore must be at position 6");
+    };
+
+    // Decode both words in parallel
+    let first_word = decode_word(&bytes[0..6])?;
+    let second_word = decode_word(&bytes[7..13])?;
+
+    // Combine and extract bytes
+    let val = (first_word << 20) | second_word;
+    Ok([
+        (val >> 32) as u8,
+        (val >> 24) as u8,
+        (val >> 16) as u8,
+        (val >> 8) as u8,
+        val as u8,
+    ])
+}
+
+fn decode_word(word: &[u8]) -> Result<u64, &'static str> {
+    if word.len() != 6 {
+        return Err("Word must be 6 bytes");
+    }
+
+    // Precompute all character lookups in parallel
+    let c1 = decode_consonant(word[0])? as u64;
+    let v1 = decode_vowel(word[1])? as u64;
+    let c2 = decode_consonant(word[2])? as u64;
+    let c3 = decode_consonant(word[3])? as u64;
+    let v2 = decode_vowel(word[4])? as u64;
+    let c4 = decode_consonant(word[5])? as u64;
+
+    // Reconstruct the 20-bit value
+    Ok((c1 << 16) | (v1 << 14) | (c2 << 10) | (c3 << 6) | (v2 << 4) | c4)
+}
+
+// Precompute lookup tables for faster decoding
+static CONSONANT_LOOKUP: [Option<u8>; 256] = {
+    let mut table = [None; 256];
+    let mut i = 0;
+    while i < CONSONANTS.len() {
+        table[CONSONANTS[i] as usize] = Some(i as u8);
+        i += 1;
+    }
+    table
+};
+
+static VOWEL_LOOKUP: [Option<u8>; 256] = {
+    let mut table = [None; 256];
+    let mut i = 0;
+    while i < VOWELS.len() {
+        table[VOWELS[i] as usize] = Some(i as u8);
+        i += 1;
+    }
+    table
+};
+
+fn decode_consonant(b: u8) -> Result<u8, &'static str> {
+    CONSONANT_LOOKUP[b as usize].ok_or("Invalid consonant character")
+}
+
+fn decode_vowel(b: u8) -> Result<u8, &'static str> {
+    VOWEL_LOOKUP[b as usize].ok_or("Invalid vowel character")
+}
+
+#[cfg(test)]
+mod tests {
+    use rand::{RngCore, thread_rng};
+
+    use super::*;
+
+    #[test]
+    fn encode_decode() {
+        let mut rng = thread_rng();
+
+        let mut bytes = [0u8; 5];
+        rng.fill_bytes(&mut bytes);
+
+        let name = Name::from(bytes);
+
+        let encoded = name.to_string();
+        let decoded: Name = encoded.parse().unwrap();
+
+        assert_eq!(decoded, name);
+    }
 }
