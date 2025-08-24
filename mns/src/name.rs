@@ -20,7 +20,7 @@ impl From<[u8; 5]> for Name {
 
 impl From<&[u8; 5]> for Name {
     fn from(bytes: &[u8; 5]) -> Self {
-        Name(bytes.clone())
+        Name(*bytes)
     }
 }
 
