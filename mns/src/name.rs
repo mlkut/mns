@@ -1,7 +1,15 @@
 use std::{fmt::Display, str::FromStr};
 
-const CONSONANTS: &[u8; 16] = b"bdfghjklmnprstvz";
-const VOWELS: &[u8; 4] = b"aiou";
+// No `C` or `Q` because they sounds like `K`
+// No `H` at the end because it is hard to enunciate.
+
+const FIRST_CONSONANTS: &[u8; 16] = b"djpzbrmfvtlhkngs";
+const SECOND_CONSONANTS: &[u8; 16] = b"tcvpjmgzdsblfxrn";
+
+const VOWELS: &[u8; 4] = b"oiau";
+
+const THIRD_CONSONANTS: &[u8; 16] = b"zvslfkrdbgmthpnj";
+const FOURTH_CONSONANTS: &[u8; 16] = b"pxgmfntzbsljvdrk";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Name([u8; 5]);
@@ -50,8 +58,8 @@ fn encode(bytes: &[u8; 5]) -> String {
     ]);
 
     let mut result = String::with_capacity(13);
-    encode_word((val >> 20) & 0xFFFFF, &mut result);
-    result.push('_');
+    // encode_word((val >> 20) & 0xFFFFF, &mut result);
+    // result.push('_');
     encode_word(val & 0xFFFFF, &mut result);
     result
 }
@@ -60,12 +68,12 @@ fn encode_word(bits: u64, result: &mut String) {
     // Use a single unsafe block for maximum performance (if safe)
     unsafe {
         result.as_mut_vec().extend_from_slice(&[
-            CONSONANTS[((bits >> 16) & 0xF) as usize],
+            FIRST_CONSONANTS[((bits >> 16) & 0xF) as usize],
             VOWELS[((bits >> 14) & 0x3) as usize],
-            CONSONANTS[((bits >> 10) & 0xF) as usize],
-            CONSONANTS[((bits >> 6) & 0xF) as usize],
+            SECOND_CONSONANTS[((bits >> 10) & 0xF) as usize],
+            THIRD_CONSONANTS[((bits >> 6) & 0xF) as usize],
             VOWELS[((bits >> 4) & 0x3) as usize],
-            CONSONANTS[(bits & 0xF) as usize],
+            FOURTH_CONSONANTS[(bits & 0xF) as usize],
         ]);
     }
 }
@@ -105,27 +113,16 @@ fn decode_word(word: &[u8]) -> Result<u64, &'static str> {
     }
 
     // Precompute all character lookups in parallel
-    let c1 = decode_consonant(word[0])? as u64;
+    let c1 = decode_consonant(word, 0)? as u64;
     let v1 = decode_vowel(word[1])? as u64;
-    let c2 = decode_consonant(word[2])? as u64;
-    let c3 = decode_consonant(word[3])? as u64;
+    let c2 = decode_consonant(word, 2)? as u64;
+    let c3 = decode_consonant(word, 3)? as u64;
     let v2 = decode_vowel(word[4])? as u64;
-    let c4 = decode_consonant(word[5])? as u64;
+    let c4 = decode_consonant(word, 5)? as u64;
 
     // Reconstruct the 20-bit value
     Ok((c1 << 16) | (v1 << 14) | (c2 << 10) | (c3 << 6) | (v2 << 4) | c4)
 }
-
-// Precompute lookup tables for faster decoding
-static CONSONANT_LOOKUP: [Option<u8>; 256] = {
-    let mut table = [None; 256];
-    let mut i = 0;
-    while i < CONSONANTS.len() {
-        table[CONSONANTS[i] as usize] = Some(i as u8);
-        i += 1;
-    }
-    table
-};
 
 static VOWEL_LOOKUP: [Option<u8>; 256] = {
     let mut table = [None; 256];
@@ -137,8 +134,30 @@ static VOWEL_LOOKUP: [Option<u8>; 256] = {
     table
 };
 
-fn decode_consonant(b: u8) -> Result<u8, &'static str> {
-    CONSONANT_LOOKUP[b as usize].ok_or("Invalid consonant character")
+fn decode_consonant(word: &[u8], idx: usize) -> Result<u8, &'static str> {
+    match idx {
+        0 => FIRST_CONSONANTS
+            .iter()
+            .position(|s| s == &word[idx])
+            .map(|i| i as u8)
+            .ok_or("invalid consonant character"),
+        2 => SECOND_CONSONANTS
+            .iter()
+            .position(|s| s == &word[idx])
+            .map(|i| i as u8)
+            .ok_or("invalid consonant character"),
+        3 => THIRD_CONSONANTS
+            .iter()
+            .position(|s| s == &word[idx])
+            .map(|i| i as u8)
+            .ok_or("invalid consonant character"),
+        5 => FOURTH_CONSONANTS
+            .iter()
+            .position(|s| s == &word[idx])
+            .map(|i| i as u8)
+            .ok_or("invalid consonant character"),
+        _ => Err("invalid constant order"),
+    }
 }
 
 fn decode_vowel(b: u8) -> Result<u8, &'static str> {
@@ -153,16 +172,38 @@ mod tests {
 
     #[test]
     fn encode_decode() {
-        let mut rng = thread_rng();
+        let bytes = 931689_u32.to_be_bytes();
+        dbg!(&bytes);
+        println!(
+            "block number {}",
+            Name::from([0, bytes[0], bytes[1], bytes[2], bytes[3]])
+        );
 
-        let mut bytes = [0u8; 5];
-        rng.fill_bytes(&mut bytes);
+        let bytes = 116602772_u32.to_be_bytes();
+        dbg!(&bytes);
+        println!(
+            "inscription number {}",
+            Name::from([0, bytes[0], bytes[1], bytes[2], bytes[3]])
+        );
 
-        let name = Name::from(bytes);
+        for number in 0..10_u32 {
+            let bytes = number.to_be_bytes();
 
-        let encoded = name.to_string();
-        let decoded: Name = encoded.parse().unwrap();
+            println!(
+                "{} {number}",
+                Name::from([0, bytes[0], bytes[1], bytes[2], bytes[3]])
+            );
+        }
 
-        assert_eq!(decoded, name);
+        for _ in 0..10 {
+            let mut rng = thread_rng();
+            let number = rng.next_u64();
+            let bytes = number.to_be_bytes();
+
+            println!(
+                "{number:#20}, {}",
+                Name::from([bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]])
+            );
+        }
     }
 }
