@@ -4,7 +4,7 @@ use std::{fmt::Display, str::FromStr};
 // No `H` at the end because it is hard to enunciate.
 
 const FIRST_CONSONANTS: &[u8; 16] = b"djpzbrmfvtlhkngs";
-const SECOND_CONSONANTS: &[u8; 16] = b"tcvpjmgzdsblfxrn";
+const SECOND_CONSONANTS: &[u8; 16] = b"tkvpjmgzdsblfxrn";
 
 const VOWELS: &[u8; 4] = b"oiau";
 
@@ -187,6 +187,7 @@ mod tests {
         );
 
         for number in 0..10_u32 {
+            let number = 2_u32.pow(20) - number;
             let bytes = number.to_be_bytes();
 
             println!(
