@@ -2,9 +2,10 @@ use std::{fmt::Display, str::FromStr};
 
 // No `C` or `Q` because they sounds like `K`
 // No `H` at the end because it is hard to enunciate.
+// No `X` anywhere except last consonant.
 
 const FIRST_CONSONANTS: &[u8; 16] = b"djpzbrmfvtlhkngs";
-const SECOND_CONSONANTS: &[u8; 16] = b"tkvpjmgzdsblfxrn";
+const SECOND_CONSONANTS: &[u8; 16] = b"tkvpjmgzdsblfhrn";
 
 const VOWELS: &[u8; 4] = b"oiau";
 
@@ -172,39 +173,24 @@ mod tests {
 
     #[test]
     fn encode_decode() {
-        let bytes = 931689_u32.to_be_bytes();
-        dbg!(&bytes);
-        println!(
-            "block number {}",
-            Name::from([0, bytes[0], bytes[1], bytes[2], bytes[3]])
-        );
+        let mut done = vec![];
 
-        let bytes = 116602772_u32.to_be_bytes();
-        dbg!(&bytes);
-        println!(
-            "inscription number {}",
-            Name::from([0, bytes[0], bytes[1], bytes[2], bytes[3]])
-        );
-
-        for number in 0..10_u32 {
-            let number = 2_u32.pow(20) - number;
-            let bytes = number.to_be_bytes();
-
-            println!(
-                "{} {number}",
-                Name::from([0, bytes[0], bytes[1], bytes[2], bytes[3]])
-            );
-        }
-
-        for _ in 0..10 {
+        for _ in 0..200_u32 {
             let mut rng = thread_rng();
-            let number = rng.next_u64();
-            let bytes = number.to_be_bytes();
+            loop {
+                let number = rng.next_u32();
+                let bytes = number.to_be_bytes();
+                let name = Name::from([0, bytes[0], bytes[1], bytes[2], bytes[3]]).to_string();
 
-            println!(
-                "{number:#20}, {}",
-                Name::from([bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]])
-            );
+                if done.contains(&name) {
+                    continue;
+                }
+
+                done.push(name);
+                break;
+            }
         }
+
+        println!("{done:?}");
     }
 }
