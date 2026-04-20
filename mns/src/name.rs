@@ -59,8 +59,8 @@ fn encode(bytes: &[u8; 5]) -> String {
     ]);
 
     let mut result = String::with_capacity(13);
-    // encode_word((val >> 20) & 0xFFFFF, &mut result);
-    // result.push('_');
+    encode_word((val >> 20) & 0xFFFFF, &mut result);
+    result.push('_');
     encode_word(val & 0xFFFFF, &mut result);
     result
 }
