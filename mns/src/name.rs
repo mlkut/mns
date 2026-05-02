@@ -12,10 +12,6 @@ const VOWELS: &[u8; 4] = b"oaiu";
 const THIRD_CONSONANTS: &[u8; 16] = b"znbvsplfdrhtmkgj";
 const FOURTH_CONSONANTS: &[u8; 16] = b"dksvrtlnpxbgmfzj";
 
-/// 2^64 / phi (the golden ratio). Used for Fibonacci Hashing.
-/// This constant is odd, which ensures the transformation is a bijection.
-const PHI_64: u64 = 0x9e3779b97f4a7c15;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Name([u8; 5]);
 
@@ -25,8 +21,13 @@ impl Name {
         Self::from(ordinal)
     }
 
-    #[cfg(test)]
-    pub fn as_u64(&self) -> u64 {
+    /// Recovers the ordinal that was used to create this Name.
+    /// This is the inverse of `from_ordinal`.
+    pub fn to_ordinal(&self) -> u64 {
+        unpermute_ordinal(self.as_u64())
+    }
+
+    pub(crate) fn as_u64(&self) -> u64 {
         u64::from_be_bytes([
             0, 0, 0, self.0[0], self.0[1], self.0[2], self.0[3], self.0[4],
         ])
@@ -78,17 +79,44 @@ impl From<u64> for Name {
     }
 }
 
-/// A bijective mixing function using Fibonacci Hashing.
+/// A 40-bit bijective permutation via Feistel network.
+/// Guarantees no collisions across all 2^40 values.
 fn permute_ordinal(x: u64) -> u64 {
-    // Fibonacci Hashing Mix Steps
-    let mut x = x.wrapping_mul(PHI_64);
-    x ^= x >> 20; // Avalanche high-bit entropy down to the low bits
-    x = x.wrapping_mul(PHI_64);
+    // Feistel network over 40 bits (two 20-bit halves).
+    // This is provably bijective: each round is reversible,
+    // and the composition of reversible functions is reversible.
+    let mut left = (x >> 20) & 0xFFFFF;
+    let mut right = x & 0xFFFFF;
 
-    // Mask to 40 bits and unpack
-    x &= 0xFF_FFFF_FFFF;
+    // Round constants (odd 20-bit values, chosen arbitrarily)
+    const R: [u64; 4] = [0x9E377, 0x6C62D, 0xB5A4B, 0xD2F3E];
 
-    x
+    for &r in &R {
+        // f(right) = cheap 20-bit avalanche
+        let f = right.wrapping_mul(r) ^ (right >> 7) ^ (right << 13);
+        let new_right = left ^ (f & 0xFFFFF);
+        left = right;
+        right = new_right;
+    }
+
+    (left << 20) | right
+}
+
+/// Inverse of `permute_ordinal`. Runs the Feistel rounds in reverse.
+fn unpermute_ordinal(x: u64) -> u64 {
+    let mut left = (x >> 20) & 0xFFFFF;
+    let mut right = x & 0xFFFFF;
+
+    const R: [u64; 4] = [0x9E377, 0x6C62D, 0xB5A4B, 0xD2F3E];
+
+    for &r in R.iter().rev() {
+        let f = left.wrapping_mul(r) ^ (left >> 7) ^ (left << 13);
+        let new_left = right ^ (f & 0xFFFFF);
+        right = left;
+        left = new_left;
+    }
+
+    (left << 20) | right
 }
 
 fn encode(bytes: &[u8; 5]) -> String {
@@ -234,54 +262,99 @@ mod tests {
             println!("{name} {name2} {name3}");
         }
     }
-    use std::collections::HashSet;
+
+    #[test]
+    fn test_ordinal_roundtrip() {
+        for ordinal in 0..100_000_u64 {
+            let name = Name::from_ordinal(ordinal);
+            assert_eq!(
+                name.to_ordinal(),
+                ordinal,
+                "roundtrip failed for ordinal {ordinal}"
+            );
+        }
+    }
 
     #[test]
     fn test_global_uniqueness_and_diffusion() {
-        let mut seen_names = HashSet::new();
+        use rayon::prelude::*;
 
         let count: u64 = 10_000_000;
 
-        let mut total_bit_diff = 0;
-        let mut comparisons = 0;
+        // --- Parallel diffusion + collect names ---
+        // Each chunk computes its own bit-diff sum; boundary diffs between
+        // chunks are handled separately below.
+        let chunk_size: u64 = 100_000;
+        let num_chunks = count.div_ceil(chunk_size);
 
-        let mut previous = Name::from_ordinal(0);
+        // Collect the first name of each chunk so we can compute cross-boundary diffs.
+        let chunk_heads: Vec<u64> = (0..num_chunks)
+            .map(|c| Name::from_ordinal(c * chunk_size).as_u64())
+            .collect();
 
-        for ordinal in 0..count {
-            let name = Name::from_ordinal(ordinal);
+        let results: Vec<(Vec<u64>, u64)> = (0..num_chunks)
+            .into_par_iter()
+            .map(|chunk| {
+                let start = chunk * chunk_size;
+                let end = (start + chunk_size).min(count);
 
-            // --- 1. Uniqueness Check ---
-            // Convert [u8; 5] to a fixed key for the HashSet
-            if !seen_names.insert(name) {
-                panic!("COLLISION DETECTED at ordinal {}", ordinal);
-            }
+                let mut values = Vec::with_capacity((end - start) as usize);
+                let mut bit_diff: u64 = 0;
+                let mut prev = Name::from_ordinal(start).as_u64();
+                values.push(prev);
 
-            // --- 2. Diffusion (Randomness) Check ---
-            // We check the Hamming Distance (how many bits changed)
-            // between this ID and the previous one in the sequence.
-            let diff = (name.as_u64() ^ previous.as_u64()).count_ones();
-            total_bit_diff += diff;
-            comparisons += 1;
-            previous = name;
+                for ordinal in (start + 1)..end {
+                    let v = Name::from_ordinal(ordinal).as_u64();
+                    bit_diff += (v ^ prev).count_ones() as u64;
+                    prev = v;
+                    values.push(v);
+                }
+                (values, bit_diff)
+            })
+            .collect();
+
+        let mut total_bit_diff: u64 = results.iter().map(|(_, d)| d).sum();
+        let all_values: Vec<Vec<u64>> = results.into_iter().map(|(v, _)| v).collect();
+
+        // Add the cross-boundary diffs
+        for i in 1..chunk_heads.len() {
+            // last value of chunk i-1 is chunk_heads[i] - 1's name;
+            // easier: just use the last element of each chunk vec.
+            let last_of_prev = *all_values[i as usize - 1].last().unwrap();
+            total_bit_diff += (chunk_heads[i] ^ last_of_prev).count_ones() as u64;
         }
 
-        assert_eq!(seen_names.len(), count as usize);
-        println!("Tested {} IDs with 0 collisions.", seen_names.len());
+        // --- Uniqueness: sort + dedup is faster than HashSet for large N ---
+        let mut flat: Vec<u64> = all_values.into_iter().flatten().collect();
+        flat.par_sort_unstable();
+        let original_len = flat.len();
+        flat.dedup();
+        if flat.len() != original_len {
+            // Find the duplicate for a useful panic message
+            let dupes: Vec<u64> = flat
+                .windows(2)
+                .filter(|w| w[0] == w[1])
+                .map(|w| w[0])
+                .collect();
+            panic!(
+                "COLLISION DETECTED — duplicate name values: {:?}",
+                &dupes[..dupes.len().min(5)]
+            );
+        }
 
-        // --- Analysis ---
+        assert_eq!(flat.len(), count as usize);
+        println!("Tested {} IDs with 0 collisions.", flat.len());
+
+        let comparisons = count - 1;
         let avg_bit_diff = total_bit_diff as f32 / comparisons as f32;
         println!(
             "Average bits changed between adjacent IDs: {:.2} / 40",
             avg_bit_diff
         );
 
-        // In a perfectly random distribution, changing 1 input bit should
-        // flip 50% of output bits (20 bits out of 40).
-        // We check if it's within a reasonable range (e.g., 15-25 bits).
         assert!(
-            avg_bit_diff > 15.0 && avg_bit_diff < 25.0,
-            "Diffusion is poor: adjacent IDs are too similar (Avg diff: {})",
-            avg_bit_diff
+            (avg_bit_diff - 20.0).abs() < 0.10,
+            "Diffusion is poor: adjacent IDs are too similar (Avg diff: {avg_bit_diff})"
         );
     }
 }
