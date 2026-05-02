@@ -104,17 +104,15 @@ fn encode(bytes: &[u8; 5]) -> String {
 }
 
 fn encode_word(bits: u64, result: &mut String) {
-    // Use a single unsafe block for maximum performance (if safe)
-    unsafe {
-        result.as_mut_vec().extend_from_slice(&[
-            FIRST_CONSONANTS[((bits >> 16) & 0xF) as usize],
-            VOWELS[((bits >> 14) & 0x3) as usize],
-            SECOND_CONSONANTS[((bits >> 10) & 0xF) as usize],
-            THIRD_CONSONANTS[((bits >> 6) & 0xF) as usize],
-            VOWELS[((bits >> 4) & 0x3) as usize],
-            FOURTH_CONSONANTS[(bits & 0xF) as usize],
-        ]);
-    }
+    let chars = [
+        FIRST_CONSONANTS[((bits >> 16) & 0xF) as usize] as char,
+        VOWELS[((bits >> 14) & 0x3) as usize] as char,
+        SECOND_CONSONANTS[((bits >> 10) & 0xF) as usize] as char,
+        THIRD_CONSONANTS[((bits >> 6) & 0xF) as usize] as char,
+        VOWELS[((bits >> 4) & 0x3) as usize] as char,
+        FOURTH_CONSONANTS[(bits & 0xF) as usize] as char,
+    ];
+    chars.iter().for_each(|&c| result.push(c));
 }
 
 fn decode(encoded: &str) -> Result<[u8; 5], &'static str> {
