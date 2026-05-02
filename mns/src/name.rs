@@ -20,37 +20,17 @@ const PHI_64: u64 = 0x9e3779b97f4a7c15;
 pub struct Name([u8; 5]);
 
 impl Name {
-    /// Creates a unique Name from a 32-bit batch ID and an 8-bit offset.
-    /// This mapping is bijective (one-to-one) within the 40-bit space.
-    pub fn from_batch_and_offset(batch: u32, offset: u8) -> Self {
-        Self(permute_40bit(batch, offset))
+    /// Creates a unique Name from the ordinal of onchain registration.
+    pub fn from_ordinal(ordinal: u64) -> Self {
+        Self::from(ordinal)
     }
 
-    pub fn as_bytes(&self) -> [u8; 5] {
-        self.0
+    #[cfg(test)]
+    pub fn as_u64(&self) -> u64 {
+        u64::from_be_bytes([
+            0, 0, 0, self.0[0], self.0[1], self.0[2], self.0[3], self.0[4],
+        ])
     }
-}
-
-/// A bijective mixing function using Fibonacci Hashing.
-fn permute_40bit(batch: u32, offset: u8) -> [u8; 5] {
-    // Pack into 40 bits: [batch (32 bits) | offset (8 bits)]
-    let mut x = ((batch as u64) << 8) | (offset as u64);
-
-    // Fibonacci Hashing Mix Steps
-    x = x.wrapping_mul(PHI_64);
-    x ^= x >> 20; // Avalanche high-bit entropy down to the low bits
-    x = x.wrapping_mul(PHI_64);
-
-    // Mask to 40 bits and unpack
-    x &= 0xFF_FFFF_FFFF;
-
-    [
-        (x >> 32) as u8,
-        (x >> 24) as u8,
-        (x >> 16) as u8,
-        (x >> 8) as u8,
-        x as u8,
-    ]
 }
 
 impl Display for Name {
@@ -88,6 +68,27 @@ impl FromStr for Name {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Name(decode(s)?))
     }
+}
+
+impl From<u64> for Name {
+    /// Creates a unique Name from the ordinal of onchain registration.
+    fn from(ordinal: u64) -> Self {
+        let b = permute_ordinal(ordinal).to_be_bytes();
+        Self([b[3], b[4], b[5], b[6], b[7]])
+    }
+}
+
+/// A bijective mixing function using Fibonacci Hashing.
+fn permute_ordinal(x: u64) -> u64 {
+    // Fibonacci Hashing Mix Steps
+    let mut x = x.wrapping_mul(PHI_64);
+    x ^= x >> 20; // Avalanche high-bit entropy down to the low bits
+    x = x.wrapping_mul(PHI_64);
+
+    // Mask to 40 bits and unpack
+    x &= 0xFF_FFFF_FFFF;
+
+    x
 }
 
 fn encode(bytes: &[u8; 5]) -> String {
@@ -203,7 +204,7 @@ fn decode_vowel(b: u8) -> Result<u8, &'static str> {
 
 #[cfg(test)]
 mod tests {
-    use rand::{Rng, RngCore, thread_rng};
+    use rand::{Rng, thread_rng};
 
     use super::*;
 
@@ -224,14 +225,11 @@ mod tests {
     }
 
     #[test]
-    fn check_names_for_same_30bits_prefix() {
-        let mut rng = thread_rng();
-        let batch = rng.next_u32();
-
-        for offset in 0..=255_u8 {
-            let name = Name::from_batch_and_offset(batch, offset).to_string();
-            let name2 = Name::from_batch_and_offset(batch + 1, offset).to_string();
-            let name3 = Name::from_batch_and_offset(batch - 1, offset).to_string();
+    fn check_names_for_ordinals() {
+        for ordinal in 1..=255_u64 {
+            let name = Name::from_ordinal(ordinal).to_string();
+            let name2 = Name::from_ordinal(ordinal + 1).to_string();
+            let name3 = Name::from_ordinal(ordinal - 1).to_string();
 
             println!("{name} {name2} {name3}");
         }
@@ -241,41 +239,37 @@ mod tests {
     #[test]
     fn test_global_uniqueness_and_diffusion() {
         let mut seen_names = HashSet::new();
-        let total_batches_to_test = 1000;
-        // let offsets_per_batch = 256; // Full u8 range
+
+        let count: u64 = 10_000_000;
 
         let mut total_bit_diff = 0;
         let mut comparisons = 0;
 
-        for batch in 0..total_batches_to_test as u32 {
-            let mut previous_bits: u64 = 0;
+        let mut previous = Name::from_ordinal(0);
 
-            for offset in 0..=255_u8 {
-                let name = Name::from_batch_and_offset(batch, offset);
-                let current_bytes = name.as_bytes(); // Assuming Name provides access to its [u8; 5]
+        for ordinal in 0..count {
+            let name = Name::from_ordinal(ordinal);
 
-                // --- 1. Uniqueness Check ---
-                // Convert [u8; 5] to a fixed key for the HashSet
-                if !seen_names.insert(current_bytes) {
-                    panic!("COLLISION DETECTED at batch {}, offset {}", batch, offset);
-                }
-
-                // --- 2. Diffusion (Randomness) Check ---
-                // We check the Hamming Distance (how many bits changed)
-                // between this ID and the previous one in the sequence.
-                let current_bits = pack_to_u64(&current_bytes);
-                if offset > 0 {
-                    let diff = (current_bits ^ previous_bits).count_ones();
-                    total_bit_diff += diff;
-                    comparisons += 1;
-                }
-                previous_bits = current_bits;
+            // --- 1. Uniqueness Check ---
+            // Convert [u8; 5] to a fixed key for the HashSet
+            if !seen_names.insert(name) {
+                panic!("COLLISION DETECTED at ordinal {}", ordinal);
             }
+
+            // --- 2. Diffusion (Randomness) Check ---
+            // We check the Hamming Distance (how many bits changed)
+            // between this ID and the previous one in the sequence.
+            let diff = (name.as_u64() ^ previous.as_u64()).count_ones();
+            total_bit_diff += diff;
+            comparisons += 1;
+            previous = name;
         }
+
+        assert_eq!(seen_names.len(), count as usize);
+        println!("Tested {} IDs with 0 collisions.", seen_names.len());
 
         // --- Analysis ---
         let avg_bit_diff = total_bit_diff as f32 / comparisons as f32;
-        println!("Tested {} IDs with 0 collisions.", seen_names.len());
         println!(
             "Average bits changed between adjacent IDs: {:.2} / 40",
             avg_bit_diff
@@ -289,14 +283,5 @@ mod tests {
             "Diffusion is poor: adjacent IDs are too similar (Avg diff: {})",
             avg_bit_diff
         );
-    }
-
-    // Helper for the test to treat the 5 bytes as a comparable number
-    fn pack_to_u64(bytes: &[u8; 5]) -> u64 {
-        ((bytes[0] as u64) << 32)
-            | ((bytes[1] as u64) << 24)
-            | ((bytes[2] as u64) << 16)
-            | ((bytes[3] as u64) << 8)
-            | (bytes[4] as u64)
     }
 }
