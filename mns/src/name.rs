@@ -1,16 +1,16 @@
 use std::{fmt::Display, str::FromStr};
 
 // No `C` or `Q` because they sounds like `K`
-// No `H` at the end because it is hard to enunciate.
-// No `X` anywhere except last consonant.
+// No `H` at the end of a syllable because it is hard to pronounce clearly.
+// No `X` anywhere except last consonant in the word.
 
-const FIRST_CONSONANTS: &[u8; 16] = b"djpzbrmfvtlhkngs";
-const SECOND_CONSONANTS: &[u8; 16] = b"tkvpjmgzdsblfhrn";
+const FIRST_CONSONANTS: &[u8; 16] = b"dmbwslhfrtpnjzvk";
+const SECOND_CONSONANTS: &[u8; 16] = b"zrnmtgdskblpvfjx";
 
-const VOWELS: &[u8; 4] = b"oiau";
+const VOWELS: &[u8; 4] = b"oaiu";
 
-const THIRD_CONSONANTS: &[u8; 16] = b"zvslfkrdbgmthpnj";
-const FOURTH_CONSONANTS: &[u8; 16] = b"pxgmfntzbsljvdrk";
+const THIRD_CONSONANTS: &[u8; 16] = b"znbvsplfdrhtmkgj";
+const FOURTH_CONSONANTS: &[u8; 16] = b"dksvrtlnpxbgmfzj";
 
 /// 2^64 / phi (the golden ratio). Used for Fibonacci Hashing.
 /// This constant is odd, which ensures the transformation is a bijection.
