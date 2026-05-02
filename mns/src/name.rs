@@ -118,7 +118,7 @@ fn encode_word(bits: u64, result: &mut String) {
 fn decode(encoded: &str) -> Result<[u8; 5], &'static str> {
     // Quick length check first
     if encoded.len() != 13 || !encoded.is_ascii() {
-        return Err("Invalid format: must be 13 ASCII characters with underscore");
+        return Err("Invalid format: must be 13 ASCII characters with dash in between");
     }
 
     // Use bytes directly for faster processing
@@ -126,7 +126,7 @@ fn decode(encoded: &str) -> Result<[u8; 5], &'static str> {
 
     // Find the underscore position manually for better performance
     if bytes.iter().position(|&b| b == b'-') != Some(6) {
-        return Err("Underscore must be at position 6");
+        return Err("Dash must be at position 6");
     };
 
     // Decode both words in parallel
