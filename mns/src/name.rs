@@ -79,41 +79,49 @@ impl From<u64> for Name {
     }
 }
 
-/// A 40-bit bijective permutation via Feistel network.
-/// Guarantees no collisions across all 2^40 values.
-fn permute_ordinal(x: u64) -> u64 {
-    // Feistel network over 40 bits (two 20-bit halves).
-    // This is provably bijective: each round is reversible,
-    // and the composition of reversible functions is reversible.
-    let mut left = (x >> 20) & 0xFFFFF;
-    let mut right = x & 0xFFFFF;
+const MASK_20: u64 = 0xFFFFF;
 
-    // Round constants (odd 20-bit values, chosen arbitrarily)
+/// The Feistel round function.
+/// Must be identical in both directions.
+#[inline(always)]
+fn round_f(val: u64, r: u64) -> u64 {
+    // A simple non-linear mixer for 20 bits
+    (val.wrapping_mul(r) ^ (val >> 7) ^ (val << 13)) & MASK_20
+}
+
+/// A 40-bit bijective permutation.
+/// Guarantees no collisions across the domain [0, 2^40).
+pub fn permute_ordinal(x: u64) -> u64 {
+    // Ensure input is within 40-bit range
+    let mut left = (x >> 20) & MASK_20;
+    let mut right = x & MASK_20;
+
+    // 4 rounds of Feistel
     const R: [u64; 4] = [0x9E377, 0x6C62D, 0xB5A4B, 0xD2F3E];
 
     for &r in &R {
-        // f(right) = cheap 20-bit avalanche
-        let f = right.wrapping_mul(r) ^ (right >> 7) ^ (right << 13);
-        let new_right = left ^ (f & 0xFFFFF);
+        let next_right = left ^ round_f(right, r);
         left = right;
-        right = new_right;
+        right = next_right;
     }
 
     (left << 20) | right
 }
 
-/// Inverse of `permute_ordinal`. Runs the Feistel rounds in reverse.
-fn unpermute_ordinal(x: u64) -> u64 {
-    let mut left = (x >> 20) & 0xFFFFF;
-    let mut right = x & 0xFFFFF;
+/// Inverse of `permute_ordinal`.
+pub fn unpermute_ordinal(x: u64) -> u64 {
+    let mut left = (x >> 20) & MASK_20;
+    let mut right = x & MASK_20;
 
     const R: [u64; 4] = [0x9E377, 0x6C62D, 0xB5A4B, 0xD2F3E];
 
+    // Run rounds in reverse order
     for &r in R.iter().rev() {
-        let f = left.wrapping_mul(r) ^ (left >> 7) ^ (left << 13);
-        let new_left = right ^ (f & 0xFFFFF);
+        // In un-permuting, we calculate the 'f' of the current left
+        // to retrieve the previous right.
+        let prev_left = right ^ round_f(left, r);
         right = left;
-        left = new_left;
+        left = prev_left;
     }
 
     (left << 20) | right
