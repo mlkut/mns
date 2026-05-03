@@ -2,15 +2,19 @@ use core::iter::Iterator;
 use std::{fmt::Display, str::FromStr};
 
 // No `C` or `Q` because they sounds like `K`
-// No `H` at the end of a word because it is hard to pronounce clearly.
+// No `H` at the end of a syllable because it is hard to pronounce clearly.
+// No `H` at the beginning of the second syllable to avoid accidents like `sh`,
+//      leaving `sz` to be pronounced like `sh`.
 // No `X` anywhere except last consonant in the word.
+// No `W` because it is pronounced `V` by many.
+// `P` couldn't be avoided, despite being confused with `B`.
 
-const FIRST_CONSONANTS: &[u8; 16] = b"dmbwslhfrtpnjzvk";
-const SECOND_CONSONANTS: &[u8; 16] = b"zrnmtgdskblpvfjh";
+const FIRST_CONSONANTS: &[u8; 16] = b"dmbyslhfrtpnjzvk";
+const SECOND_CONSONANTS: &[u8; 16] = b"zrnmtgdskblpvfjy";
 
-const VOWELS: &[u8; 4] = b"oaiu";
+const VOWELS: &[u8; 4] = b"oaeu";
 
-const THIRD_CONSONANTS: &[u8; 16] = b"znbvsplfdrhtmkgj";
+const THIRD_CONSONANTS: &[u8; 16] = b"znbvsplfdrytmkgj";
 const FOURTH_CONSONANTS: &[u8; 16] = b"dksvrtlnpxbgmfzj";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -221,8 +225,8 @@ mod tests {
         let cases = [
             (0, "dozzod-dozzod"),            // Ordinal 0
             (1, "tanfuj-hudzuf"),            // Ordinal 1
-            (42, "jihvas-hahsis"),           // Ordinal 42
-            (1_000_000, "jihzax-zogjip"),    // Large ordinal
+            (42, "jeyvas-hayses"),           // Ordinal 42
+            (1_000_000, "jeyzax-zogjep"),    // Large ordinal
             (0xFFFFFFFFFF, "moddog-vodnof"), // Max 40-bit value
         ];
 
