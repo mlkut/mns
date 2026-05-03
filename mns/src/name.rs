@@ -14,12 +14,12 @@ const THIRD_CONSONANTS: &[u8; 16] = b"znbvsplfdrhtmkgj";
 const FOURTH_CONSONANTS: &[u8; 16] = b"dksvrtlnpxbgmfzj";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Name([u8; 5]);
+pub struct Name(u64);
 
 impl Name {
     /// Creates a unique Name from the ordinal of onchain registration.
     pub fn from_ordinal(ordinal: u64) -> Self {
-        Self::from(ordinal)
+        Self(permute_ordinal(ordinal))
     }
 
     /// Recovers the ordinal that was used to create this Name.
@@ -39,9 +39,7 @@ impl Name {
     }
 
     pub(crate) fn as_u64(&self) -> u64 {
-        u64::from_be_bytes([
-            0, 0, 0, self.0[0], self.0[1], self.0[2], self.0[3], self.0[4],
-        ])
+        self.0
     }
 }
 
@@ -51,42 +49,11 @@ impl Display for Name {
     }
 }
 
-impl From<[u8; 5]> for Name {
-    fn from(bytes: [u8; 5]) -> Self {
-        Name(bytes)
-    }
-}
-
-impl From<&[u8; 5]> for Name {
-    fn from(bytes: &[u8; 5]) -> Self {
-        Name(*bytes)
-    }
-}
-
-impl TryFrom<&[u8]> for Name {
-    type Error = &'static str;
-
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        // TODO: better error
-        let prefix: [u8; 5] = value.try_into().map_err(|_| "prefix should be 5 bytes")?;
-
-        Ok(Name(prefix))
-    }
-}
-
 impl FromStr for Name {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Name(decode(s)?))
-    }
-}
-
-impl From<u64> for Name {
-    /// Creates a unique Name from the ordinal of onchain registration.
-    fn from(ordinal: u64) -> Self {
-        let b = permute_ordinal(ordinal).to_be_bytes();
-        Self([b[3], b[4], b[5], b[6], b[7]])
     }
 }
 
@@ -150,7 +117,7 @@ fn encode_word(bits: u64, result: &mut String) {
     chars.iter().for_each(|&c| result.push(c));
 }
 
-fn decode(encoded: &str) -> Result<[u8; 5], &'static str> {
+fn decode(encoded: &str) -> Result<u64, &'static str> {
     // Quick length check first
     if encoded.len() != 13 || !encoded.is_ascii() {
         return Err("Invalid format: must be 13 ASCII characters with dash in between");
@@ -170,13 +137,8 @@ fn decode(encoded: &str) -> Result<[u8; 5], &'static str> {
 
     // Combine and extract bytes
     let val = (first_word << 20) | second_word;
-    Ok([
-        (val >> 32) as u8,
-        (val >> 24) as u8,
-        (val >> 16) as u8,
-        (val >> 8) as u8,
-        val as u8,
-    ])
+
+    Ok(val)
 }
 
 fn decode_word(word: &[u8]) -> Result<u64, &'static str> {
@@ -249,18 +211,6 @@ mod tests {
             let name3 = Name::from_ordinal(ordinal - 1).to_string();
 
             println!("{name} {name2} {name3}");
-        }
-    }
-
-    #[test]
-    fn test_ordinal_roundtrip() {
-        for ordinal in 0..100_000_u64 {
-            let name = Name::from_ordinal(ordinal);
-            assert_eq!(
-                name.to_ordinal(),
-                ordinal,
-                "roundtrip failed for ordinal {ordinal}"
-            );
         }
     }
 
@@ -379,11 +329,11 @@ mod proptests {
         /// Tests that any 5-byte sequence can be encoded to a string
         /// and decoded back to the exact same 5 bytes.
         #[test]
-        fn test_name_string_roundtrip(bytes in any::<[u8; 5]>()) {
-            let name = Name::from(bytes);
+        fn test_name_string_roundtrip(ordinal in 0..0xFFFFFFFFFFu64) {
+            let name = Name::from_ordinal(ordinal);
             let encoded = name.to_string();
             let decoded: Name = encoded.parse().unwrap();
-            assert_eq!(name, decoded, "String roundtrip failed for bytes: {:?}, encoded as: {}", bytes, encoded);
+            assert_eq!(name, decoded, "String roundtrip failed for ordinal: {}, encoded as: {}", ordinal, encoded);
         }
 
         /// Tests that any ordinal (0 to 2^40-1) can be converted to
