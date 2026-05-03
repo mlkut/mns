@@ -5,7 +5,7 @@ use std::{fmt::Display, str::FromStr};
 // No `X` anywhere except last consonant in the word.
 
 const FIRST_CONSONANTS: &[u8; 16] = b"dmbwslhfrtpnjzvk";
-const SECOND_CONSONANTS: &[u8; 16] = b"zrnmtgdskblpvfjx";
+const SECOND_CONSONANTS: &[u8; 16] = b"zrnmtgdskblpvfjk";
 
 const VOWELS: &[u8; 4] = b"oaiu";
 
@@ -279,6 +279,28 @@ mod tests {
                 name.to_ordinal(),
                 ordinal,
                 "roundtrip failed for ordinal {ordinal}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_name_regression_golden_values() {
+        // These values are derived from the current Feistel constants
+        // and the consonant/vowel bit-packing logic.
+        let cases = [
+            (0, "dozzod-dozzod"),            // Ordinal 0
+            (1, "tanfuj-hudzuf"),            // Ordinal 1
+            (42, "jikvas-haksis"),           // Ordinal 42
+            (1_000_000, "jikzax-zogjip"),    // Large ordinal
+            (0xFFFFFFFFFF, "moddog-vodnof"), // Max 40-bit value
+        ];
+
+        for (ordinal, expected_name) in cases {
+            let actual_name = Name::from_ordinal(ordinal).to_string();
+            assert_eq!(
+                actual_name, expected_name,
+                "Regression failure: ordinal {} produced {} but expected {}",
+                ordinal, actual_name, expected_name
             );
         }
     }
