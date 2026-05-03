@@ -1,11 +1,12 @@
+use core::iter::Iterator;
 use std::{fmt::Display, str::FromStr};
 
 // No `C` or `Q` because they sounds like `K`
-// No `H` at the end of a syllable because it is hard to pronounce clearly.
+// No `H` at the end of a word because it is hard to pronounce clearly.
 // No `X` anywhere except last consonant in the word.
 
 const FIRST_CONSONANTS: &[u8; 16] = b"dmbwslhfrtpnjzvk";
-const SECOND_CONSONANTS: &[u8; 16] = b"zrnmtgdskblpvfjk";
+const SECOND_CONSONANTS: &[u8; 16] = b"zrnmtgdskblpvfjh";
 
 const VOWELS: &[u8; 4] = b"oaiu";
 
@@ -208,30 +209,38 @@ static VOWEL_LOOKUP: [Option<u8>; 256] = {
     table
 };
 
-fn decode_consonant(word: &[u8], idx: usize) -> Result<u8, &'static str> {
-    match idx {
-        0 => FIRST_CONSONANTS
-            .iter()
-            .position(|s| s == &word[idx])
-            .map(|i| i as u8)
-            .ok_or("invalid consonant character"),
-        2 => SECOND_CONSONANTS
-            .iter()
-            .position(|s| s == &word[idx])
-            .map(|i| i as u8)
-            .ok_or("invalid consonant character"),
-        3 => THIRD_CONSONANTS
-            .iter()
-            .position(|s| s == &word[idx])
-            .map(|i| i as u8)
-            .ok_or("invalid consonant character"),
-        5 => FOURTH_CONSONANTS
-            .iter()
-            .position(|s| s == &word[idx])
-            .map(|i| i as u8)
-            .ok_or("invalid consonant character"),
-        _ => Err("invalid constant order"),
+static CONSONANT_LOOKUP: [[Option<u8>; 256]; 4] = {
+    let mut tables = [[None; 256]; 4];
+    let lists = [
+        FIRST_CONSONANTS,
+        SECOND_CONSONANTS,
+        THIRD_CONSONANTS,
+        FOURTH_CONSONANTS,
+    ];
+
+    let mut i = 0;
+    while i < lists.len() {
+        let mut j = 0;
+        while j < lists[i].len() {
+            tables[i][lists[i][j] as usize] = Some(j as u8);
+            j += 1;
+        }
+        i += 1;
     }
+
+    tables
+};
+
+fn decode_consonant(word: &[u8], idx: usize) -> Result<u8, &'static str> {
+    let table_idx = match idx {
+        0 => 0,
+        2 => 1,
+        3 => 2,
+        5 => 3,
+        _ => return Err("invalid constant order"),
+    };
+
+    CONSONANT_LOOKUP[table_idx][word[idx] as usize].ok_or("invalid consonant character")
 }
 
 fn decode_vowel(b: u8) -> Result<u8, &'static str> {
@@ -240,25 +249,7 @@ fn decode_vowel(b: u8) -> Result<u8, &'static str> {
 
 #[cfg(test)]
 mod tests {
-    use rand::{Rng, thread_rng};
-
     use super::*;
-
-    #[test]
-    fn encode_decode() {
-        let mut rng = thread_rng();
-        // The prefix is typically supposed to come from
-        // the block hash where the registration happens.
-        let mut hash = [0_u8; 32];
-        rng.fill(&mut hash);
-
-        for id in 0..=255_u8 {
-            let name = Name::from([hash[0], hash[1], hash[2], hash[3], id]);
-            let decoded: Name = name.to_string().parse().unwrap();
-
-            assert_eq!(decoded, name);
-        }
-    }
 
     #[test]
     fn check_names_for_ordinals() {
@@ -290,8 +281,8 @@ mod tests {
         let cases = [
             (0, "dozzod-dozzod"),            // Ordinal 0
             (1, "tanfuj-hudzuf"),            // Ordinal 1
-            (42, "jikvas-haksis"),           // Ordinal 42
-            (1_000_000, "jikzax-zogjip"),    // Large ordinal
+            (42, "jihvas-hahsis"),           // Ordinal 42
+            (1_000_000, "jihzax-zogjip"),    // Large ordinal
             (0xFFFFFFFFFF, "moddog-vodnof"), // Max 40-bit value
         ];
 
@@ -386,5 +377,32 @@ mod tests {
             (avg_bit_diff - 20.0).abs() < 0.10,
             "Diffusion is poor: adjacent IDs are too similar (Avg diff: {avg_bit_diff})"
         );
+    }
+}
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Tests that any 5-byte sequence can be encoded to a string
+        /// and decoded back to the exact same 5 bytes.
+        #[test]
+        fn test_name_string_roundtrip(bytes in any::<[u8; 5]>()) {
+            let name = Name::from(bytes);
+            let encoded = name.to_string();
+            let decoded: Name = encoded.parse().unwrap();
+            assert_eq!(name, decoded, "String roundtrip failed for bytes: {:?}, encoded as: {}", bytes, encoded);
+        }
+
+        /// Tests that any ordinal (0 to 2^40-1) can be converted to
+        /// a Name and back to the same ordinal.
+        #[test]
+        fn test_ordinal_permutation_roundtrip(ordinal in 0..0xFFFFFFFFFFu64) {
+            let name = Name::from_ordinal(ordinal);
+            let recovered = name.to_ordinal();
+            assert_eq!(ordinal, recovered, "Ordinal roundtrip failed for: {}", ordinal);
+        }
     }
 }
