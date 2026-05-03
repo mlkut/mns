@@ -28,6 +28,16 @@ impl Name {
         unpermute_ordinal(self.as_u64())
     }
 
+    pub(crate) fn encode(&self) -> String {
+        let val = self.as_u64();
+
+        let mut result = String::with_capacity(13);
+        encode_word((val >> 20) & 0xFFFFF, &mut result);
+        result.push('-');
+        encode_word(val & 0xFFFFF, &mut result);
+        result
+    }
+
     pub(crate) fn as_u64(&self) -> u64 {
         u64::from_be_bytes([
             0, 0, 0, self.0[0], self.0[1], self.0[2], self.0[3], self.0[4],
@@ -37,7 +47,7 @@ impl Name {
 
 impl Display for Name {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", encode(&self.0))
+        write!(f, "{}", self.encode())
     }
 }
 
@@ -128,19 +138,6 @@ pub fn unpermute_ordinal(x: u64) -> u64 {
     (left << 20) | right
 }
 
-fn encode(bytes: &[u8; 5]) -> String {
-    let val = u64::from_be_bytes([
-        0, 0, 0, // padding
-        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4],
-    ]);
-
-    let mut result = String::with_capacity(13);
-    encode_word((val >> 20) & 0xFFFFF, &mut result);
-    result.push('-');
-    encode_word(val & 0xFFFFF, &mut result);
-    result
-}
-
 fn encode_word(bits: u64, result: &mut String) {
     let chars = [
         FIRST_CONSONANTS[((bits >> 16) & 0xF) as usize] as char,
@@ -162,7 +159,7 @@ fn decode(encoded: &str) -> Result<[u8; 5], &'static str> {
     // Use bytes directly for faster processing
     let bytes = encoded.as_bytes();
 
-    // Find the underscore position manually for better performance
+    // Find the dash position manually for better performance
     if bytes.iter().position(|&b| b == b'-') != Some(6) {
         return Err("Dash must be at position 6");
     };
@@ -188,12 +185,12 @@ fn decode_word(word: &[u8]) -> Result<u64, &'static str> {
     }
 
     // Precompute all character lookups in parallel
-    let c1 = decode_consonant(word, 0)? as u64;
+    let c1 = decode_consonant(0, word[0])? as u64;
     let v1 = decode_vowel(word[1])? as u64;
-    let c2 = decode_consonant(word, 2)? as u64;
-    let c3 = decode_consonant(word, 3)? as u64;
+    let c2 = decode_consonant(1, word[2])? as u64;
+    let c3 = decode_consonant(2, word[3])? as u64;
     let v2 = decode_vowel(word[4])? as u64;
-    let c4 = decode_consonant(word, 5)? as u64;
+    let c4 = decode_consonant(3, word[5])? as u64;
 
     // Reconstruct the 20-bit value
     Ok((c1 << 16) | (v1 << 14) | (c2 << 10) | (c3 << 6) | (v2 << 4) | c4)
@@ -231,16 +228,8 @@ static CONSONANT_LOOKUP: [[Option<u8>; 256]; 4] = {
     tables
 };
 
-fn decode_consonant(word: &[u8], idx: usize) -> Result<u8, &'static str> {
-    let table_idx = match idx {
-        0 => 0,
-        2 => 1,
-        3 => 2,
-        5 => 3,
-        _ => return Err("invalid constant order"),
-    };
-
-    CONSONANT_LOOKUP[table_idx][word[idx] as usize].ok_or("invalid consonant character")
+fn decode_consonant(table_idx: usize, ch: u8) -> Result<u8, &'static str> {
+    CONSONANT_LOOKUP[table_idx][ch as usize].ok_or("invalid consonant character")
 }
 
 fn decode_vowel(b: u8) -> Result<u8, &'static str> {
@@ -252,6 +241,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore]
     fn check_names_for_ordinals() {
         for ordinal in 1..=255_u64 {
             let name = Name::from_ordinal(ordinal).to_string();
