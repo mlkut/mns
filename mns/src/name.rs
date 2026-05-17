@@ -22,14 +22,14 @@ const PREFIXES: [&str; 256] = [
     "mop", "hab", "nil", "nos", "mil", "fop", "fam", "dat", "nol", "din", "hat", "nak", "ris",
     "fot", "rib", "hok", "nim", "lar", "fit", "wal", "rap", "sar", "nal", "mos", "lan", "don",
     "dan", "lad", "dov", "riv", "bak", "pol", "lap", "tal", "pit", "nam", "bon", "ros", "ton",
-    "fod", "pon", "sov", "nok", "sor", "lav", "mat", "mip", "fep",
+    "fob", "pon", "sov", "nok", "sor", "lav", "mat", "mip", "fep",
 ];
 
 // Urbit-derived suffix list (256 entries).
 // All 'c' replaced with 'k'.
 const SUFFIXES: [&str; 256] = [
     "zod", "nek", "bud", "wes", "sev", "per", "sut", "let", "ful", "pen", "syt", "dur", "wep",
-    "ser", "wyl", "sun", "ryp", "syk", "dyr", "nup", "heb", "pog", "lup", "dep", "dys", "put",
+    "ser", "wyl", "sun", "ryp", "syk", "dyr", "nup", "heb", "pog", "lup", "dep", "dys", "but",
     "lug", "hek", "ryt", "tyv", "syd", "nex", "lun", "mep", "lut", "sep", "pes", "del", "sul",
     "ked", "tem", "led", "tul", "met", "wen", "byn", "hex", "feb", "pyl", "dul", "het", "mev",
     "rut", "tyl", "wyd", "tep", "bes", "dex", "sef", "wyk", "bur", "der", "nep", "pur", "rys",
