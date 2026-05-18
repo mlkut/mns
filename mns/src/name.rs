@@ -106,6 +106,7 @@ fn round_f(val: u64, r: u64) -> u64 {
 }
 
 /// A 40-bit bijective permutation. No collisions across [0, 2^40).
+/// Feistel network with 4 rounds
 pub fn permute_ordinal(x: u64) -> u64 {
     let mut left = (x >> 20) & MASK_20;
     let mut right = x & MASK_20;
