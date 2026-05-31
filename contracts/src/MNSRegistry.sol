@@ -95,10 +95,10 @@ contract MNSRegistry {
 
     function _computeBucket() private view returns (uint64) {
         uint256 elapsed = block.timestamp - _lastRefill;
-        uint64 accrued = uint64((elapsed * REFILL_RATE) / REFILL_PERIOD);
+        uint256 accrued = (elapsed * REFILL_RATE) / REFILL_PERIOD;
         if (accrued == 0) return _bucket;
-        uint64 newBucket = _bucket + accrued;
-        return newBucket > BUCKET_CAPACITY ? BUCKET_CAPACITY : newBucket;
+        uint256 newBucket = _bucket + accrued;
+        return newBucket > BUCKET_CAPACITY ? BUCKET_CAPACITY : uint64(newBucket);
     }
 
     function _validateNameServer(string calldata nameServer) private pure {
