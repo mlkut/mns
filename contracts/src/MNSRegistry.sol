@@ -1,6 +1,6 @@
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.33;
 
-contract MNSRegistrar {
+contract MNSRegistry {
     mapping(bytes32 namehash => address owner) public records;
     mapping(bytes32 namehash => string) public names;
 
