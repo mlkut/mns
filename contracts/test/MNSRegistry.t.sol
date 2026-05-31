@@ -239,6 +239,56 @@ contract MNSRegistryTest is Test {
         assertEq(registry.getNameServer(50), "entry");
     }
 
+    function test_CanRegister_ReturnsTrueWhenTokensAvailable() public {
+        assertTrue(registry.canRegister());
+    }
+
+    function test_CanRegister_ReturnsFalseWhenBucketEmpty() public {
+        for (uint256 i = 0; i < 512; i++) {
+            registry.register("s");
+        }
+        assertFalse(registry.canRegister());
+    }
+
+    function test_CanRegister_ReturnsTrueAfterRefill() public {
+        for (uint256 i = 0; i < 512; i++) {
+            registry.register("s");
+        }
+        assertFalse(registry.canRegister());
+        vm.warp(block.timestamp + 1);
+        assertTrue(registry.canRegister());
+    }
+
+    function test_Register_RevertsWhenBucketEmpty() public {
+        for (uint256 i = 0; i < 512; i++) {
+            registry.register("s");
+        }
+        vm.expectRevert("rate limit: try later");
+        registry.register("s");
+    }
+
+    function test_Register_RefillsOneTokenAfterElapsed() public {
+        for (uint256 i = 0; i < 512; i++) {
+            registry.register("s");
+        }
+        // Refill time for 1 token = 86400 / 2^20 ≈ 0.082 seconds
+        vm.warp(block.timestamp + 1);
+        registry.register("s");
+    }
+
+    function test_Register_BucketCapsAtCapacity() public {
+        for (uint256 i = 0; i < 512; i++) {
+            registry.register("s");
+        }
+        // Warp a full day — bucket should refill to BUCKET_CAPACITY (512), no more.
+        vm.warp(block.timestamp + 1 days);
+        for (uint256 i = 0; i < 512; i++) {
+            registry.register("s");
+        }
+        vm.expectRevert("rate limit: try later");
+        registry.register("s");
+    }
+
     function newString(uint256 len) internal pure returns (string memory) {
         bytes memory s = new bytes(len);
         for (uint256 i = 0; i < len; i++) {

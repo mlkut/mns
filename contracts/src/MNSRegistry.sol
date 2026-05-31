@@ -2,13 +2,17 @@
 pragma solidity ^0.8.33;
 
 // TODO:
-// 1. Rate limit range registration.
-// 2. Add basic key recovery with time window!
+// 1. Add basic key recovery with time window!
 
 contract MNSRegistry {
     uint64 constant RANGE_SIZE = 256;
     // Max length of a DNS name (RFC 1035).
     uint256 constant MAX_NAMESERVER_LENGTH = 255;
+
+    // Token bucket rate limiter: ~1,048,576 registrations per day, burst up to 512.
+    uint64 constant REFILL_RATE = 2 ** 20;
+    uint64 constant BUCKET_CAPACITY = 512;
+    uint64 constant REFILL_PERIOD = 1 days;
 
     struct Range {
         uint64 ordinal;
@@ -24,6 +28,9 @@ contract MNSRegistry {
     Range[] private _ranges;
     mapping(uint64 ordinal => Entry) private _entries;
 
+    uint64 private _bucket = BUCKET_CAPACITY;
+    uint256 private _lastRefill = block.timestamp;
+
     function next_ordinal() external view returns (uint64) {
         if (_ranges.length == 0) return 0;
         return _ranges[_ranges.length - 1].ordinal + RANGE_SIZE;
@@ -37,6 +44,10 @@ contract MNSRegistry {
         return _entries[ordinal];
     }
 
+    function canRegister() external view returns (bool) {
+        return _computeBucket() > 0;
+    }
+
     function getNameServer(uint64 target) external view returns (string memory) {
         Entry storage entry = _entries[target];
         if (entry.owner != address(0)) {
@@ -48,6 +59,7 @@ contract MNSRegistry {
 
     function register(string calldata nameServer) external returns (Range memory) {
         _validateNameServer(nameServer);
+        _consumeBucketToken();
         uint64 newOrdinal = _ranges.length == 0 ? 0 : _ranges[_ranges.length - 1].ordinal + RANGE_SIZE;
         Range memory r = Range(newOrdinal, msg.sender, nameServer);
         _ranges.push(r);
@@ -72,6 +84,21 @@ contract MNSRegistry {
 
     function _validateOwner(address owner) private pure {
         require(owner != address(0), "invalid owner");
+    }
+
+    function _consumeBucketToken() private {
+        _bucket = _computeBucket();
+        _lastRefill = block.timestamp;
+        require(_bucket > 0, "rate limit: try later");
+        _bucket--;
+    }
+
+    function _computeBucket() private view returns (uint64) {
+        uint256 elapsed = block.timestamp - _lastRefill;
+        uint64 accrued = uint64((elapsed * REFILL_RATE) / REFILL_PERIOD);
+        if (accrued == 0) return _bucket;
+        uint64 newBucket = _bucket + accrued;
+        return newBucket > BUCKET_CAPACITY ? BUCKET_CAPACITY : newBucket;
     }
 
     function _validateNameServer(string calldata nameServer) private pure {
