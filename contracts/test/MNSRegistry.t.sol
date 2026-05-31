@@ -170,6 +170,75 @@ contract MNSRegistryTest is Test {
         registry.update(0, bob, newString(256));
     }
 
+    function test_UpdateRange_UpdatesOwnerAndNameServer() public {
+        vm.prank(alice);
+        registry.register("s1");
+        vm.prank(alice);
+        registry.updateRange(0, bob, "ns1");
+        MNSRegistry.Range memory r = registry.getRange(0);
+        assertEq(r.owner, bob);
+        assertEq(r.nameServer, "ns1");
+    }
+
+    function test_UpdateRange_RangeDefaultUpdatesGetNameServer() public {
+        vm.prank(alice);
+        registry.register("s1");
+        vm.prank(alice);
+        registry.updateRange(0, alice, "ns1");
+        assertEq(registry.getNameServer(50), "ns1");
+    }
+
+    function test_UpdateRange_DoesNotAffectExistingEntry() public {
+        vm.prank(alice);
+        registry.register("s1");
+        vm.prank(alice);
+        registry.update(50, alice, "override");
+        vm.prank(alice);
+        registry.updateRange(0, alice, "newDefault");
+        assertEq(registry.getNameServer(50), "override");
+        assertEq(registry.getNameServer(51), "newDefault");
+    }
+
+    function test_UpdateRange_RevertsWhenIndexOutOfBounds() public {
+        vm.prank(alice);
+        vm.expectRevert("invalid range");
+        registry.updateRange(0, alice, "ns1");
+    }
+
+    function test_UpdateRange_RevertsWhenNotOwner() public {
+        vm.prank(alice);
+        registry.register("s1");
+        vm.prank(bob);
+        vm.expectRevert("not owner");
+        registry.updateRange(0, bob, "ns1");
+    }
+
+    function test_UpdateRange_RevertsWhenOwnerIsZero() public {
+        vm.prank(alice);
+        registry.register("s1");
+        vm.prank(alice);
+        vm.expectRevert("invalid owner");
+        registry.updateRange(0, address(0), "ns1");
+    }
+
+    function test_UpdateRange_RevertsWhenNameServerTooLong() public {
+        vm.prank(alice);
+        registry.register("s1");
+        vm.prank(alice);
+        vm.expectRevert("name server too long");
+        registry.updateRange(0, alice, newString(256));
+    }
+
+    function test_UpdateRange_NewOwnerCanUpdateEntries() public {
+        vm.prank(alice);
+        registry.register("s1");
+        vm.prank(alice);
+        registry.updateRange(0, bob, "ns1");
+        vm.prank(bob);
+        registry.update(50, bob, "entry");
+        assertEq(registry.getNameServer(50), "entry");
+    }
+
     function newString(uint256 len) internal pure returns (string memory) {
         bytes memory s = new bytes(len);
         for (uint256 i = 0; i < len; i++) {

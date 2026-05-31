@@ -2,9 +2,8 @@
 pragma solidity ^0.8.33;
 
 // TODO:
-// 1. Allow updating owner and server of a range.
-// 2. Rate limit range registration.
-// 3. Add basic key recovery with time window!
+// 1. Rate limit range registration.
+// 2. Add basic key recovery with time window!
 
 contract MNSRegistry {
     uint64 constant RANGE_SIZE = 256;
@@ -48,7 +47,7 @@ contract MNSRegistry {
     }
 
     function register(string calldata nameServer) external returns (Range memory) {
-        require(bytes(nameServer).length <= MAX_NAMESERVER_LENGTH, "name server too long");
+        _validateNameServer(nameServer);
         uint64 newOrdinal = _ranges.length == 0 ? 0 : _ranges[_ranges.length - 1].ordinal + RANGE_SIZE;
         Range memory r = Range(newOrdinal, msg.sender, nameServer);
         _ranges.push(r);
@@ -56,10 +55,27 @@ contract MNSRegistry {
     }
 
     function update(uint64 ordinal, address newOwner, string calldata newNameServer) external {
-        require(newOwner != address(0), "invalid owner");
-        require(bytes(newNameServer).length <= MAX_NAMESERVER_LENGTH, "name server too long");
+        _validateOwner(newOwner);
+        _validateNameServer(newNameServer);
         require(_getOwner(ordinal) == msg.sender, "not owner");
         _entries[ordinal] = Entry(newOwner, newNameServer);
+    }
+
+    function updateRange(uint256 index, address newOwner, string calldata newNameServer) external {
+        require(index < _ranges.length, "invalid range");
+        require(_ranges[index].owner == msg.sender, "not owner");
+        _validateOwner(newOwner);
+        _validateNameServer(newNameServer);
+        _ranges[index].owner = newOwner;
+        _ranges[index].nameServer = newNameServer;
+    }
+
+    function _validateOwner(address owner) private pure {
+        require(owner != address(0), "invalid owner");
+    }
+
+    function _validateNameServer(string calldata nameServer) private pure {
+        require(bytes(nameServer).length <= MAX_NAMESERVER_LENGTH, "name server too long");
     }
 
     function _getOwner(uint64 target) private view returns (address) {
