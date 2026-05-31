@@ -1,4 +1,11 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
+
+// TODO: 
+// 1. Allow updating owner and server of a range.
+// 2. Limit the length of the server URL.
+// 3. Rate limit range registration..
+// 4. Add basic key recovery with time window!
 
 contract MNSRegistry {
     uint64 constant RANGE_SIZE = 256;
@@ -17,9 +24,9 @@ contract MNSRegistry {
     Range[] private _ranges;
     mapping(uint64 ordinal => Entry) private _entries;
 
-    function last_ordinal() external view returns (uint64) {
+    function next_ordinal() external view returns (uint64) {
         if (_ranges.length == 0) return 0;
-        return _ranges[_ranges.length - 1].ordinal + RANGE_SIZE - 1;
+        return _ranges[_ranges.length - 1].ordinal + RANGE_SIZE;
     }
 
     function get_range(uint256 index) external view returns (Range memory) {
@@ -39,14 +46,15 @@ contract MNSRegistry {
         return _ranges[idx].server;
     }
 
-    function register(address owner, string calldata server) external returns (Range memory) {
+    function register(string calldata server) external returns (Range memory) {
         uint64 newOrdinal = _ranges.length == 0 ? 0 : _ranges[_ranges.length - 1].ordinal + RANGE_SIZE;
-        Range memory r = Range(newOrdinal, owner, server);
+        Range memory r = Range(newOrdinal, msg.sender, server);
         _ranges.push(r);
         return r;
     }
 
     function update(uint64 ordinal, address newOwner, string calldata newServer) external {
+        require(newOwner != address(0), "invalid owner");
         require(_getOwner(ordinal) == msg.sender, "not owner");
         _entries[ordinal] = Entry(newOwner, newServer);
     }
