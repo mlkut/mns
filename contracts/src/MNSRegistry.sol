@@ -126,6 +126,8 @@ contract MNSRegistry {
                 right = mid;
             }
         }
-        return left - 1;
+        uint256 rangeIdx = left - 1;
+        require(target < _ranges[rangeIdx].ordinal + RANGE_SIZE, "ordinal out of range");
+        return rangeIdx;
     }
 }

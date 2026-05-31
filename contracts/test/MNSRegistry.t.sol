@@ -52,12 +52,13 @@ contract MNSRegistryTest is Test {
         assertEq(registry.getNameServer(300), "s2");
     }
 
-    function test_GetNameServer_ReturnsLastRangeForHighOrdinal() public {
+    function test_GetNameServer_RevertsWhenOrdinalOutOfRange() public {
         vm.prank(alice);
         registry.register("s1");
         vm.prank(bob);
         registry.register("s2");
-        assertEq(registry.getNameServer(100000), "s2");
+        vm.expectRevert("ordinal out of range");
+        registry.getNameServer(100000);
     }
 
     function test_GetNameServer_ReturnsEntryNameServer() public {
