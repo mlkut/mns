@@ -47,7 +47,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
     /// Register a range directly from the Safe (Safe is msg.sender).
     function _safeRegister(string memory nameServer) internal returns (uint256 rangeIndex) {
         rangeIndex = _currentRangeCount();
-        bytes memory data = abi.encodeCall(registry.register, (nameServer));
+        bytes memory data = abi.encodeCall(registry.register, (nameServer, bytes32(0)));
         safeInstance.execTransaction({
             to: address(registry),
             value: 0,
@@ -100,7 +100,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
     function test_SafeCanUpdateRangeNameServer() public {
         _safeRegister("ns1.example.com");
 
-        bytes memory data = abi.encodeCall(registry.updateRange, (0, _safeAddress(), "ns2.updated.com"));
+        bytes memory data = abi.encodeCall(registry.updateRange, (0, _safeAddress(), "ns2.updated.com", bytes32(0)));
         safeInstance.execTransaction({
             to: address(registry),
             value: 0,
@@ -123,7 +123,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
         address newOwner = makeAddr("newOwner");
         _safeRegister("ns1.example.com");
 
-        bytes memory data = abi.encodeCall(registry.updateRange, (0, newOwner, "ns1.example.com"));
+        bytes memory data = abi.encodeCall(registry.updateRange, (0, newOwner, "ns1.example.com", bytes32(0)));
         safeInstance.execTransaction({
             to: address(registry),
             value: 0,
@@ -147,7 +147,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
         address attacker = makeAddr("attacker");
         vm.prank(attacker);
         vm.expectRevert("not owner");
-        registry.updateRange(0, attacker, "evil.com");
+        registry.updateRange(0, attacker, "evil.com", bytes32(0));
     }
 
     /// Verify that after ownership transfer, the old Safe can no longer update.
@@ -156,7 +156,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
         _safeRegister("ns1.example.com");
 
         // Transfer ownership away from the Safe.
-        bytes memory transferData = abi.encodeCall(registry.updateRange, (0, newOwner, "ns1.example.com"));
+        bytes memory transferData = abi.encodeCall(registry.updateRange, (0, newOwner, "ns1.example.com", bytes32(0)));
         safeInstance.execTransaction({
             to: address(registry),
             value: 0,
@@ -171,7 +171,8 @@ contract MNSRegistryTest is Test, SafeTestTools {
         });
 
         // Safe tries to update again — Safe's execTransaction reverts with GS013.
-        bytes memory retryData = abi.encodeCall(registry.updateRange, (0, _safeAddress(), "ns2.reclaimed.com"));
+        bytes memory retryData =
+            abi.encodeCall(registry.updateRange, (0, _safeAddress(), "ns2.reclaimed.com", bytes32(0)));
 
         // Sign with threshold signers (the Safe's current owners).
         bytes32 txHash = safeInstance.safe.getTransactionHash(
@@ -240,7 +241,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
 
         // Manually build a tx signed by only 1 of 3 owners and expect failure.
         // We drop to raw execTransaction to control the signature count.
-        bytes memory data = abi.encodeCall(registry.updateRange, (0, _safeAddress(), "ns2.updated.com"));
+        bytes memory data = abi.encodeCall(registry.updateRange, (0, _safeAddress(), "ns2.updated.com", bytes32(0)));
 
         // Sign with only signer 0 (1-of-3, below threshold of 2).
         bytes32 txHash = safeInstance.safe.getTransactionHash(

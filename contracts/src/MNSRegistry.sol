@@ -15,7 +15,7 @@ pragma solidity ^0.8.33;
 /// created; the entry owner may update but not delete them. The range owner has no authority
 /// over individual entries once created — entry ownership is fully independent.
 ///
-/// Resolution order (getNameServer / getOwner):
+/// Resolution order (getNameserverConfig / getOwner):
 ///   1. If _entries[ordinal].owner != address(0)  → use entry
 ///   2. Otherwise                                 → use containing range
 ///
@@ -117,10 +117,12 @@ contract MNSRegistry {
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice Emitted when a new Range is registered.
-    event RangeRegistered(uint64 indexed ordinal, address indexed owner, string nameServer);
+    event RangeRegistered(uint64 indexed ordinal, address indexed owner, string nameServer, bytes32 signerHash);
 
     /// @notice Emitted when a Range's owner or nameserver is updated.
-    event RangeUpdated(uint256 indexed index, uint64 indexed ordinal, address indexed newOwner, string nameServer);
+    event RangeUpdated(
+        uint256 indexed index, uint64 indexed ordinal, address indexed newOwner, string nameServer, bytes32 signerHash
+    );
 
     /// @notice Emitted when a new Entry is created (first time for an ordinal).
     event EntryCreated(uint64 indexed ordinal, address indexed newOwner, string nameServer, bytes32 signerHash);
@@ -198,30 +200,35 @@ contract MNSRegistry {
 
     /// @notice Register a new Range. The caller becomes the owner.
     /// Permissionless — anyone may register, subject to rate limits.
-    /// @param nameServer Default nameserver for all ordinals in this range.
+    /// @param nameServer  Default nameserver for all ordinals in this range.
+    /// @param signerHash  Hash of the signer's public key (and type). Pass
+    ///                    bytes32(0) if no off-chain signing key is configured.
     /// @return r The newly created Range.
-    function register(string calldata nameServer) external returns (Range memory r) {
+    function register(string calldata nameServer, bytes32 signerHash) external returns (Range memory r) {
         _validateNameServer(nameServer);
         _consumeBucketToken();
         uint64 newOrdinal = _ranges.length == 0 ? 0 : _ranges[_ranges.length - 1].ordinal + RANGE_SIZE;
-        r = Range(newOrdinal, msg.sender, NameserverConfig(nameServer, bytes32(0)));
+        r = Range(newOrdinal, msg.sender, NameserverConfig(nameServer, signerHash));
         _ranges.push(r);
-        emit RangeRegistered(newOrdinal, msg.sender, nameServer);
+        emit RangeRegistered(newOrdinal, msg.sender, nameServer, signerHash);
     }
 
     /// @notice Update a Range's owner and/or nameserver.
     /// Only the current Range owner may call this.
-    /// @param index     Array index of the range (not the ordinal).
-    /// @param newOwner  New owner address. Must be non-zero.
+    /// @param index         Array index of the range (not the ordinal).
+    /// @param newOwner      New owner address. Must be non-zero.
     /// @param newNameServer New default nameserver for the range.
-    function updateRange(uint256 index, address newOwner, string calldata newNameServer) external {
+    /// @param signerHash    Hash of the signer's public key (and type). Pass
+    ///                      bytes32(0) to clear the signing key.
+    function updateRange(uint256 index, address newOwner, string calldata newNameServer, bytes32 signerHash) external {
         require(index < _ranges.length, "invalid range");
         require(_ranges[index].owner == msg.sender, "not owner");
         _validateOwner(newOwner);
         _validateNameServer(newNameServer);
         _ranges[index].owner = newOwner;
         _ranges[index].ns.nameServer = newNameServer;
-        emit RangeUpdated(index, _ranges[index].ordinal, newOwner, newNameServer);
+        _ranges[index].ns.signerHash = signerHash;
+        emit RangeUpdated(index, _ranges[index].ordinal, newOwner, newNameServer, signerHash);
     }
 
     /// @notice Create or update a per-ordinal Entry.
@@ -230,10 +237,11 @@ contract MNSRegistry {
     /// entry owner can update it — the range owner loses authority over this
     /// ordinal. This is intentional: entry ownership is fully independent of
     /// range ownership.
-    /// @param ordinal      The ordinal to update.
-    /// @param newOwner     New entry owner. Must be non-zero.
+    /// @param ordinal       The ordinal to update.
+    /// @param newOwner      New entry owner. Must be non-zero.
     /// @param newNameServer Nameserver for this specific ordinal.
-    /// @param signerHash   Hash of the signer's public key (and type) that signs records off-chain.
+    /// @param signerHash    Hash of the signer's public key (and type) that
+    ///                      signs records off-chain. Pass bytes32(0) if unused.
     function update(uint64 ordinal, address newOwner, string calldata newNameServer, bytes32 signerHash) external {
         _validateOwner(newOwner);
         _validateNameServer(newNameServer);
