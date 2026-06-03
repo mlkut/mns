@@ -29,7 +29,6 @@ pragma solidity ^0.8.33;
 ///   • Per-block cap (MAX_PER_BLOCK): prevents a single block from exhausting the daily
 ///     limit by many transactions. Resets every block.
 contract MNSRegistry {
-
     // ─────────────────────────────────────────────────────────────────────────
     // Constants
     // ─────────────────────────────────────────────────────────────────────────
@@ -60,13 +59,22 @@ contract MNSRegistry {
     // Data structures
     // ─────────────────────────────────────────────────────────────────────────
 
+    /// @notice Bundles a nameserver with the hash of its signing key.
+    /// The signer hash is keccak256(abi.encode(pubkey, keyType)) — by hashing
+    /// both the public key and its type, any signature scheme is supported
+    /// off-chain without updating this contract.
+    struct NameserverConfig {
+        string nameServer;
+        bytes32 signerHash;
+    }
+
     /// @notice A contiguous block of RANGE_SIZE ordinals with a single owner
     /// and default nameserver. Ranges are append-only; ordinals increase
     /// monotonically by RANGE_SIZE.
     struct Range {
         uint64 ordinal;
         address owner;
-        string nameServer;
+        NameserverConfig ns;
     }
 
     /// @notice A per-ordinal override. When present, supersedes the containing
@@ -75,7 +83,7 @@ contract MNSRegistry {
     /// to a well-known sentinel string) if you need to signal decommission.
     struct Entry {
         address owner;
-        string nameServer;
+        NameserverConfig ns;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -115,10 +123,10 @@ contract MNSRegistry {
     event RangeUpdated(uint256 indexed index, uint64 indexed ordinal, address indexed newOwner, string nameServer);
 
     /// @notice Emitted when a new Entry is created (first time for an ordinal).
-    event EntryCreated(uint64 indexed ordinal, address indexed newOwner, string nameServer);
+    event EntryCreated(uint64 indexed ordinal, address indexed newOwner, string nameServer, bytes32 signerHash);
 
     /// @notice Emitted when an existing Entry is updated.
-    event EntryUpdated(uint64 indexed ordinal, address indexed newOwner, string nameServer);
+    event EntryUpdated(uint64 indexed ordinal, address indexed newOwner, string nameServer, bytes32 signerHash);
 
     // ─────────────────────────────────────────────────────────────────────────
     // Views — registry state
@@ -148,15 +156,15 @@ contract MNSRegistry {
         return _entries[ordinal];
     }
 
-    /// @notice Resolves the effective nameserver for a given ordinal.
+    /// @notice Resolves the effective nameserver config for a given ordinal.
     /// Entry takes precedence over Range if one exists.
-    function getNameServer(uint64 target) external view returns (string memory) {
+    function getNameserverConfig(uint64 target) external view returns (NameserverConfig memory) {
         Entry storage entry = _entries[target];
         if (entry.owner != address(0)) {
-            return entry.nameServer;
+            return entry.ns;
         }
         uint256 idx = _findRange(target);
-        return _ranges[idx].nameServer;
+        return _ranges[idx].ns;
     }
 
     /// @notice Resolves the effective owner for a given ordinal.
@@ -196,7 +204,7 @@ contract MNSRegistry {
         _validateNameServer(nameServer);
         _consumeBucketToken();
         uint64 newOrdinal = _ranges.length == 0 ? 0 : _ranges[_ranges.length - 1].ordinal + RANGE_SIZE;
-        r = Range(newOrdinal, msg.sender, nameServer);
+        r = Range(newOrdinal, msg.sender, NameserverConfig(nameServer, bytes32(0)));
         _ranges.push(r);
         emit RangeRegistered(newOrdinal, msg.sender, nameServer);
     }
@@ -212,7 +220,7 @@ contract MNSRegistry {
         _validateOwner(newOwner);
         _validateNameServer(newNameServer);
         _ranges[index].owner = newOwner;
-        _ranges[index].nameServer = newNameServer;
+        _ranges[index].ns.nameServer = newNameServer;
         emit RangeUpdated(index, _ranges[index].ordinal, newOwner, newNameServer);
     }
 
@@ -225,16 +233,17 @@ contract MNSRegistry {
     /// @param ordinal      The ordinal to update.
     /// @param newOwner     New entry owner. Must be non-zero.
     /// @param newNameServer Nameserver for this specific ordinal.
-    function update(uint64 ordinal, address newOwner, string calldata newNameServer) external {
+    /// @param signerHash   Hash of the signer's public key (and type) that signs records off-chain.
+    function update(uint64 ordinal, address newOwner, string calldata newNameServer, bytes32 signerHash) external {
         _validateOwner(newOwner);
         _validateNameServer(newNameServer);
         require(_getOwner(ordinal) == msg.sender, "not owner");
         if (_entries[ordinal].owner == address(0)) {
-            _entries[ordinal] = Entry(newOwner, newNameServer);
-            emit EntryCreated(ordinal, newOwner, newNameServer);
+            _entries[ordinal] = Entry(newOwner, NameserverConfig(newNameServer, signerHash));
+            emit EntryCreated(ordinal, newOwner, newNameServer, signerHash);
         } else {
-            _entries[ordinal] = Entry(newOwner, newNameServer);
-            emit EntryUpdated(ordinal, newOwner, newNameServer);
+            _entries[ordinal] = Entry(newOwner, NameserverConfig(newNameServer, signerHash));
+            emit EntryUpdated(ordinal, newOwner, newNameServer, signerHash);
         }
     }
 

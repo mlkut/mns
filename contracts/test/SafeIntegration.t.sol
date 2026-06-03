@@ -67,7 +67,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
         // so we probe by trying getRange(0) — simpler to just track via next_ordinal diff.
         // We use a try/catch to detect the empty case.
         try registry.getRange(0) returns (MNSRegistry.Range memory) {
-            uint64 nextOrd = registry.next_ordinal();
+            uint64 nextOrd = registry.nextOrdinal();
             return nextOrd / 256; // RANGE_SIZE = 256
         } catch {
             return 0;
@@ -89,7 +89,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
 
         MNSRegistry.Range memory r = registry.getRange(0);
         assertEq(r.owner, _safeAddress(), "Safe should be range owner");
-        assertEq(r.nameServer, "ns1.example.com");
+        assertEq(r.ns.nameServer, "ns1.example.com");
         assertEq(r.ordinal, 0);
     }
 
@@ -115,7 +115,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
         });
 
         MNSRegistry.Range memory r = registry.getRange(0);
-        assertEq(r.nameServer, "ns2.updated.com", "nameServer should be updated");
+        assertEq(r.ns.nameServer, "ns2.updated.com", "nameServer should be updated");
         assertEq(r.owner, _safeAddress(), "owner should be unchanged");
     }
 
@@ -208,7 +208,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
         address newOwner = makeAddr("entryOwner");
         uint64 ordinal = 5; // any ordinal within the range [0, 255]
 
-        bytes memory data = abi.encodeCall(registry.update, (ordinal, newOwner, "entry.example.com"));
+        bytes memory data = abi.encodeCall(registry.update, (ordinal, newOwner, "entry.example.com", bytes32(0)));
         safeInstance.execTransaction({
             to: address(registry),
             value: 0,
@@ -224,10 +224,10 @@ contract MNSRegistryTest is Test, SafeTestTools {
 
         MNSRegistry.Entry memory e = registry.getEntry(ordinal);
         assertEq(e.owner, newOwner);
-        assertEq(e.nameServer, "entry.example.com");
+        assertEq(e.ns.nameServer, "entry.example.com");
 
         // getNameServer should now resolve to the entry's server, not the range's.
-        assertEq(registry.getNameServer(ordinal), "entry.example.com");
+        assertEq(registry.getNameserverConfig(ordinal).nameServer, "entry.example.com");
     }
 
     // -------------------------------------------------------------------------
