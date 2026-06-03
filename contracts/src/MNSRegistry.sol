@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-// TODO:
-// 1. Add basic key recovery with time window!
-
 contract MNSRegistry {
     uint64 constant RANGE_SIZE = 256;
     // Max length of a DNS name (RFC 1035).
