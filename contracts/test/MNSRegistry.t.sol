@@ -200,10 +200,12 @@ contract MNSRegistryTest is Test {
         assertEq(registry.getNameserverConfig(51).nameServer, "newDefault");
     }
 
-    function test_UpdateRange_RevertsWhenIndexOutOfBounds() public {
+    function test_UpdateRange_RevertsWhenOrdinalOutOfRange() public {
         vm.prank(alice);
-        vm.expectRevert("invalid range");
-        registry.updateRange(0, alice, "ns1", bytes32(0));
+        registry.register("s1", bytes32(0));
+        vm.prank(alice);
+        vm.expectRevert("ordinal out of range");
+        registry.updateRange(1000, alice, "ns1", bytes32(0));
     }
 
     function test_UpdateRange_RevertsWhenNotOwner() public {

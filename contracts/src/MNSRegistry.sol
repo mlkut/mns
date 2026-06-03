@@ -213,22 +213,24 @@ contract MNSRegistry {
         emit RangeRegistered(newOrdinal, msg.sender, nameServer, signerHash);
     }
 
-    /// @notice Update a Range's owner and/or nameserver.
-    /// Only the current Range owner may call this.
-    /// @param index         Array index of the range (not the ordinal).
+    /// @notice Update the range that contains the given ordinal.
+    /// The caller must be the range owner.
+    /// @param ordinal       Any ordinal within the target range.
     /// @param newOwner      New owner address. Must be non-zero.
     /// @param newNameServer New default nameserver for the range.
     /// @param signerHash    Hash of the signer's public key (and type). Pass
     ///                      bytes32(0) to clear the signing key.
-    function updateRange(uint256 index, address newOwner, string calldata newNameServer, bytes32 signerHash) external {
-        require(index < _ranges.length, "invalid range");
-        require(_ranges[index].owner == msg.sender, "not owner");
+    function updateRange(uint64 ordinal, address newOwner, string calldata newNameServer, bytes32 signerHash)
+        external
+    {
+        uint256 idx = _findRange(ordinal);
+        require(_ranges[idx].owner == msg.sender, "not owner");
         _validateOwner(newOwner);
         _validateNameServer(newNameServer);
-        _ranges[index].owner = newOwner;
-        _ranges[index].ns.nameServer = newNameServer;
-        _ranges[index].ns.signerHash = signerHash;
-        emit RangeUpdated(index, _ranges[index].ordinal, newOwner, newNameServer, signerHash);
+        _ranges[idx].owner = newOwner;
+        _ranges[idx].ns.nameServer = newNameServer;
+        _ranges[idx].ns.signerHash = signerHash;
+        emit RangeUpdated(idx, _ranges[idx].ordinal, newOwner, newNameServer, signerHash);
     }
 
     /// @notice Create or update a per-ordinal Entry.
