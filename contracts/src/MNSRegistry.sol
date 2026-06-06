@@ -115,9 +115,7 @@ contract MNSRegistry {
     event BatchRegistered(uint64 indexed ordinal, address indexed owner, string nameServer, bytes32 signerHash);
 
     /// @notice Emitted when a Batch's owner or nameserver is updated.
-    event BatchUpdated(
-        uint256 indexed index, uint64 indexed ordinal, address indexed newOwner, string nameServer, bytes32 signerHash
-    );
+    event BatchUpdated(uint64 indexed ordinal, address indexed newOwner, string nameServer, bytes32 signerHash);
 
     /// @notice Emitted when a new Entry is created (first time for an ordinal).
     event EntryCreated(uint64 indexed ordinal, address indexed newOwner, string nameServer, bytes32 signerHash);
@@ -192,13 +190,13 @@ contract MNSRegistry {
     /// @param signerHash  Hash of the signer's public key (and type). Pass
     ///                    bytes32(0) if no off-chain signing key is configured.
     /// @return r The newly created Batch.
-    function register(string calldata nameServer, bytes32 signerHash) external returns (Batch memory r) {
+    function register(string calldata nameServer, bytes32 signerHash) external returns (Batch memory) {
         _validateNameServer(nameServer);
         _consumeBucketToken();
         uint64 newOrdinal = _batches.length == 0 ? 0 : _batches[_batches.length - 1].ordinal + BATCH_SIZE;
-        r = Batch(newOrdinal, msg.sender, NameserverConfig(nameServer, signerHash));
-        _batches.push(r);
+        _batches.push(Batch(newOrdinal, msg.sender, NameserverConfig(nameServer, signerHash)));
         emit BatchRegistered(newOrdinal, msg.sender, nameServer, signerHash);
+        return _batches[_batches.length - 1];
     }
 
     /// @notice Update the batch that contains the given ordinal.
@@ -218,7 +216,7 @@ contract MNSRegistry {
         _batches[idx].owner = newOwner;
         _batches[idx].ns.nameServer = newNameServer;
         _batches[idx].ns.signerHash = signerHash;
-        emit BatchUpdated(idx, _batches[idx].ordinal, newOwner, newNameServer, signerHash);
+        emit BatchUpdated(_batches[idx].ordinal, newOwner, newNameServer, signerHash);
     }
 
     /// @notice Create or update a per-ordinal Entry.
@@ -251,6 +249,7 @@ contract MNSRegistry {
 
     /// @dev Consumes BATCH_SIZE tokens from the bucket (one per ordinal in the batch).
     /// Reverts with RateLimit(estimatedWaitSeconds) if the bucket doesn't have enough tokens.
+    /// Advances _lastRefill by the exact accrual window so fractional time carries over.
     function _consumeBucketToken() private {
         uint64 current = _computeBucket();
         if (current < BATCH_SIZE) {
@@ -258,8 +257,10 @@ contract MNSRegistry {
             uint256 wait = (deficit * REFILL_PERIOD + REFILL_RATE - 1) / REFILL_RATE;
             revert RateLimit(wait);
         }
+        uint256 elapsed = block.timestamp - _lastRefill;
+        uint256 accrued = (elapsed * REFILL_RATE) / REFILL_PERIOD;
         _bucket = current - BATCH_SIZE;
-        _lastRefill = block.timestamp;
+        _lastRefill += (accrued * REFILL_PERIOD) / REFILL_RATE;
     }
 
     /// @dev Computes the current bucket level as of block.timestamp without

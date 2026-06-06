@@ -204,7 +204,7 @@ contract MNSRegistryTest is Test {
         registry.register("s1", bytes32(0));
         vm.prank(alice);
         vm.expectRevert("ordinal out of batch");
-        registry.updateBatch(1000, alice, "ns1", bytes32(0));
+        registry.updateBatch(256, alice, "ns1", bytes32(0));
     }
 
     function test_UpdateBatch_RevertsWhenNotOwner() public {
@@ -299,6 +299,34 @@ contract MNSRegistryTest is Test {
         vm.warp(block.timestamp + 22);
 
         // Bucket refilled above the threshold — can register again
+        assertEq(registry.estimatedWaitTime(), 0);
+        registry.register("s", bytes32(0));
+    }
+
+    function test_ConsumeBucketToken_CarriesOverFractionalAccrual() public {
+        // After the first refill window, _lastRefill should advance by less than
+        // the full elapsed time so fractional token accrual carries forward.
+        //
+        // Without carryover (old _lastRefill = block.timestamp), warping 20s after
+        // the register below would give elapsed=20 → 242 tokens → bucket=252,
+        // not enough to register. With carryover, _lastRefill lags 1s behind,
+        // giving elapsed=21 → 254 tokens → bucket=264 — enough to register.
+
+        // 1. Exhaust: bucket = 0, _lastRefill = T0
+        _exhaustBucket();
+
+        // 2. Warp 22s → accrued = 22 * 1048576 / 86400 = 266 (truncated).
+        //    Register → consumes 256, bucket = 10.
+        //    _lastRefill += (266 * 86400) / 1048576 = 21 → _lastRefill = T0 + 21
+        vm.warp(block.timestamp + 22);
+        registry.register("s", bytes32(0));
+
+        // 3. Warp 20s (total T0 + 42).
+        //    With carryover:  elapsed = 42 − 21 = 21  → accrued = 254 → bucket = 264
+        //    Without carryover: elapsed = 42 − 22 = 20 → accrued = 242 → bucket = 252
+        vm.warp(block.timestamp + 20);
+
+        // 4. Carryover makes the difference — registration succeeds.
         assertEq(registry.estimatedWaitTime(), 0);
         registry.register("s", bytes32(0));
     }
