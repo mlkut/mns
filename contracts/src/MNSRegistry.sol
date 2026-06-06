@@ -57,6 +57,7 @@ contract MNSRegistry {
 
     /// @notice Token bucket: maximum burst size. Once depleted, callers must
     /// wait for the bucket to refill.
+    /// @dev Burst limit: BUCKET_CAPACITY / BATCH_SIZE = 2 batch registrations.
     uint64 public constant BUCKET_CAPACITY = 512;
 
     /// @notice Period over which REFILL_RATE tokens are added to the bucket.
@@ -98,6 +99,7 @@ contract MNSRegistry {
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @dev Append-only array of batches, ordered by ascending ordinal.
+    /// Invariant: _batches[i].ordinal == i * BATCH_SIZE. Enforced by register().
     Batch[] private _batches;
 
     /// @dev Per-ordinal entry overrides.
@@ -133,8 +135,8 @@ contract MNSRegistry {
     // Views — registry state
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice Returns the first ordinal that the next registered batch will receive.
-    /// Returns 0 if no batches registered yet, otherwise act as count of all registered ordinals so far.
+    /// @notice Returns the ordinal that the next register() call will assign.
+    /// Returns 0 if no batches have been registered yet.
     function nextOrdinal() external view returns (uint64) {
         if (_batches.length == 0) return 0;
         return _batches[_batches.length - 1].ordinal + BATCH_SIZE;
@@ -189,10 +191,12 @@ contract MNSRegistry {
     function register(string calldata nameServer, bytes32 signerHash) external returns (Batch memory) {
         _validateNameServer(nameServer);
         _consumeBucketToken();
-        uint64 newOrdinal = _batches.length == 0 ? 0 : _batches[_batches.length - 1].ordinal + BATCH_SIZE;
-        _batches.push(Batch(newOrdinal, msg.sender, NameserverConfig(nameServer, signerHash)));
+        require(_batches.length < type(uint64).max / BATCH_SIZE, "ID space exhausted, what year is this?");
+        uint64 newOrdinal = uint64(_batches.length * BATCH_SIZE);
+        Batch memory batch = Batch(newOrdinal, msg.sender, NameserverConfig(nameServer, signerHash));
+        _batches.push(batch);
         emit BatchRegistered(newOrdinal, msg.sender, nameServer, signerHash);
-        return _batches[_batches.length - 1];
+        return batch;
     }
 
     /// @notice Update the batch that contains the given ordinal.
@@ -228,6 +232,8 @@ contract MNSRegistry {
     /// @param newNameServer Nameserver for this specific ordinal.
     /// @param signerHash    Hash of the signer's public key (and type) that
     ///                      signs records off-chain. Pass bytes32(0) if unused.
+    /// @custom:error OrdinalNotRegistered if the ordinal's batch hasn't been registered.
+    /// The authorization check implicitly validates batch existence.
     function update(uint64 ordinal, address newOwner, string calldata newNameServer, bytes32 signerHash) external {
         _validateOwner(newOwner);
         _validateNameServer(newNameServer);
