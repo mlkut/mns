@@ -33,7 +33,7 @@ contract MNSRegistryTest is Test {
     function test_Register_PushesToBatchesArray() public {
         vm.prank(alice);
         registry.register("s1", bytes32(0));
-        assertEq(registry.getBatch(0).ordinal, 0);
+        assertEq(registry.nextOrdinal(), 256);
     }
 
     function test_GetNameServer_ReturnsBatchNameServer() public {
@@ -57,8 +57,10 @@ contract MNSRegistryTest is Test {
         registry.register("s1", bytes32(0));
         vm.prank(bob);
         registry.register("s2", bytes32(0));
-        vm.expectRevert("ordinal out of batch");
+        vm.expectRevert(abi.encodeWithSelector(MNSRegistry.OrdinalNotRegistered.selector, 100000));
         registry.getNameserverConfig(100000);
+        vm.expectRevert(abi.encodeWithSelector(MNSRegistry.OrdinalNotRegistered.selector, 100000));
+        registry.getOwner(100000);
     }
 
     function test_GetNameServer_ReturnsEntryNameServer() public {
@@ -90,9 +92,8 @@ contract MNSRegistryTest is Test {
         registry.register("s1", bytes32(0));
         vm.prank(alice);
         registry.update(50, bob, "custom", bytes32(0));
-        MNSRegistry.Entry memory e = registry.getEntry(50);
-        assertEq(e.owner, bob);
-        assertEq(e.ns.nameServer, "custom");
+        assertEq(registry.getOwner(50), bob);
+        assertEq(registry.getNameserverConfig(50).nameServer, "custom");
     }
 
     function test_Update_BatchOwnerCreatesEntry() public {
@@ -100,7 +101,7 @@ contract MNSRegistryTest is Test {
         registry.register("s1", bytes32(0));
         vm.prank(alice);
         registry.update(50, bob, "ok", bytes32(0));
-        assertEq(registry.getEntry(50).owner, bob);
+        assertEq(registry.getOwner(50), bob);
     }
 
     function test_Update_RevertsWhenNotOwnerNoEntry() public {
@@ -118,7 +119,7 @@ contract MNSRegistryTest is Test {
         registry.update(50, bob, "v1", bytes32(0));
         vm.prank(bob);
         registry.update(50, alice, "v2", bytes32(0));
-        assertEq(registry.getEntry(50).owner, alice);
+        assertEq(registry.getOwner(50), alice);
     }
 
     function test_Update_RevertsWhenNotOwnerExistingEntry() public {
@@ -150,10 +151,9 @@ contract MNSRegistryTest is Test {
     function test_Register_ReturnedBatchMatchesStorage() public {
         vm.prank(alice);
         MNSRegistry.Batch memory r = registry.register("s1", bytes32(0));
-        MNSRegistry.Batch memory stored = registry.getBatch(0);
-        assertEq(r.ordinal, stored.ordinal);
-        assertEq(r.owner, stored.owner);
-        assertEq(r.ns.nameServer, stored.ns.nameServer);
+        assertEq(r.ordinal, 0);
+        assertEq(r.owner, registry.getOwner(0));
+        assertEq(r.ns.nameServer, registry.getNameserverConfig(0).nameServer);
     }
 
     function test_Register_RevertsWhenNameServerTooLong() public {
@@ -175,9 +175,8 @@ contract MNSRegistryTest is Test {
         registry.register("s1", bytes32(0));
         vm.prank(alice);
         registry.updateBatch(0, bob, "ns1", bytes32(0));
-        MNSRegistry.Batch memory r = registry.getBatch(0);
-        assertEq(r.owner, bob);
-        assertEq(r.ns.nameServer, "ns1");
+        assertEq(registry.getOwner(0), bob);
+        assertEq(registry.getNameserverConfig(0).nameServer, "ns1");
     }
 
     function test_UpdateBatch_BatchDefaultUpdatesGetNameServer() public {
@@ -203,7 +202,7 @@ contract MNSRegistryTest is Test {
         vm.prank(alice);
         registry.register("s1", bytes32(0));
         vm.prank(alice);
-        vm.expectRevert("ordinal out of batch");
+        vm.expectRevert(abi.encodeWithSelector(MNSRegistry.BatchNotRegistered.selector, 256));
         registry.updateBatch(256, alice, "ns1", bytes32(0));
     }
 
@@ -337,13 +336,11 @@ contract MNSRegistryTest is Test {
         bytes32 hash1 = keccak256("key1");
         vm.prank(alice);
         registry.update(50, alice, "ns1", hash1);
-        MNSRegistry.Entry memory e = registry.getEntry(50);
-        assertEq(e.ns.signerHash, hash1);
+        assertEq(registry.getNameserverConfig(50).signerHash, hash1);
         bytes32 hash2 = keccak256("key2");
         vm.prank(alice);
         registry.update(50, alice, "ns2", hash2);
-        e = registry.getEntry(50);
-        assertEq(e.ns.signerHash, hash2);
+        assertEq(registry.getNameserverConfig(50).signerHash, hash2);
     }
 
     function test_GetNameserverConfig_ReturnsFullConfigForEntry() public {

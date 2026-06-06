@@ -63,15 +63,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
     }
 
     function _currentBatchCount() internal view returns (uint256) {
-        // next_ordinal() returns 0 both when empty AND when ordinal 0 is next,
-        // so we probe by trying getBatch(0) — simpler to just track via next_ordinal diff.
-        // We use a try/catch to detect the empty case.
-        try registry.getBatch(0) returns (MNSRegistry.Batch memory) {
-            uint64 nextOrd = registry.nextOrdinal();
-            return nextOrd / 256; // BATCH_SIZE = 256
-        } catch {
-            return 0;
-        }
+        return registry.nextOrdinal() / 256;
     }
 
     function _safeAddress() internal view returns (address) {
@@ -87,10 +79,8 @@ contract MNSRegistryTest is Test, SafeTestTools {
 
         _safeRegister("ns1.example.com");
 
-        MNSRegistry.Batch memory r = registry.getBatch(0);
-        assertEq(r.owner, _safeAddress(), "Safe should be batch owner");
-        assertEq(r.ns.nameServer, "ns1.example.com");
-        assertEq(r.ordinal, 0);
+        assertEq(registry.getOwner(0), _safeAddress(), "Safe should be batch owner");
+        assertEq(registry.getNameserverConfig(0).nameServer, "ns1.example.com");
     }
 
     // -------------------------------------------------------------------------
@@ -114,9 +104,8 @@ contract MNSRegistryTest is Test, SafeTestTools {
             signatures: ""
         });
 
-        MNSRegistry.Batch memory r = registry.getBatch(0);
-        assertEq(r.ns.nameServer, "ns2.updated.com", "nameServer should be updated");
-        assertEq(r.owner, _safeAddress(), "owner should be unchanged");
+        assertEq(registry.getNameserverConfig(0).nameServer, "ns2.updated.com", "nameServer should be updated");
+        assertEq(registry.getOwner(0), _safeAddress(), "owner should be unchanged");
     }
 
     function test_SafeCanTransferBatchOwnership() public {
@@ -137,8 +126,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
             signatures: ""
         });
 
-        MNSRegistry.Batch memory r = registry.getBatch(0);
-        assertEq(r.owner, newOwner, "ownership should have transferred");
+        assertEq(registry.getOwner(0), newOwner, "ownership should have transferred");
     }
 
     function test_NonOwnerCannotUpdateBatch() public {
@@ -223,9 +211,8 @@ contract MNSRegistryTest is Test, SafeTestTools {
             signatures: ""
         });
 
-        MNSRegistry.Entry memory e = registry.getEntry(ordinal);
-        assertEq(e.owner, newOwner);
-        assertEq(e.ns.nameServer, "entry.example.com");
+        assertEq(registry.getOwner(ordinal), newOwner);
+        assertEq(registry.getNameserverConfig(ordinal).nameServer, "entry.example.com");
 
         // getNameServer should now resolve to the entry's server, not the batch's.
         assertEq(registry.getNameserverConfig(ordinal).nameServer, "entry.example.com");

@@ -34,6 +34,12 @@ contract MNSRegistry {
     /// until enough tokens have accrued for one batch registration.
     error RateLimit(uint256 estimatedWaitSeconds);
 
+    /// @notice The ordinal queried has not been registered.
+    error OrdinalNotRegistered(uint64 ordinal);
+
+    /// @notice The ordinal's batch has not been registered.
+    error BatchNotRegistered(uint64 ordinal);
+
     // ─────────────────────────────────────────────────────────────────────────
     // Constants
     // ─────────────────────────────────────────────────────────────────────────
@@ -127,41 +133,25 @@ contract MNSRegistry {
     // Views — registry state
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice Returns the ordinal that the next registered batch will receive.
-    /// Returns 0 if no batches exist yet.
+    /// @notice Returns the first ordinal that the next registered batch will receive.
+    /// Returns 0 if no batches registered yet, otherwise act as count of all registered ordinals so far.
     function nextOrdinal() external view returns (uint64) {
         if (_batches.length == 0) return 0;
         return _batches[_batches.length - 1].ordinal + BATCH_SIZE;
-    }
-
-    /// @notice Total number of registered batches.
-    function batchCount() external view returns (uint256) {
-        return _batches.length;
-    }
-
-    /// @notice Returns the Batch at the given index.
-    function getBatch(uint256 index) external view returns (Batch memory) {
-        require(index < _batches.length, "index out of bounds");
-        return _batches[index];
-    }
-
-    /// @notice Returns the Entry for the given ordinal.
-    /// Returns a zero-value Entry if none exists (check owner != address(0)).
-    function getEntry(uint64 ordinal) external view returns (Entry memory) {
-        return _entries[ordinal];
     }
 
     /// @notice Resolves the effective nameserver config for a given ordinal.
     /// Entry takes precedence over Batch if one exists.
     /// @param target  The ordinal to resolve.
     /// @return The nameserver config for the ordinal.
-    /// @custom:revert ordinal out of batch if the ordinal has not been registered.
+    /// @custom:error OrdinalNotRegistered if the ordinal has not been registered.
     function getNameserverConfig(uint64 target) external view returns (NameserverConfig memory) {
         Entry storage entry = _entries[target];
         if (entry.owner != address(0)) {
             return entry.ns;
         }
-        uint256 idx = _findBatch(target);
+        (bool found, uint256 idx) = _getBatch(target);
+        if (!found) revert OrdinalNotRegistered(target);
         return _batches[idx].ns;
     }
 
@@ -169,7 +159,7 @@ contract MNSRegistry {
     /// Entry takes precedence over Batch if one exists.
     /// @param target  The ordinal to resolve.
     /// @return The owner address for the ordinal.
-    /// @custom:revert ordinal out of batch if the ordinal has not been registered.
+    /// @custom:error OrdinalNotRegistered if the ordinal has not been registered.
     function getOwner(uint64 target) external view returns (address) {
         return _getOwner(target);
     }
@@ -180,7 +170,7 @@ contract MNSRegistry {
 
     /// @notice Seconds until a batch registration is available (0 = now).
     function estimatedWaitTime() external view returns (uint256) {
-        uint64 current = _computeBucket();
+        (uint64 current,,) = _computeBucket();
         if (current >= BATCH_SIZE) return 0;
         uint256 deficit = BATCH_SIZE - current;
         return (deficit * REFILL_PERIOD + REFILL_RATE - 1) / REFILL_RATE;
@@ -215,14 +205,16 @@ contract MNSRegistry {
     function updateBatch(uint64 ordinal, address newOwner, string calldata newNameServer, bytes32 signerHash)
         external
     {
-        uint256 idx = _findBatch(ordinal);
+        (bool found, uint256 idx) = _getBatch(ordinal);
+        if (!found) revert BatchNotRegistered(ordinal);
         require(_batches[idx].owner == msg.sender, "not owner");
         _validateOwner(newOwner);
         _validateNameServer(newNameServer);
+        uint64 batchOrdinal = _batches[idx].ordinal; // read before writes
         _batches[idx].owner = newOwner;
         _batches[idx].ns.nameServer = newNameServer;
         _batches[idx].ns.signerHash = signerHash;
-        emit BatchUpdated(_batches[idx].ordinal, newOwner, newNameServer, signerHash);
+        emit BatchUpdated(batchOrdinal, newOwner, newNameServer, signerHash);
     }
 
     /// @notice Create or update a per-ordinal Entry.
@@ -257,26 +249,27 @@ contract MNSRegistry {
     /// Reverts with RateLimit(estimatedWaitSeconds) if the bucket doesn't have enough tokens.
     /// Advances _lastRefill by the exact accrual window so fractional time carries over.
     function _consumeBucketToken() private {
-        uint64 current = _computeBucket();
+        (uint64 current,, uint256 accrued) = _computeBucket();
         if (current < BATCH_SIZE) {
             uint256 deficit = BATCH_SIZE - current;
             uint256 wait = (deficit * REFILL_PERIOD + REFILL_RATE - 1) / REFILL_RATE;
             revert RateLimit(wait);
         }
-        uint256 elapsed = block.timestamp - _lastRefill;
-        uint256 accrued = (elapsed * REFILL_RATE) / REFILL_PERIOD;
         _bucket = current - BATCH_SIZE;
         _lastRefill += (accrued * REFILL_PERIOD) / REFILL_RATE;
     }
 
     /// @dev Computes the current bucket level as of block.timestamp without
     /// writing state. Safe to call from view functions.
-    function _computeBucket() private view returns (uint64) {
-        uint256 elapsed = block.timestamp - _lastRefill;
-        uint256 accrued = (elapsed * REFILL_RATE) / REFILL_PERIOD;
-        if (accrued == 0) return _bucket;
-        uint256 newBucket = uint256(_bucket) + accrued;
-        return newBucket > BUCKET_CAPACITY ? BUCKET_CAPACITY : uint64(newBucket);
+    function _computeBucket() private view returns (uint64 current, uint256 elapsed, uint256 accrued) {
+        elapsed = block.timestamp - _lastRefill;
+        accrued = (elapsed * REFILL_RATE) / REFILL_PERIOD;
+        if (accrued == 0) {
+            current = _bucket;
+        } else {
+            uint256 newBucket = uint256(_bucket) + accrued;
+            current = newBucket > BUCKET_CAPACITY ? BUCKET_CAPACITY : uint64(newBucket);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -297,35 +290,24 @@ contract MNSRegistry {
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @dev Returns the effective owner of an ordinal (entry → batch fallback).
+    /// Reverts if the ordinal has not been registered.
     function _getOwner(uint64 target) private view returns (address) {
         Entry storage entry = _entries[target];
         if (entry.owner != address(0)) {
             return entry.owner;
         }
-        uint256 idx = _findBatch(target);
+        (bool found, uint256 idx) = _getBatch(target);
+        if (!found) revert OrdinalNotRegistered(target);
         return _batches[idx].owner;
     }
 
-    /// @dev Binary search: returns the index of the Batch that contains `target`.
-    /// Reverts if no batches exist or if target falls outside all batches.
-    ///
-    /// Invariant: ordinals always start at 0 and increment by BATCH_SIZE, so
-    /// the left == 0 underflow case (target less than all batch ordinals) is
-    /// only reachable if _batches is empty, which is guarded above.
-    function _findBatch(uint64 target) private view returns (uint256) {
-        require(_batches.length > 0, "no batches");
-        uint256 left;
-        uint256 right = _batches.length;
-        while (left < right) {
-            uint256 mid = (left + right) / 2;
-            if (_batches[mid].ordinal <= target) {
-                left = mid + 1;
-            } else {
-                right = mid;
-            }
-        }
-        uint256 batchIdx = left - 1;
-        require(target < _batches[batchIdx].ordinal + BATCH_SIZE, "ordinal out of batch");
-        return batchIdx;
+    /// @dev Returns the index of the Batch that contains `target`.
+    /// Batches are stored contiguously starting at ordinal 0 with step BATCH_SIZE,
+    /// so the index is simply target / BATCH_SIZE.
+    /// Returns (false, 0) if no batch exists for the target.
+    function _getBatch(uint64 target) private view returns (bool found, uint256 idx) {
+        idx = target / BATCH_SIZE;
+        if (idx >= _batches.length) return (false, 0);
+        return (true, idx);
     }
 }
