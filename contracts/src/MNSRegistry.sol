@@ -153,6 +153,9 @@ contract MNSRegistry {
 
     /// @notice Resolves the effective nameserver config for a given ordinal.
     /// Entry takes precedence over Batch if one exists.
+    /// @param target  The ordinal to resolve.
+    /// @return The nameserver config for the ordinal.
+    /// @custom:revert ordinal out of batch if the ordinal has not been registered.
     function getNameserverConfig(uint64 target) external view returns (NameserverConfig memory) {
         Entry storage entry = _entries[target];
         if (entry.owner != address(0)) {
@@ -164,6 +167,9 @@ contract MNSRegistry {
 
     /// @notice Resolves the effective owner for a given ordinal.
     /// Entry takes precedence over Batch if one exists.
+    /// @param target  The ordinal to resolve.
+    /// @return The owner address for the ordinal.
+    /// @custom:revert ordinal out of batch if the ordinal has not been registered.
     function getOwner(uint64 target) external view returns (address) {
         return _getOwner(target);
     }
