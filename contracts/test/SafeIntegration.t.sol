@@ -44,9 +44,9 @@ contract MNSRegistryTest is Test, SafeTestTools {
     // Helpers
     // -------------------------------------------------------------------------
 
-    /// Register a range directly from the Safe (Safe is msg.sender).
-    function _safeRegister(string memory nameServer) internal returns (uint256 rangeIndex) {
-        rangeIndex = _currentRangeCount();
+    /// Register a batch directly from the Safe (Safe is msg.sender).
+    function _safeRegister(string memory nameServer) internal returns (uint256 batchIndex) {
+        batchIndex = _currentBatchCount();
         bytes memory data = abi.encodeCall(registry.register, (nameServer, bytes32(0)));
         safeInstance.execTransaction({
             to: address(registry),
@@ -62,13 +62,13 @@ contract MNSRegistryTest is Test, SafeTestTools {
         });
     }
 
-    function _currentRangeCount() internal view returns (uint256) {
+    function _currentBatchCount() internal view returns (uint256) {
         // next_ordinal() returns 0 both when empty AND when ordinal 0 is next,
-        // so we probe by trying getRange(0) — simpler to just track via next_ordinal diff.
+        // so we probe by trying getBatch(0) — simpler to just track via next_ordinal diff.
         // We use a try/catch to detect the empty case.
-        try registry.getRange(0) returns (MNSRegistry.Range memory) {
+        try registry.getBatch(0) returns (MNSRegistry.Batch memory) {
             uint64 nextOrd = registry.nextOrdinal();
-            return nextOrd / 256; // RANGE_SIZE = 256
+            return nextOrd / 256; // BATCH_SIZE = 256
         } catch {
             return 0;
         }
@@ -82,25 +82,25 @@ contract MNSRegistryTest is Test, SafeTestTools {
     // Registration tests
     // -------------------------------------------------------------------------
 
-    function test_SafeCanRegisterRange() public {
+    function test_SafeCanRegisterBatch() public {
         assertTrue(registry.canRegister(), "should be able to register");
 
         _safeRegister("ns1.example.com");
 
-        MNSRegistry.Range memory r = registry.getRange(0);
-        assertEq(r.owner, _safeAddress(), "Safe should be range owner");
+        MNSRegistry.Batch memory r = registry.getBatch(0);
+        assertEq(r.owner, _safeAddress(), "Safe should be batch owner");
         assertEq(r.ns.nameServer, "ns1.example.com");
         assertEq(r.ordinal, 0);
     }
 
     // -------------------------------------------------------------------------
-    // updateRange tests — core Safe scenario
+    // updateBatch tests — core Safe scenario
     // -------------------------------------------------------------------------
 
-    function test_SafeCanUpdateRangeNameServer() public {
+    function test_SafeCanUpdateBatchNameServer() public {
         _safeRegister("ns1.example.com");
 
-        bytes memory data = abi.encodeCall(registry.updateRange, (0, _safeAddress(), "ns2.updated.com", bytes32(0)));
+        bytes memory data = abi.encodeCall(registry.updateBatch, (0, _safeAddress(), "ns2.updated.com", bytes32(0)));
         safeInstance.execTransaction({
             to: address(registry),
             value: 0,
@@ -114,16 +114,16 @@ contract MNSRegistryTest is Test, SafeTestTools {
             signatures: ""
         });
 
-        MNSRegistry.Range memory r = registry.getRange(0);
+        MNSRegistry.Batch memory r = registry.getBatch(0);
         assertEq(r.ns.nameServer, "ns2.updated.com", "nameServer should be updated");
         assertEq(r.owner, _safeAddress(), "owner should be unchanged");
     }
 
-    function test_SafeCanTransferRangeOwnership() public {
+    function test_SafeCanTransferBatchOwnership() public {
         address newOwner = makeAddr("newOwner");
         _safeRegister("ns1.example.com");
 
-        bytes memory data = abi.encodeCall(registry.updateRange, (0, newOwner, "ns1.example.com", bytes32(0)));
+        bytes memory data = abi.encodeCall(registry.updateBatch, (0, newOwner, "ns1.example.com", bytes32(0)));
         safeInstance.execTransaction({
             to: address(registry),
             value: 0,
@@ -137,17 +137,17 @@ contract MNSRegistryTest is Test, SafeTestTools {
             signatures: ""
         });
 
-        MNSRegistry.Range memory r = registry.getRange(0);
+        MNSRegistry.Batch memory r = registry.getBatch(0);
         assertEq(r.owner, newOwner, "ownership should have transferred");
     }
 
-    function test_NonOwnerCannotUpdateRange() public {
+    function test_NonOwnerCannotUpdateBatch() public {
         _safeRegister("ns1.example.com");
 
         address attacker = makeAddr("attacker");
         vm.prank(attacker);
         vm.expectRevert("not owner");
-        registry.updateRange(0, attacker, "evil.com", bytes32(0));
+        registry.updateBatch(0, attacker, "evil.com", bytes32(0));
     }
 
     /// Verify that after ownership transfer, the old Safe can no longer update.
@@ -156,7 +156,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
         _safeRegister("ns1.example.com");
 
         // Transfer ownership away from the Safe.
-        bytes memory transferData = abi.encodeCall(registry.updateRange, (0, newOwner, "ns1.example.com", bytes32(0)));
+        bytes memory transferData = abi.encodeCall(registry.updateBatch, (0, newOwner, "ns1.example.com", bytes32(0)));
         safeInstance.execTransaction({
             to: address(registry),
             value: 0,
@@ -172,7 +172,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
 
         // Safe tries to update again — Safe's execTransaction reverts with GS013.
         bytes memory retryData =
-            abi.encodeCall(registry.updateRange, (0, _safeAddress(), "ns2.reclaimed.com", bytes32(0)));
+            abi.encodeCall(registry.updateBatch, (0, _safeAddress(), "ns2.reclaimed.com", bytes32(0)));
 
         // Sign with threshold signers (the Safe's current owners).
         bytes32 txHash = safeInstance.safe.getTransactionHash(
@@ -207,7 +207,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
         _safeRegister("ns1.example.com");
 
         address newOwner = makeAddr("entryOwner");
-        uint64 ordinal = 5; // any ordinal within the range [0, 255]
+        uint64 ordinal = 5; // any ordinal within the batch [0, 255]
 
         bytes memory data = abi.encodeCall(registry.update, (ordinal, newOwner, "entry.example.com", bytes32(0)));
         safeInstance.execTransaction({
@@ -227,7 +227,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
         assertEq(e.owner, newOwner);
         assertEq(e.ns.nameServer, "entry.example.com");
 
-        // getNameServer should now resolve to the entry's server, not the range's.
+        // getNameServer should now resolve to the entry's server, not the batch's.
         assertEq(registry.getNameserverConfig(ordinal).nameServer, "entry.example.com");
     }
 
@@ -241,7 +241,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
 
         // Manually build a tx signed by only 1 of 3 owners and expect failure.
         // We drop to raw execTransaction to control the signature count.
-        bytes memory data = abi.encodeCall(registry.updateRange, (0, _safeAddress(), "ns2.updated.com", bytes32(0)));
+        bytes memory data = abi.encodeCall(registry.updateBatch, (0, _safeAddress(), "ns2.updated.com", bytes32(0)));
 
         // Sign with only signer 0 (1-of-3, below threshold of 2).
         bytes32 txHash = safeInstance.safe.getTransactionHash(

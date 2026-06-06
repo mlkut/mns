@@ -6,18 +6,18 @@ pragma solidity ^0.8.33;
 ///
 /// Architecture
 /// ────────────
-/// Ordinal space is divided into fixed-size Ranges of RANGE_SIZE (256) ordinals each.
-/// Anyone may register a new Range (consuming a rate-limit token). Each Range has an
+/// Ordinal space is divided into fixed-size Batches of BATCH_SIZE (256) ordinals each.
+/// Anyone may register a new Batch (consuming a rate-limit token). Each Batch has an
 /// owner and a default nameserver that resolves for every ordinal in [ordinal, ordinal+255].
 ///
 /// Individual ordinals can be overridden via Entries. An Entry takes precedence over its
-/// containing Range for both owner and nameserver resolution. Entries are permanent once
-/// created; the entry owner may update but not delete them. The range owner has no authority
+/// containing Batch for both owner and nameserver resolution. Entries are permanent once
+/// created; the entry owner may update but not delete them. The batch owner has no authority
 /// over individual entries once created — entry ownership is fully independent.
 ///
 /// Resolution order (getNameserverConfig / getOwner):
 ///   1. If _entries[ordinal].owner != address(0)  → use entry
-///   2. Otherwise                                 → use containing range
+///   2. Otherwise                                 → use containing batch
 ///
 /// Rate limiting
 /// ─────────────
@@ -30,15 +30,15 @@ contract MNSRegistry {
     // Constants
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice Number of ordinals per range. Ranges cover [ordinal, ordinal + RANGE_SIZE).
-    uint64 public constant RANGE_SIZE = 256;
+    /// @notice Number of ordinals per batch. Batches cover [ordinal, ordinal + BATCH_SIZE).
+    uint64 public constant BATCH_SIZE = 256;
 
     /// @notice Maximum DNS name length per RFC 1035.
     uint256 public constant MAX_NAMESERVER_LENGTH = 255;
 
     /// @notice Token bucket: ordinals (tokens) added per REFILL_PERIOD.
     /// At 1,048,576 ordinals/day the bucket refills at ~12 tokens/second.
-    /// Each register() consumes RANGE_SIZE tokens.
+    /// Each register() consumes BATCH_SIZE tokens.
     uint64 public constant REFILL_RATE = 2 ** 20;
 
     /// @notice Token bucket: maximum burst size. Once depleted, callers must
@@ -61,17 +61,17 @@ contract MNSRegistry {
         bytes32 signerHash;
     }
 
-    /// @notice A contiguous block of RANGE_SIZE ordinals with a single owner
-    /// and default nameserver. Ranges are append-only; ordinals increase
-    /// monotonically by RANGE_SIZE.
-    struct Range {
+    /// @notice A contiguous block of BATCH_SIZE ordinals with a single owner
+    /// and default nameserver. Batches are append-only; ordinals increase
+    /// monotonically by BATCH_SIZE.
+    struct Batch {
         uint64 ordinal;
         address owner;
         NameserverConfig ns;
     }
 
     /// @notice A per-ordinal override. When present, supersedes the containing
-    /// Range for both owner and nameserver resolution. Entries are permanent;
+    /// Batch for both owner and nameserver resolution. Entries are permanent;
     /// they can be updated but not deleted. Use tombstoning (point nameServer
     /// to a well-known sentinel string) if you need to signal decommission.
     struct Entry {
@@ -83,8 +83,8 @@ contract MNSRegistry {
     // Storage
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @dev Append-only array of ranges, ordered by ascending ordinal.
-    Range[] private _ranges;
+    /// @dev Append-only array of batches, ordered by ascending ordinal.
+    Batch[] private _batches;
 
     /// @dev Per-ordinal entry overrides.
     mapping(uint64 ordinal => Entry) private _entries;
@@ -103,11 +103,11 @@ contract MNSRegistry {
     // Events
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice Emitted when a new Range is registered.
-    event RangeRegistered(uint64 indexed ordinal, address indexed owner, string nameServer, bytes32 signerHash);
+    /// @notice Emitted when a new Batch is registered.
+    event BatchRegistered(uint64 indexed ordinal, address indexed owner, string nameServer, bytes32 signerHash);
 
-    /// @notice Emitted when a Range's owner or nameserver is updated.
-    event RangeUpdated(
+    /// @notice Emitted when a Batch's owner or nameserver is updated.
+    event BatchUpdated(
         uint256 indexed index, uint64 indexed ordinal, address indexed newOwner, string nameServer, bytes32 signerHash
     );
 
@@ -121,22 +121,22 @@ contract MNSRegistry {
     // Views — registry state
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice Returns the ordinal that the next registered range will receive.
-    /// Returns 0 if no ranges exist yet.
+    /// @notice Returns the ordinal that the next registered batch will receive.
+    /// Returns 0 if no batches exist yet.
     function nextOrdinal() external view returns (uint64) {
-        if (_ranges.length == 0) return 0;
-        return _ranges[_ranges.length - 1].ordinal + RANGE_SIZE;
+        if (_batches.length == 0) return 0;
+        return _batches[_batches.length - 1].ordinal + BATCH_SIZE;
     }
 
-    /// @notice Total number of registered ranges.
-    function rangeCount() external view returns (uint256) {
-        return _ranges.length;
+    /// @notice Total number of registered batches.
+    function batchCount() external view returns (uint256) {
+        return _batches.length;
     }
 
-    /// @notice Returns the Range at the given index.
-    function getRange(uint256 index) external view returns (Range memory) {
-        require(index < _ranges.length, "index out of bounds");
-        return _ranges[index];
+    /// @notice Returns the Batch at the given index.
+    function getBatch(uint256 index) external view returns (Batch memory) {
+        require(index < _batches.length, "index out of bounds");
+        return _batches[index];
     }
 
     /// @notice Returns the Entry for the given ordinal.
@@ -146,18 +146,18 @@ contract MNSRegistry {
     }
 
     /// @notice Resolves the effective nameserver config for a given ordinal.
-    /// Entry takes precedence over Range if one exists.
+    /// Entry takes precedence over Batch if one exists.
     function getNameserverConfig(uint64 target) external view returns (NameserverConfig memory) {
         Entry storage entry = _entries[target];
         if (entry.owner != address(0)) {
             return entry.ns;
         }
-        uint256 idx = _findRange(target);
-        return _ranges[idx].ns;
+        uint256 idx = _findBatch(target);
+        return _batches[idx].ns;
     }
 
     /// @notice Resolves the effective owner for a given ordinal.
-    /// Entry takes precedence over Range if one exists.
+    /// Entry takes precedence over Batch if one exists.
     function getOwner(uint64 target) external view returns (address) {
         return _getOwner(target);
     }
@@ -168,7 +168,7 @@ contract MNSRegistry {
 
     /// @notice Returns true if at least one registration is possible right now.
     function canRegister() external view returns (bool) {
-        return _computeBucket() >= RANGE_SIZE;
+        return _computeBucket() >= BATCH_SIZE;
     }
 
     /// @notice Current effective token bucket level (read-only, not persisted).
@@ -180,47 +180,47 @@ contract MNSRegistry {
     // Mutating functions
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice Register a new Range. The caller becomes the owner.
+    /// @notice Register a new Batch. The caller becomes the owner.
     /// Permissionless — anyone may register, subject to rate limits.
-    /// @param nameServer  Default nameserver for all ordinals in this range.
+    /// @param nameServer  Default nameserver for all ordinals in this batch.
     /// @param signerHash  Hash of the signer's public key (and type). Pass
     ///                    bytes32(0) if no off-chain signing key is configured.
-    /// @return r The newly created Range.
-    function register(string calldata nameServer, bytes32 signerHash) external returns (Range memory r) {
+    /// @return r The newly created Batch.
+    function register(string calldata nameServer, bytes32 signerHash) external returns (Batch memory r) {
         _validateNameServer(nameServer);
         _consumeBucketToken();
-        uint64 newOrdinal = _ranges.length == 0 ? 0 : _ranges[_ranges.length - 1].ordinal + RANGE_SIZE;
-        r = Range(newOrdinal, msg.sender, NameserverConfig(nameServer, signerHash));
-        _ranges.push(r);
-        emit RangeRegistered(newOrdinal, msg.sender, nameServer, signerHash);
+        uint64 newOrdinal = _batches.length == 0 ? 0 : _batches[_batches.length - 1].ordinal + BATCH_SIZE;
+        r = Batch(newOrdinal, msg.sender, NameserverConfig(nameServer, signerHash));
+        _batches.push(r);
+        emit BatchRegistered(newOrdinal, msg.sender, nameServer, signerHash);
     }
 
-    /// @notice Update the range that contains the given ordinal.
-    /// The caller must be the range owner.
-    /// @param ordinal       Any ordinal within the target range.
+    /// @notice Update the batch that contains the given ordinal.
+    /// The caller must be the batch owner.
+    /// @param ordinal       Any ordinal within the target batch.
     /// @param newOwner      New owner address. Must be non-zero.
-    /// @param newNameServer New default nameserver for the range.
+    /// @param newNameServer New default nameserver for the batch.
     /// @param signerHash    Hash of the signer's public key (and type). Pass
     ///                      bytes32(0) to clear the signing key.
-    function updateRange(uint64 ordinal, address newOwner, string calldata newNameServer, bytes32 signerHash)
+    function updateBatch(uint64 ordinal, address newOwner, string calldata newNameServer, bytes32 signerHash)
         external
     {
-        uint256 idx = _findRange(ordinal);
-        require(_ranges[idx].owner == msg.sender, "not owner");
+        uint256 idx = _findBatch(ordinal);
+        require(_batches[idx].owner == msg.sender, "not owner");
         _validateOwner(newOwner);
         _validateNameServer(newNameServer);
-        _ranges[idx].owner = newOwner;
-        _ranges[idx].ns.nameServer = newNameServer;
-        _ranges[idx].ns.signerHash = signerHash;
-        emit RangeUpdated(idx, _ranges[idx].ordinal, newOwner, newNameServer, signerHash);
+        _batches[idx].owner = newOwner;
+        _batches[idx].ns.nameServer = newNameServer;
+        _batches[idx].ns.signerHash = signerHash;
+        emit BatchUpdated(idx, _batches[idx].ordinal, newOwner, newNameServer, signerHash);
     }
 
     /// @notice Create or update a per-ordinal Entry.
     /// Caller must be the current effective owner of the ordinal (entry owner
-    /// if an entry exists, otherwise range owner). Once created, only the
-    /// entry owner can update it — the range owner loses authority over this
+    /// if an entry exists, otherwise batch owner). Once created, only the
+    /// entry owner can update it — the batch owner loses authority over this
     /// ordinal. This is intentional: entry ownership is fully independent of
-    /// range ownership.
+    /// batch ownership.
     /// @param ordinal       The ordinal to update.
     /// @param newOwner      New entry owner. Must be non-zero.
     /// @param newNameServer Nameserver for this specific ordinal.
@@ -243,12 +243,12 @@ contract MNSRegistry {
     // Internal — rate limiter
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @dev Consumes RANGE_SIZE tokens from the bucket (one per ordinal in the range).
+    /// @dev Consumes BATCH_SIZE tokens from the bucket (one per ordinal in the batch).
     /// Reverts if the bucket doesn't have enough tokens.
     function _consumeBucketToken() private {
         uint64 current = _computeBucket();
-        require(current >= RANGE_SIZE, "rate limit");
-        _bucket = current - RANGE_SIZE;
+        require(current >= BATCH_SIZE, "rate limit");
+        _bucket = current - BATCH_SIZE;
         _lastRefill = block.timestamp;
     }
 
@@ -279,36 +279,36 @@ contract MNSRegistry {
     // Internal — resolution
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @dev Returns the effective owner of an ordinal (entry → range fallback).
+    /// @dev Returns the effective owner of an ordinal (entry → batch fallback).
     function _getOwner(uint64 target) private view returns (address) {
         Entry storage entry = _entries[target];
         if (entry.owner != address(0)) {
             return entry.owner;
         }
-        uint256 idx = _findRange(target);
-        return _ranges[idx].owner;
+        uint256 idx = _findBatch(target);
+        return _batches[idx].owner;
     }
 
-    /// @dev Binary search: returns the index of the Range that contains `target`.
-    /// Reverts if no ranges exist or if target falls outside all ranges.
+    /// @dev Binary search: returns the index of the Batch that contains `target`.
+    /// Reverts if no batches exist or if target falls outside all batches.
     ///
-    /// Invariant: ordinals always start at 0 and increment by RANGE_SIZE, so
-    /// the left == 0 underflow case (target less than all range ordinals) is
-    /// only reachable if _ranges is empty, which is guarded above.
-    function _findRange(uint64 target) private view returns (uint256) {
-        require(_ranges.length > 0, "no ranges");
+    /// Invariant: ordinals always start at 0 and increment by BATCH_SIZE, so
+    /// the left == 0 underflow case (target less than all batch ordinals) is
+    /// only reachable if _batches is empty, which is guarded above.
+    function _findBatch(uint64 target) private view returns (uint256) {
+        require(_batches.length > 0, "no batches");
         uint256 left;
-        uint256 right = _ranges.length;
+        uint256 right = _batches.length;
         while (left < right) {
             uint256 mid = (left + right) / 2;
-            if (_ranges[mid].ordinal <= target) {
+            if (_batches[mid].ordinal <= target) {
                 left = mid + 1;
             } else {
                 right = mid;
             }
         }
-        uint256 rangeIdx = left - 1;
-        require(target < _ranges[rangeIdx].ordinal + RANGE_SIZE, "ordinal out of range");
-        return rangeIdx;
+        uint256 batchIdx = left - 1;
+        require(target < _batches[batchIdx].ordinal + BATCH_SIZE, "ordinal out of batch");
+        return batchIdx;
     }
 }

@@ -13,9 +13,9 @@ contract MNSRegistryTest is Test {
         registry = new MNSRegistry();
     }
 
-    function test_Register_ReturnsRangeStartingAtZero() public {
+    function test_Register_ReturnsBatchStartingAtZero() public {
         vm.prank(alice);
-        MNSRegistry.Range memory r = registry.register("s1", bytes32(0));
+        MNSRegistry.Batch memory r = registry.register("s1", bytes32(0));
         assertEq(r.ordinal, 0);
         assertEq(r.owner, alice);
         assertEq(r.ns.nameServer, "s1");
@@ -23,27 +23,27 @@ contract MNSRegistryTest is Test {
 
     function test_Register_SubsequentIncrementsBy256() public {
         vm.prank(alice);
-        MNSRegistry.Range memory r1 = registry.register("s1", bytes32(0));
+        MNSRegistry.Batch memory r1 = registry.register("s1", bytes32(0));
         vm.prank(bob);
-        MNSRegistry.Range memory r2 = registry.register("s2", bytes32(0));
+        MNSRegistry.Batch memory r2 = registry.register("s2", bytes32(0));
         assertEq(r1.ordinal, 0);
         assertEq(r2.ordinal, 256);
     }
 
-    function test_Register_PushesToRangesArray() public {
+    function test_Register_PushesToBatchesArray() public {
         vm.prank(alice);
         registry.register("s1", bytes32(0));
-        assertEq(registry.getRange(0).ordinal, 0);
+        assertEq(registry.getBatch(0).ordinal, 0);
     }
 
-    function test_GetNameServer_ReturnsRangeNameServer() public {
+    function test_GetNameServer_ReturnsBatchNameServer() public {
         vm.prank(alice);
         registry.register("s1", bytes32(0));
         string memory nameServer = registry.getNameserverConfig(0).nameServer;
         assertEq(nameServer, "s1");
     }
 
-    function test_GetNameServer_RoundsDownToCorrectRange() public {
+    function test_GetNameServer_RoundsDownToCorrectBatch() public {
         vm.prank(alice);
         registry.register("s1", bytes32(0));
         vm.prank(bob);
@@ -52,12 +52,12 @@ contract MNSRegistryTest is Test {
         assertEq(registry.getNameserverConfig(300).nameServer, "s2");
     }
 
-    function test_GetNameServer_RevertsWhenOrdinalOutOfRange() public {
+    function test_GetNameServer_RevertsWhenOrdinalOutOfBatch() public {
         vm.prank(alice);
         registry.register("s1", bytes32(0));
         vm.prank(bob);
         registry.register("s2", bytes32(0));
-        vm.expectRevert("ordinal out of range");
+        vm.expectRevert("ordinal out of batch");
         registry.getNameserverConfig(100000);
     }
 
@@ -69,7 +69,7 @@ contract MNSRegistryTest is Test {
         assertEq(registry.getNameserverConfig(50).nameServer, "overridden");
     }
 
-    function test_GetNameServer_ReturnsRangeNameServerWhenNoEntry() public {
+    function test_GetNameServer_ReturnsBatchNameServerWhenNoEntry() public {
         vm.prank(alice);
         registry.register("s1", bytes32(0));
         vm.prank(alice);
@@ -95,7 +95,7 @@ contract MNSRegistryTest is Test {
         assertEq(e.ns.nameServer, "custom");
     }
 
-    function test_Update_RangeOwnerCreatesEntry() public {
+    function test_Update_BatchOwnerCreatesEntry() public {
         vm.prank(alice);
         registry.register("s1", bytes32(0));
         vm.prank(alice);
@@ -147,10 +147,10 @@ contract MNSRegistryTest is Test {
         assertEq(registry.nextOrdinal(), 512);
     }
 
-    function test_Register_ReturnedRangeMatchesStorage() public {
+    function test_Register_ReturnedBatchMatchesStorage() public {
         vm.prank(alice);
-        MNSRegistry.Range memory r = registry.register("s1", bytes32(0));
-        MNSRegistry.Range memory stored = registry.getRange(0);
+        MNSRegistry.Batch memory r = registry.register("s1", bytes32(0));
+        MNSRegistry.Batch memory stored = registry.getBatch(0);
         assertEq(r.ordinal, stored.ordinal);
         assertEq(r.owner, stored.owner);
         assertEq(r.ns.nameServer, stored.ns.nameServer);
@@ -170,72 +170,72 @@ contract MNSRegistryTest is Test {
         registry.update(0, bob, newString(256), bytes32(0));
     }
 
-    function test_UpdateRange_UpdatesOwnerAndNameServer() public {
+    function test_UpdateBatch_UpdatesOwnerAndNameServer() public {
         vm.prank(alice);
         registry.register("s1", bytes32(0));
         vm.prank(alice);
-        registry.updateRange(0, bob, "ns1", bytes32(0));
-        MNSRegistry.Range memory r = registry.getRange(0);
+        registry.updateBatch(0, bob, "ns1", bytes32(0));
+        MNSRegistry.Batch memory r = registry.getBatch(0);
         assertEq(r.owner, bob);
         assertEq(r.ns.nameServer, "ns1");
     }
 
-    function test_UpdateRange_RangeDefaultUpdatesGetNameServer() public {
+    function test_UpdateBatch_BatchDefaultUpdatesGetNameServer() public {
         vm.prank(alice);
         registry.register("s1", bytes32(0));
         vm.prank(alice);
-        registry.updateRange(0, alice, "ns1", bytes32(0));
+        registry.updateBatch(0, alice, "ns1", bytes32(0));
         assertEq(registry.getNameserverConfig(50).nameServer, "ns1");
     }
 
-    function test_UpdateRange_DoesNotAffectExistingEntry() public {
+    function test_UpdateBatch_DoesNotAffectExistingEntry() public {
         vm.prank(alice);
         registry.register("s1", bytes32(0));
         vm.prank(alice);
         registry.update(50, alice, "override", bytes32(0));
         vm.prank(alice);
-        registry.updateRange(0, alice, "newDefault", bytes32(0));
+        registry.updateBatch(0, alice, "newDefault", bytes32(0));
         assertEq(registry.getNameserverConfig(50).nameServer, "override");
         assertEq(registry.getNameserverConfig(51).nameServer, "newDefault");
     }
 
-    function test_UpdateRange_RevertsWhenOrdinalOutOfRange() public {
+    function test_UpdateBatch_RevertsWhenOrdinalOutOfBatch() public {
         vm.prank(alice);
         registry.register("s1", bytes32(0));
         vm.prank(alice);
-        vm.expectRevert("ordinal out of range");
-        registry.updateRange(1000, alice, "ns1", bytes32(0));
+        vm.expectRevert("ordinal out of batch");
+        registry.updateBatch(1000, alice, "ns1", bytes32(0));
     }
 
-    function test_UpdateRange_RevertsWhenNotOwner() public {
+    function test_UpdateBatch_RevertsWhenNotOwner() public {
         vm.prank(alice);
         registry.register("s1", bytes32(0));
         vm.prank(bob);
         vm.expectRevert("not owner");
-        registry.updateRange(0, bob, "ns1", bytes32(0));
+        registry.updateBatch(0, bob, "ns1", bytes32(0));
     }
 
-    function test_UpdateRange_RevertsWhenOwnerIsZero() public {
+    function test_UpdateBatch_RevertsWhenOwnerIsZero() public {
         vm.prank(alice);
         registry.register("s1", bytes32(0));
         vm.prank(alice);
         vm.expectRevert("invalid owner");
-        registry.updateRange(0, address(0), "ns1", bytes32(0));
+        registry.updateBatch(0, address(0), "ns1", bytes32(0));
     }
 
-    function test_UpdateRange_RevertsWhenNameServerTooLong() public {
+    function test_UpdateBatch_RevertsWhenNameServerTooLong() public {
         vm.prank(alice);
         registry.register("s1", bytes32(0));
         vm.prank(alice);
         vm.expectRevert("nameserver too long");
-        registry.updateRange(0, alice, newString(256), bytes32(0));
+        registry.updateBatch(0, alice, newString(256), bytes32(0));
     }
 
-    function test_UpdateRange_NewOwnerCanUpdateEntries() public {
+    function test_UpdateBatch_NewOwnerCanUpdateEntries() public {
         vm.prank(alice);
         registry.register("s1", bytes32(0));
         vm.prank(alice);
-        registry.updateRange(0, bob, "ns1", bytes32(0));
+        registry.updateBatch(0, bob, "ns1", bytes32(0));
         vm.prank(bob);
         registry.update(50, bob, "entry", bytes32(0));
         assertEq(registry.getNameserverConfig(50).nameServer, "entry");
@@ -259,7 +259,7 @@ contract MNSRegistryTest is Test {
     function test_CanRegister_ReturnsTrueAfterRefill() public {
         _exhaustBucket();
         assertFalse(registry.canRegister());
-        // Need RANGE_SIZE (256) tokens; refill rate = 2^20 / day ≈ 12.14 tokens/sec
+        // Need BATCH_SIZE (256) tokens; refill rate = 2^20 / day ≈ 12.14 tokens/sec
         // 256 / 12.14 ≈ 21.09 sec → warp +22 sec
         vm.warp(block.timestamp + 22);
         assertTrue(registry.canRegister());
@@ -273,7 +273,7 @@ contract MNSRegistryTest is Test {
 
     function test_Register_RefillsForRegistrationAfterElapsed() public {
         _exhaustBucket();
-        // Need RANGE_SIZE (256) tokens; refill time = 256 * 86400 / 2^20 ≈ 21.09 seconds
+        // Need BATCH_SIZE (256) tokens; refill time = 256 * 86400 / 2^20 ≈ 21.09 seconds
         vm.warp(block.timestamp + 22);
         registry.register("s", bytes32(0));
     }
@@ -313,7 +313,7 @@ contract MNSRegistryTest is Test {
         assertEq(cfg.signerHash, hashVal);
     }
 
-    function test_GetNameserverConfig_SignerHashIsZeroForRange() public {
+    function test_GetNameserverConfig_SignerHashIsZeroForBatch() public {
         vm.prank(alice);
         registry.register("s1", bytes32(0));
         MNSRegistry.NameserverConfig memory cfg = registry.getNameserverConfig(0);
