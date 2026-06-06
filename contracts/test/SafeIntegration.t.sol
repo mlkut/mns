@@ -83,7 +83,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
     // -------------------------------------------------------------------------
 
     function test_SafeCanRegisterBatch() public {
-        assertTrue(registry.canRegister(), "should be able to register");
+        assertEq(registry.estimatedWaitTime(), 0, "should be able to register");
 
         _safeRegister("ns1.example.com");
 

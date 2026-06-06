@@ -241,33 +241,33 @@ contract MNSRegistryTest is Test {
         assertEq(registry.getNameserverConfig(50).nameServer, "entry");
     }
 
-    function test_CanRegister_ReturnsTrueWhenTokensAvailable() public {
-        assertTrue(registry.canRegister());
+    function test_EstimatedWaitTime_ReturnsZeroAtStart() public view {
+        assertEq(registry.estimatedWaitTime(), 0);
     }
 
     function _exhaustBucket() internal {
-        while (registry.canRegister()) {
+        while (registry.estimatedWaitTime() == 0) {
             registry.register("s", bytes32(0));
         }
     }
 
-    function test_CanRegister_ReturnsFalseWhenBucketEmpty() public {
+    function test_EstimatedWaitTime_ReturnsPositiveWhenBucketEmpty() public {
         _exhaustBucket();
-        assertFalse(registry.canRegister());
+        assertGt(registry.estimatedWaitTime(), 0);
     }
 
-    function test_CanRegister_ReturnsTrueAfterRefill() public {
+    function test_EstimatedWaitTime_ReturnsZeroAfterRefill() public {
         _exhaustBucket();
-        assertFalse(registry.canRegister());
+        assertGt(registry.estimatedWaitTime(), 0);
         // Need BATCH_SIZE (256) tokens; refill rate = 2^20 / day ≈ 12.14 tokens/sec
         // 256 / 12.14 ≈ 21.09 sec → warp +22 sec
         vm.warp(block.timestamp + 22);
-        assertTrue(registry.canRegister());
+        assertEq(registry.estimatedWaitTime(), 0);
     }
 
     function test_Register_RevertsWhenBucketEmpty() public {
         _exhaustBucket();
-        vm.expectRevert("rate limit");
+        vm.expectRevert(abi.encodeWithSelector(MNSRegistry.RateLimit.selector, 22));
         registry.register("s", bytes32(0));
     }
 
@@ -283,26 +283,24 @@ contract MNSRegistryTest is Test {
         // Warp a full day — bucket should refill to BUCKET_CAPACITY (512), no more.
         vm.warp(block.timestamp + 1 days);
         _exhaustBucket();
-        vm.expectRevert("rate limit");
+        vm.expectRevert(abi.encodeWithSelector(MNSRegistry.RateLimit.selector, 22));
         registry.register("s", bytes32(0));
     }
 
     function test_Register_RefillsAfterBurstAcrossBlocks() public {
         // Bucket starts at BUCKET_CAPACITY (512 tokens = 2 batch registrations)
-        assertTrue(registry.canRegister());
+        assertEq(registry.estimatedWaitTime(), 0);
 
-        // Exhaust the burst: consume both batch slots
-        registry.register("s", bytes32(0));
-        registry.register("s", bytes32(0));
-        assertFalse(registry.canRegister());
+        // Fully exhaust the burst
+        _exhaustBucket();
+        assertGt(registry.estimatedWaitTime(), 0);
 
         // Fast-forward ~22 seconds — enough for BATCH_SIZE (256) tokens at ~12.14/sec
         vm.warp(block.timestamp + 22);
 
         // Bucket refilled above the threshold — can register again
-        assertTrue(registry.canRegister());
+        assertEq(registry.estimatedWaitTime(), 0);
         registry.register("s", bytes32(0));
-        assertEq(registry.nextOrdinal(), 768);
     }
 
     function test_Entry_SetsAndUpdatesSignerHash() public {

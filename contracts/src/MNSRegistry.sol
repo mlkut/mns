@@ -27,6 +27,14 @@ pragma solidity ^0.8.33;
 /// bounds the sustained daily throughput.
 contract MNSRegistry {
     // ─────────────────────────────────────────────────────────────────────────
+    // Errors
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @notice Registration is rate-limited. `estimatedWaitSeconds` is the time
+    /// until enough tokens have accrued for one batch registration.
+    error RateLimit(uint256 estimatedWaitSeconds);
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Constants
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -166,14 +174,12 @@ contract MNSRegistry {
     // Views — rate limiter
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice Returns true if at least one registration is possible right now.
-    function canRegister() external view returns (bool) {
-        return _computeBucket() >= BATCH_SIZE;
-    }
-
-    /// @notice Current effective token bucket level (read-only, not persisted).
-    function bucketLevel() external view returns (uint64) {
-        return _computeBucket();
+    /// @notice Seconds until a batch registration is available (0 = now).
+    function estimatedWaitTime() external view returns (uint256) {
+        uint64 current = _computeBucket();
+        if (current >= BATCH_SIZE) return 0;
+        uint256 deficit = BATCH_SIZE - current;
+        return (deficit * REFILL_PERIOD + REFILL_RATE - 1) / REFILL_RATE;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -244,10 +250,14 @@ contract MNSRegistry {
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @dev Consumes BATCH_SIZE tokens from the bucket (one per ordinal in the batch).
-    /// Reverts if the bucket doesn't have enough tokens.
+    /// Reverts with RateLimit(estimatedWaitSeconds) if the bucket doesn't have enough tokens.
     function _consumeBucketToken() private {
         uint64 current = _computeBucket();
-        require(current >= BATCH_SIZE, "rate limit");
+        if (current < BATCH_SIZE) {
+            uint256 deficit = BATCH_SIZE - current;
+            uint256 wait = (deficit * REFILL_PERIOD + REFILL_RATE - 1) / REFILL_RATE;
+            revert RateLimit(wait);
+        }
         _bucket = current - BATCH_SIZE;
         _lastRefill = block.timestamp;
     }
