@@ -21,13 +21,10 @@ pragma solidity ^0.8.33;
 ///
 /// Rate limiting
 /// ─────────────
-/// Two independent limits are layered:
-///   • Token bucket (BUCKET_CAPACITY / REFILL_RATE / REFILL_PERIOD): smooths the daily
-///     registration rate independently of block times, which vary on Rootstock. The bucket
-///     refills continuously; BUCKET_CAPACITY bounds the burst, REFILL_RATE bounds the
-///     sustained daily throughput.
-///   • Per-block cap (MAX_PER_BLOCK): prevents a single block from exhausting the daily
-///     limit by many transactions. Resets every block.
+/// A token bucket (BUCKET_CAPACITY / REFILL_RATE / REFILL_PERIOD) smooths the
+/// registration rate independently of block times, which vary on Rootstock. The
+/// bucket refills continuously; BUCKET_CAPACITY bounds the burst, REFILL_RATE
+/// bounds the sustained daily throughput.
 contract MNSRegistry {
     // ─────────────────────────────────────────────────────────────────────────
     // Constants
@@ -39,17 +36,12 @@ contract MNSRegistry {
     /// @notice Maximum DNS name length per RFC 1035.
     uint256 public constant MAX_NAMESERVER_LENGTH = 255;
 
-    /// @notice Maximum registrations allowed in a single block.
-    /// Prevents a single block from being exhausted across many callers.
-    uint64 public constant MAX_PER_BLOCK = 10;
-
     /// @notice Token bucket: sustained registrations added per REFILL_PERIOD.
     /// At 1,048,576 / day the bucket refills at ~12 tokens/second.
     uint64 public constant REFILL_RATE = 2 ** 20;
 
     /// @notice Token bucket: maximum burst size. Once depleted, callers must
-    /// wait for the bucket to refill. Should be >= MAX_PER_BLOCK so that a
-    /// freshly-deployed contract isn't immediately block-rate-limited.
+    /// wait for the bucket to refill.
     uint64 public constant BUCKET_CAPACITY = 512;
 
     /// @notice Period over which REFILL_RATE tokens are added to the bucket.
@@ -105,12 +97,6 @@ contract MNSRegistry {
 
     /// @dev Timestamp of the last bucket write (consume or explicit update).
     uint256 private _lastRefill = block.timestamp;
-
-    /// @dev Number of registrations in the current block (resets each block).
-    uint64 private _blockCount;
-
-    /// @dev Block number when _blockCount was last reset.
-    uint256 private _lastBlock;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Events
@@ -180,13 +166,8 @@ contract MNSRegistry {
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice Returns true if at least one registration is possible right now.
-    /// Accounts for both the token bucket and the per-block cap.
-    /// @dev The block cap resets at the next block, so a false result from the
-    /// block cap becomes true as soon as a new block is mined.
     function canRegister() external view returns (bool) {
-        if (_computeBucket() == 0) return false;
-        if (block.number == _lastBlock && _blockCount >= MAX_PER_BLOCK) return false;
-        return true;
+        return _computeBucket() > 0;
     }
 
     /// @notice Current effective token bucket level (read-only, not persisted).
@@ -261,18 +242,8 @@ contract MNSRegistry {
     // Internal — rate limiter
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @dev Consumes one token from the bucket and increments the block counter.
-    /// Reverts if either limit is exhausted.
+    /// @dev Consumes one token from the bucket. Reverts if empty.
     function _consumeBucketToken() private {
-        // Per-block limit: reset counter on new block.
-        if (block.number != _lastBlock) {
-            _lastBlock = block.number;
-            _blockCount = 0;
-        }
-        require(_blockCount < MAX_PER_BLOCK, "rate limit: block cap");
-        _blockCount++;
-
-        // Token bucket limit.
         uint64 current = _computeBucket();
         require(current > 0, "rate limit: daily cap");
         _bucket = current - 1;

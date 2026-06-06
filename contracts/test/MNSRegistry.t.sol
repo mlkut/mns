@@ -249,7 +249,6 @@ contract MNSRegistryTest is Test {
     function _exhaustBucket() internal {
         for (uint256 i = 0; i < 512; i++) {
             registry.register("s", bytes32(0));
-            if (i % 10 == 9) vm.roll(block.number + 1);
         }
     }
 
@@ -282,7 +281,6 @@ contract MNSRegistryTest is Test {
         _exhaustBucket();
         // Warp a full day — bucket should refill to BUCKET_CAPACITY (512), no more.
         vm.warp(block.timestamp + 1 days);
-        vm.roll(block.number + 1);
         _exhaustBucket();
         vm.expectRevert("rate limit: daily cap");
         registry.register("s", bytes32(0));
