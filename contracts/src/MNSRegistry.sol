@@ -135,9 +135,9 @@ contract MNSRegistry {
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice Returns the ordinal that the next registered range will receive.
-    /// Reverts if no ranges exist — use rangeCount() to check first.
+    /// Returns 0 if no ranges exist yet.
     function nextOrdinal() external view returns (uint64) {
-        require(_ranges.length > 0, "no ranges registered");
+        if (_ranges.length == 0) return 0;
         return _ranges[_ranges.length - 1].ordinal + RANGE_SIZE;
     }
 
@@ -248,11 +248,11 @@ contract MNSRegistry {
         _validateOwner(newOwner);
         _validateNameServer(newNameServer);
         require(_getOwner(ordinal) == msg.sender, "not owner");
-        if (_entries[ordinal].owner == address(0)) {
-            _entries[ordinal] = Entry(newOwner, NameserverConfig(newNameServer, signerHash));
+        bool existedBefore = _entries[ordinal].owner != address(0);
+        _entries[ordinal] = Entry(newOwner, NameserverConfig(newNameServer, signerHash));
+        if (existedBefore) {
             emit EntryCreated(ordinal, newOwner, newNameServer, signerHash);
         } else {
-            _entries[ordinal] = Entry(newOwner, NameserverConfig(newNameServer, signerHash));
             emit EntryUpdated(ordinal, newOwner, newNameServer, signerHash);
         }
     }
