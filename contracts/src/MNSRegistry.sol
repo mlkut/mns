@@ -233,9 +233,9 @@ contract MNSRegistry {
         bool existedBefore = _entries[ordinal].owner != address(0);
         _entries[ordinal] = Entry(newOwner, NameserverConfig(newNameServer, signerHash));
         if (existedBefore) {
-            emit EntryCreated(ordinal, newOwner, newNameServer, signerHash);
-        } else {
             emit EntryUpdated(ordinal, newOwner, newNameServer, signerHash);
+        } else {
+            emit EntryCreated(ordinal, newOwner, newNameServer, signerHash);
         }
     }
 
