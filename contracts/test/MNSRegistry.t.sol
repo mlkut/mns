@@ -287,6 +287,24 @@ contract MNSRegistryTest is Test {
         registry.register("s", bytes32(0));
     }
 
+    function test_Register_RefillsAfterBurstAcrossBlocks() public {
+        // Bucket starts at BUCKET_CAPACITY (512 tokens = 2 batch registrations)
+        assertTrue(registry.canRegister());
+
+        // Exhaust the burst: consume both batch slots
+        registry.register("s", bytes32(0));
+        registry.register("s", bytes32(0));
+        assertFalse(registry.canRegister());
+
+        // Fast-forward ~22 seconds — enough for BATCH_SIZE (256) tokens at ~12.14/sec
+        vm.warp(block.timestamp + 22);
+
+        // Bucket refilled above the threshold — can register again
+        assertTrue(registry.canRegister());
+        registry.register("s", bytes32(0));
+        assertEq(registry.nextOrdinal(), 768);
+    }
+
     function test_Entry_SetsAndUpdatesSignerHash() public {
         vm.prank(alice);
         registry.register("s1", bytes32(0));
