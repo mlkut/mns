@@ -36,8 +36,9 @@ contract MNSRegistry {
     /// @notice Maximum DNS name length per RFC 1035.
     uint256 public constant MAX_NAMESERVER_LENGTH = 255;
 
-    /// @notice Token bucket: sustained registrations added per REFILL_PERIOD.
-    /// At 1,048,576 / day the bucket refills at ~12 tokens/second.
+    /// @notice Token bucket: ordinals (tokens) added per REFILL_PERIOD.
+    /// At 1,048,576 ordinals/day the bucket refills at ~12 tokens/second.
+    /// Each register() consumes RANGE_SIZE tokens.
     uint64 public constant REFILL_RATE = 2 ** 20;
 
     /// @notice Token bucket: maximum burst size. Once depleted, callers must
@@ -167,7 +168,7 @@ contract MNSRegistry {
 
     /// @notice Returns true if at least one registration is possible right now.
     function canRegister() external view returns (bool) {
-        return _computeBucket() > 0;
+        return _computeBucket() >= RANGE_SIZE;
     }
 
     /// @notice Current effective token bucket level (read-only, not persisted).
@@ -242,11 +243,12 @@ contract MNSRegistry {
     // Internal — rate limiter
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @dev Consumes one token from the bucket. Reverts if empty.
+    /// @dev Consumes RANGE_SIZE tokens from the bucket (one per ordinal in the range).
+    /// Reverts if the bucket doesn't have enough tokens.
     function _consumeBucketToken() private {
         uint64 current = _computeBucket();
-        require(current > 0, "rate limit: daily cap");
-        _bucket = current - 1;
+        require(current >= RANGE_SIZE, "rate limit");
+        _bucket = current - RANGE_SIZE;
         _lastRefill = block.timestamp;
     }
 

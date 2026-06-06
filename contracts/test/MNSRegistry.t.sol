@@ -141,11 +141,10 @@ contract MNSRegistryTest is Test {
 
     function test_Register_CanPushMultiple() public {
         vm.startPrank(alice);
-        for (uint256 i = 0; i < 5; i++) {
-            registry.register("s", bytes32(0));
-        }
+        registry.register("s", bytes32(0));
+        registry.register("s", bytes32(0));
         vm.stopPrank();
-        assertEq(registry.nextOrdinal(), 1280);
+        assertEq(registry.nextOrdinal(), 512);
     }
 
     function test_Register_ReturnedRangeMatchesStorage() public {
@@ -247,7 +246,7 @@ contract MNSRegistryTest is Test {
     }
 
     function _exhaustBucket() internal {
-        for (uint256 i = 0; i < 512; i++) {
+        while (registry.canRegister()) {
             registry.register("s", bytes32(0));
         }
     }
@@ -260,20 +259,22 @@ contract MNSRegistryTest is Test {
     function test_CanRegister_ReturnsTrueAfterRefill() public {
         _exhaustBucket();
         assertFalse(registry.canRegister());
-        vm.warp(block.timestamp + 1);
+        // Need RANGE_SIZE (256) tokens; refill rate = 2^20 / day ≈ 12.14 tokens/sec
+        // 256 / 12.14 ≈ 21.09 sec → warp +22 sec
+        vm.warp(block.timestamp + 22);
         assertTrue(registry.canRegister());
     }
 
     function test_Register_RevertsWhenBucketEmpty() public {
         _exhaustBucket();
-        vm.expectRevert("rate limit: daily cap");
+        vm.expectRevert("rate limit");
         registry.register("s", bytes32(0));
     }
 
-    function test_Register_RefillsOneTokenAfterElapsed() public {
+    function test_Register_RefillsForRegistrationAfterElapsed() public {
         _exhaustBucket();
-        // Refill time for 1 token = 86400 / 2^20 ≈ 0.082 seconds
-        vm.warp(block.timestamp + 1);
+        // Need RANGE_SIZE (256) tokens; refill time = 256 * 86400 / 2^20 ≈ 21.09 seconds
+        vm.warp(block.timestamp + 22);
         registry.register("s", bytes32(0));
     }
 
@@ -282,7 +283,7 @@ contract MNSRegistryTest is Test {
         // Warp a full day — bucket should refill to BUCKET_CAPACITY (512), no more.
         vm.warp(block.timestamp + 1 days);
         _exhaustBucket();
-        vm.expectRevert("rate limit: daily cap");
+        vm.expectRevert("rate limit");
         registry.register("s", bytes32(0));
     }
 
