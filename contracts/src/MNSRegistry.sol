@@ -7,8 +7,8 @@ pragma solidity ^0.8.33;
 /// Architecture
 /// ────────────
 /// Ordinal space is divided into fixed-size Batches of BATCH_SIZE (256) ordinals each.
-/// Anyone may register a new Batch (consuming a rate-limit token). 
-/// Each Batch has an owner and a default NS (authoritative name server RFC 1035) that resolves 
+/// Anyone may register a new Batch (consuming a rate-limit token).
+/// Each Batch has an owner and a default NS (authoritative name server RFC 1035) that resolves
 /// for every ordinal in [ordinal, ordinal+255] except ones overridden with an Entry.
 ///
 /// Individual ordinals can be overridden via Entries. An Entry takes precedence over its
@@ -68,13 +68,13 @@ contract MNSRegistry {
     // Data structures
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice DNS zone configuration for an ordinal. Bundles the signing key hash 
-    /// with the zone's NS NSDNAME (https://datatracker.ietf.org/doc/html/rfc1035#section-3.3.11). 
-    /// The signer hash is keccak256(abi.encode(pubkey, keyType)) — by hashing 
-    /// both the public key and its type, any signature scheme is supported 
-    /// off-chain without updating this contract.
+    /// @notice DNS zone configuration for an ordinal. Bundles the zone signing key
+    /// (ZSK) with the zone's NS NSDNAME (https://datatracker.ietf.org/doc/html/rfc1035#section-3.3.11).
+    /// The signing key is keccak256(abi.encode(pubkey, keyType)) — analogous to a DNSSEC ZSK, but signs
+    /// the entire DNS packet rather than individual RRsets. By hashing both the public key
+    /// and its type, any signature scheme is supported off-chain without updating this contract.
     struct ZoneConfig {
-        bytes32 signerHash;
+        bytes32 zsk;
         string ns;
     }
 
@@ -121,16 +121,16 @@ contract MNSRegistry {
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice Emitted when a new Batch is registered.
-    event BatchRegistered(uint64 indexed ordinal, address indexed owner, bytes32 signerHash, string ns);
+    event BatchRegistered(uint64 indexed ordinal, address indexed owner, bytes32 zsk, string ns);
 
     /// @notice Emitted when a Batch's owner or NS is updated.
-    event BatchUpdated(uint64 indexed ordinal, address indexed newOwner, bytes32 signerHash, string ns);
+    event BatchUpdated(uint64 indexed ordinal, address indexed newOwner, bytes32 zsk, string ns);
 
     /// @notice Emitted when a new Entry is created (first time for an ordinal).
-    event EntryCreated(uint64 indexed ordinal, address indexed newOwner, bytes32 signerHash, string ns);
+    event EntryCreated(uint64 indexed ordinal, address indexed newOwner, bytes32 zsk, string ns);
 
     /// @notice Emitted when an existing Entry is updated.
-    event EntryUpdated(uint64 indexed ordinal, address indexed newOwner, bytes32 signerHash, string ns);
+    event EntryUpdated(uint64 indexed ordinal, address indexed newOwner, bytes32 zsk, string ns);
 
     // ─────────────────────────────────────────────────────────────────────────
     // Views — registry state
@@ -144,7 +144,7 @@ contract MNSRegistry {
     /// @notice Resolves the effective Zone config for a given ordinal.
     /// Entry takes precedence over Batch if one exists.
     /// @param target  The ordinal to resolve.
-    /// @return The ZoneConfig (signer hash + NS endpoint) for this ordinal.
+    /// @return The ZoneConfig (zone signing key + NS NSDNAME) for this ordinal.
     /// @custom:error OrdinalNotRegistered if the ordinal has not been registered.
     function getZoneConfig(uint64 target) external view returns (ZoneConfig memory) {
         Entry storage entry = _entries[target];
@@ -182,18 +182,18 @@ contract MNSRegistry {
 
     /// @notice Register a new Batch. The caller becomes the owner.
     /// Permissionless — anyone may register, subject to rate limits.
-    /// @param signerHash  Hash of the signer's public key (and type).
-    ///                    Pass bytes32(0) if no off-chain signing key.
+    /// @param zsk  Zone signing key: keccak256(abi.encode(pubkey, keyType)).
+    ///                    Signs the entire DNS packet off-chain. Pass bytes32(0) if unused.
     /// @param ns  NS DNS name (max 255 bytes). May be empty.
     /// @return r The newly created Batch.
-    function register(bytes32 signerHash, string calldata ns) external returns (Batch memory) {
+    function register(bytes32 zsk, string calldata ns) external returns (Batch memory) {
         _validateNS(ns);
         _consumeBucketToken();
         require(_batches.length < type(uint64).max / BATCH_SIZE, "ID space exhausted, what year is this?");
         uint64 newOrdinal = uint64(_batches.length * BATCH_SIZE);
-        Batch memory batch = Batch(newOrdinal, msg.sender, ZoneConfig(signerHash, ns));
+        Batch memory batch = Batch(newOrdinal, msg.sender, ZoneConfig(zsk, ns));
         _batches.push(batch);
-        emit BatchRegistered(newOrdinal, msg.sender, signerHash, ns);
+        emit BatchRegistered(newOrdinal, msg.sender, zsk, ns);
         return batch;
     }
 
@@ -201,10 +201,10 @@ contract MNSRegistry {
     /// The caller must be the batch owner.
     /// @param ordinal      Any ordinal within the target batch.
     /// @param newOwner     New owner address. Must be non-zero.
-    /// @param signerHash   Hash of the signer's public key (and type).
-    ///                     Pass bytes32(0) to clear the signing key.
+    /// @param zsk   Zone signing key (ZSK). Signs the entire DNS packet
+    ///                     off-chain. Pass bytes32(0) to clear.
     /// @param ns   NS DNS name (max 255 bytes). May be empty.
-    function updateBatch(uint64 ordinal, address newOwner, bytes32 signerHash, string calldata ns) external {
+    function updateBatch(uint64 ordinal, address newOwner, bytes32 zsk, string calldata ns) external {
         (bool found, uint256 idx) = _getBatch(ordinal);
         if (!found) revert BatchNotRegistered(ordinal);
         require(_batches[idx].owner == msg.sender, "not owner");
@@ -212,9 +212,9 @@ contract MNSRegistry {
         _validateOwner(newOwner);
         uint64 batchOrdinal = _batches[idx].ordinal;
         _batches[idx].owner = newOwner;
-        _batches[idx].zone.signerHash = signerHash;
+        _batches[idx].zone.zsk = zsk;
         _batches[idx].zone.ns = ns;
-        emit BatchUpdated(batchOrdinal, newOwner, signerHash, ns);
+        emit BatchUpdated(batchOrdinal, newOwner, zsk, ns);
     }
 
     /// @notice Create or update a per-ordinal Entry.
@@ -225,24 +225,24 @@ contract MNSRegistry {
     /// batch ownership.
     /// @param ordinal      The ordinal to update.
     /// @param newOwner     New entry owner. Must be non-zero.
-    /// @param signerHash   Hash of the signer's public key (and type) that
-    ///                     signs records off-chain. Pass bytes32(0) if unused.
+    /// @param zsk   Zone signing key (ZSK). Signs the entire DNS packet
+    ///                     off-chain. Pass bytes32(0) if unused.
     /// @param ns   NS DNS name (max 255 bytes). May be empty.
     /// @custom:error OrdinalNotRegistered if the ordinal's batch hasn't been registered.
     /// The authorization check implicitly validates batch existence.
-    function update(uint64 ordinal, address newOwner, bytes32 signerHash, string calldata ns) external {
+    function update(uint64 ordinal, address newOwner, bytes32 zsk, string calldata ns) external {
         _validateOwner(newOwner);
         _validateNS(ns);
         require(_getOwner(ordinal) == msg.sender, "not owner");
         bool existedBefore = _entries[ordinal].owner != address(0);
         Entry storage entry = _entries[ordinal];
         entry.owner = newOwner;
-        entry.zone.signerHash = signerHash;
+        entry.zone.zsk = zsk;
         entry.zone.ns = ns;
         if (existedBefore) {
-            emit EntryUpdated(ordinal, newOwner, signerHash, ns);
+            emit EntryUpdated(ordinal, newOwner, zsk, ns);
         } else {
-            emit EntryCreated(ordinal, newOwner, signerHash, ns);
+            emit EntryCreated(ordinal, newOwner, zsk, ns);
         }
     }
 

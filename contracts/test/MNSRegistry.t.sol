@@ -313,12 +313,12 @@ contract MNSRegistryTest is Test {
         vm.prank(alice);
         registry.update(50, alice, hash1, "ns1");
         MNSRegistry.ZoneConfig memory c1 = registry.getZoneConfig(50);
-        assertEq(c1.signerHash, hash1);
+        assertEq(c1.zsk, hash1);
         bytes32 hash2 = keccak256("key2");
         vm.prank(alice);
         registry.update(50, alice, hash2, "ns2");
         MNSRegistry.ZoneConfig memory c2 = registry.getZoneConfig(50);
-        assertEq(c2.signerHash, hash2);
+        assertEq(c2.zsk, hash2);
     }
 
     function test_GetZoneConfig_ReturnsSignerHashAndNS() public {
@@ -329,7 +329,7 @@ contract MNSRegistryTest is Test {
         registry.update(50, alice, hashVal, "custom");
         MNSRegistry.ZoneConfig memory cfg = registry.getZoneConfig(50);
         assertEq(cfg.ns, "custom");
-        assertEq(cfg.signerHash, hashVal);
+        assertEq(cfg.zsk, hashVal);
     }
 
     function test_GetZoneConfig_SignerHashIsZeroForBatch() public {
@@ -337,7 +337,7 @@ contract MNSRegistryTest is Test {
         registry.register(bytes32(0), "s1");
         MNSRegistry.ZoneConfig memory cfg = registry.getZoneConfig(0);
         assertEq(cfg.ns, "s1");
-        assertEq(cfg.signerHash, bytes32(0));
+        assertEq(cfg.zsk, bytes32(0));
     }
 
     function newString(uint256 len) internal pure returns (string memory) {
