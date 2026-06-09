@@ -15,17 +15,14 @@ contract MNSRegistryTest is Test, SafeTestTools {
     function setUp() public {
         registry = new MNSRegistry();
 
-        // Deploy a 2-of-3 Safe using the first 3 default test signers.
-        // _setupSafe() derives owners from the standard "test test test ... junk"
-        // mnemonic so private keys are available for signing in tests.
         ownerPKs = new uint256[](3);
-        ownerPKs[0] = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80; // anvil signer 0
-        ownerPKs[1] = 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d; // anvil signer 1
-        ownerPKs[2] = 0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a; // anvil signer 2
+        ownerPKs[0] = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
+        ownerPKs[1] = 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d;
+        ownerPKs[2] = 0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a;
 
         safeInstance = _setupSafe({
             ownerPKs: ownerPKs,
-            threshold: 2, // 2-of-3 multisig
+            threshold: 2,
             initialBalance: 0,
             advancedParams: AdvancedSafeInitParams({
                 includeFallbackHandler: true,
@@ -44,10 +41,9 @@ contract MNSRegistryTest is Test, SafeTestTools {
     // Helpers
     // -------------------------------------------------------------------------
 
-    /// Register a batch directly from the Safe (Safe is msg.sender).
     function _safeRegister(string memory nameServer) internal returns (uint256 batchIndex) {
         batchIndex = _currentBatchCount();
-        bytes memory data = abi.encodeCall(registry.register, (nameServer, bytes32(0)));
+        bytes memory data = abi.encodeCall(registry.register, (bytes32(0), nameServer));
         safeInstance.execTransaction({
             to: address(registry),
             value: 0,
@@ -58,7 +54,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
             gasPrice: 0,
             gasToken: address(0),
             refundReceiver: payable(address(0)),
-            signatures: "" // safe-tools signs automatically with threshold signers
+            signatures: ""
         });
     }
 
@@ -76,21 +72,20 @@ contract MNSRegistryTest is Test, SafeTestTools {
 
     function test_SafeCanRegisterBatch() public {
         assertEq(registry.estimatedWaitTime(), 0, "should be able to register");
-
         _safeRegister("ns1.example.com");
-
         assertEq(registry.getOwner(0), _safeAddress(), "Safe should be batch owner");
-        assertEq(registry.getNameserverConfig(0).nameServer, "ns1.example.com");
+        MNSRegistry.NameserverConfig memory ns = registry.getNameserverConfig(0);
+        assertEq(ns.nameServer, "ns1.example.com");
     }
 
     // -------------------------------------------------------------------------
-    // updateBatch tests — core Safe scenario
+    // updateBatch tests
     // -------------------------------------------------------------------------
 
     function test_SafeCanUpdateBatchNameServer() public {
         _safeRegister("ns1.example.com");
 
-        bytes memory data = abi.encodeCall(registry.updateBatch, (0, _safeAddress(), "ns2.updated.com", bytes32(0)));
+        bytes memory data = abi.encodeCall(registry.updateBatch, (0, _safeAddress(), bytes32(0), "ns2.updated.com"));
         safeInstance.execTransaction({
             to: address(registry),
             value: 0,
@@ -104,7 +99,8 @@ contract MNSRegistryTest is Test, SafeTestTools {
             signatures: ""
         });
 
-        assertEq(registry.getNameserverConfig(0).nameServer, "ns2.updated.com", "nameServer should be updated");
+        MNSRegistry.NameserverConfig memory resolved = registry.getNameserverConfig(0);
+        assertEq(resolved.nameServer, "ns2.updated.com", "nameServer should be updated");
         assertEq(registry.getOwner(0), _safeAddress(), "owner should be unchanged");
     }
 
@@ -112,7 +108,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
         address newOwner = makeAddr("newOwner");
         _safeRegister("ns1.example.com");
 
-        bytes memory data = abi.encodeCall(registry.updateBatch, (0, newOwner, "ns1.example.com", bytes32(0)));
+        bytes memory data = abi.encodeCall(registry.updateBatch, (0, newOwner, bytes32(0), "ns1.example.com"));
         safeInstance.execTransaction({
             to: address(registry),
             value: 0,
@@ -135,16 +131,14 @@ contract MNSRegistryTest is Test, SafeTestTools {
         address attacker = makeAddr("attacker");
         vm.prank(attacker);
         vm.expectRevert("not owner");
-        registry.updateBatch(0, attacker, "evil.com", bytes32(0));
+        registry.updateBatch(0, attacker, bytes32(0), "evil.com");
     }
 
-    /// Verify that after ownership transfer, the old Safe can no longer update.
     function test_SafeCannotUpdateAfterOwnershipTransfer() public {
         address newOwner = makeAddr("newOwner");
         _safeRegister("ns1.example.com");
 
-        // Transfer ownership away from the Safe.
-        bytes memory transferData = abi.encodeCall(registry.updateBatch, (0, newOwner, "ns1.example.com", bytes32(0)));
+        bytes memory transferData = abi.encodeCall(registry.updateBatch, (0, newOwner, bytes32(0), "ns1.example.com"));
         safeInstance.execTransaction({
             to: address(registry),
             value: 0,
@@ -158,11 +152,9 @@ contract MNSRegistryTest is Test, SafeTestTools {
             signatures: ""
         });
 
-        // Safe tries to update again — Safe's execTransaction reverts with GS013.
         bytes memory retryData =
-            abi.encodeCall(registry.updateBatch, (0, _safeAddress(), "ns2.reclaimed.com", bytes32(0)));
+            abi.encodeCall(registry.updateBatch, (0, _safeAddress(), bytes32(0), "ns2.reclaimed.com"));
 
-        // Sign with threshold signers (the Safe's current owners).
         bytes32 txHash = safeInstance.safe.getTransactionHash(
             address(registry),
             0,
@@ -195,9 +187,9 @@ contract MNSRegistryTest is Test, SafeTestTools {
         _safeRegister("ns1.example.com");
 
         address newOwner = makeAddr("entryOwner");
-        uint64 ordinal = 5; // any ordinal within the batch [0, 255]
+        uint64 ordinal = 5;
 
-        bytes memory data = abi.encodeCall(registry.update, (ordinal, newOwner, "entry.example.com", bytes32(0)));
+        bytes memory data = abi.encodeCall(registry.update, (ordinal, newOwner, bytes32(0), "entry.example.com"));
         safeInstance.execTransaction({
             to: address(registry),
             value: 0,
@@ -212,25 +204,19 @@ contract MNSRegistryTest is Test, SafeTestTools {
         });
 
         assertEq(registry.getOwner(ordinal), newOwner);
-        assertEq(registry.getNameserverConfig(ordinal).nameServer, "entry.example.com");
-
-        // getNameServer should now resolve to the entry's server, not the batch's.
-        assertEq(registry.getNameserverConfig(ordinal).nameServer, "entry.example.com");
+        MNSRegistry.NameserverConfig memory resolved = registry.getNameserverConfig(ordinal);
+        assertEq(resolved.nameServer, "entry.example.com");
     }
 
     // -------------------------------------------------------------------------
     // Threshold enforcement
     // -------------------------------------------------------------------------
 
-    /// Confirm that a single signer (below threshold) cannot execute.
     function test_SingleSignerCannotExecute() public {
         _safeRegister("ns1.example.com");
 
-        // Manually build a tx signed by only 1 of 3 owners and expect failure.
-        // We drop to raw execTransaction to control the signature count.
-        bytes memory data = abi.encodeCall(registry.updateBatch, (0, _safeAddress(), "ns2.updated.com", bytes32(0)));
+        bytes memory data = abi.encodeCall(registry.updateBatch, (0, _safeAddress(), bytes32(0), "ns2.updated.com"));
 
-        // Sign with only signer 0 (1-of-3, below threshold of 2).
         bytes32 txHash = safeInstance.safe.getTransactionHash(
             address(registry),
             0,
