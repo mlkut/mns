@@ -18,7 +18,7 @@ contract MNSRegistryTest is Test {
         MNSRegistry.Batch memory r = registry.register(bytes32(0), "s1");
         assertEq(r.ordinal, 0);
         assertEq(r.owner, alice);
-        assertEq(r.ns.nameServer, "s1");
+        assertEq(r.zone.ns, "s1");
     }
 
     function test_Register_SubsequentIncrementsBy256() public {
@@ -36,25 +36,25 @@ contract MNSRegistryTest is Test {
         assertEq(registry.nextOrdinal(), 256);
     }
 
-    function test_GetNameServer_ReturnsBatchNameServer() public {
+    function test_GetNS_ReturnsBatchNS() public {
         vm.prank(alice);
         registry.register(bytes32(0), "s1");
         MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(0);
-        assertEq(ns.nameServer, "s1");
+        assertEq(ns.ns, "s1");
     }
 
-    function test_GetNameServer_RoundsDownToCorrectBatch() public {
+    function test_GetNS_RoundsDownToCorrectBatch() public {
         vm.prank(alice);
         registry.register(bytes32(0), "s1");
         vm.prank(bob);
         registry.register(bytes32(0), "s2");
         MNSRegistry.ZoneConfig memory ns100 = registry.getZoneConfig(100);
         MNSRegistry.ZoneConfig memory ns300 = registry.getZoneConfig(300);
-        assertEq(ns100.nameServer, "s1");
-        assertEq(ns300.nameServer, "s2");
+        assertEq(ns100.ns, "s1");
+        assertEq(ns300.ns, "s2");
     }
 
-    function test_GetNameServer_RevertsWhenOrdinalOutOfBatch() public {
+    function test_GetNS_RevertsWhenOrdinalOutOfBatch() public {
         vm.prank(alice);
         registry.register(bytes32(0), "s1");
         vm.prank(bob);
@@ -65,41 +65,41 @@ contract MNSRegistryTest is Test {
         registry.getOwner(100000);
     }
 
-    function test_GetNameServer_ReturnsEntryNameServer() public {
+    function test_GetNS_ReturnsEntryNS() public {
         vm.prank(alice);
         registry.register(bytes32(0), "s1");
         vm.prank(alice);
         registry.update(50, bob, bytes32(0), "overridden");
         MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(50);
-        assertEq(ns.nameServer, "overridden");
+        assertEq(ns.ns, "overridden");
     }
 
-    function test_GetNameServer_ReturnsBatchNameServerWhenNoEntry() public {
+    function test_GetNS_ReturnsBatchNSWhenNoEntry() public {
         vm.prank(alice);
         registry.register(bytes32(0), "s1");
         vm.prank(alice);
         registry.update(50, bob, bytes32(0), "overridden");
         MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(51);
-        assertEq(ns.nameServer, "s1");
+        assertEq(ns.ns, "s1");
     }
 
-    function test_GetNameServer_BoundaryExactMatch() public {
+    function test_GetNS_BoundaryExactMatch() public {
         vm.prank(alice);
         registry.register(bytes32(0), "s1");
         vm.prank(bob);
         registry.register(bytes32(0), "s2");
         MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(256);
-        assertEq(ns.nameServer, "s2");
+        assertEq(ns.ns, "s2");
     }
 
-    function test_Entry_SetsEntryNameServerForOrdinal() public {
+    function test_Entry_SetsEntryNSForOrdinal() public {
         vm.prank(alice);
         registry.register(bytes32(0), "s1");
         vm.prank(alice);
         registry.update(50, bob, bytes32(0), "custom");
         assertEq(registry.getOwner(50), bob);
         MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(50);
-        assertEq(ns.nameServer, "custom");
+        assertEq(ns.ns, "custom");
     }
 
     function test_Update_BatchOwnerCreatesEntry() public {
@@ -126,7 +126,7 @@ contract MNSRegistryTest is Test {
         vm.prank(bob);
         registry.update(50, alice, bytes32(0), "v2");
         MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(50);
-        assertEq(ns.nameServer, "v2");
+        assertEq(ns.ns, "v2");
         assertEq(registry.getOwner(50), alice);
     }
 
@@ -162,32 +162,32 @@ contract MNSRegistryTest is Test {
         assertEq(r.ordinal, 0);
         assertEq(r.owner, registry.getOwner(0));
         MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(0);
-        assertEq(ns.nameServer, "s1");
+        assertEq(ns.ns, "s1");
     }
 
-    function test_Register_RevertsWhenNameServerTooLong() public {
+    function test_Register_RevertsWhenNSTooLong() public {
         vm.prank(alice);
-        vm.expectRevert("nameserver too long");
+        vm.expectRevert("ns too long");
         registry.register(bytes32(0), newString(256));
     }
 
-    function test_UpdateBatch_UpdatesOwnerAndNameServer() public {
+    function test_UpdateBatch_UpdatesOwnerAndNS() public {
         vm.prank(alice);
         registry.register(bytes32(0), "s1");
         vm.prank(alice);
         registry.updateBatch(0, bob, bytes32(0), "ns1");
         assertEq(registry.getOwner(0), bob);
         MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(0);
-        assertEq(ns.nameServer, "ns1");
+        assertEq(ns.ns, "ns1");
     }
 
-    function test_UpdateBatch_BatchDefaultUpdatesGetNameServer() public {
+    function test_UpdateBatch_BatchDefaultUpdatesGetNS() public {
         vm.prank(alice);
         registry.register(bytes32(0), "s1");
         vm.prank(alice);
         registry.updateBatch(0, alice, bytes32(0), "ns1");
         MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(50);
-        assertEq(ns.nameServer, "ns1");
+        assertEq(ns.ns, "ns1");
     }
 
     function test_UpdateBatch_DoesNotAffectExistingEntry() public {
@@ -199,8 +199,8 @@ contract MNSRegistryTest is Test {
         registry.updateBatch(0, alice, bytes32(0), "newDefault");
         MNSRegistry.ZoneConfig memory ns50 = registry.getZoneConfig(50);
         MNSRegistry.ZoneConfig memory ns51 = registry.getZoneConfig(51);
-        assertEq(ns50.nameServer, "override");
-        assertEq(ns51.nameServer, "newDefault");
+        assertEq(ns50.ns, "override");
+        assertEq(ns51.ns, "newDefault");
     }
 
     function test_UpdateBatch_RevertsWhenOrdinalOutOfBatch() public {
@@ -227,11 +227,11 @@ contract MNSRegistryTest is Test {
         registry.updateBatch(0, address(0), bytes32(0), "s1");
     }
 
-    function test_UpdateBatch_RevertsWhenNameServerTooLong() public {
+    function test_UpdateBatch_RevertsWhenNSTooLong() public {
         vm.prank(alice);
         registry.register(bytes32(0), "s1");
         vm.prank(alice);
-        vm.expectRevert("nameserver too long");
+        vm.expectRevert("ns too long");
         registry.updateBatch(0, alice, bytes32(0), newString(256));
     }
 
@@ -243,7 +243,7 @@ contract MNSRegistryTest is Test {
         vm.prank(bob);
         registry.update(50, bob, bytes32(0), "entry");
         MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(50);
-        assertEq(ns.nameServer, "entry");
+        assertEq(ns.ns, "entry");
     }
 
     function test_EstimatedWaitTime_ReturnsZeroAtStart() public view {
@@ -321,14 +321,14 @@ contract MNSRegistryTest is Test {
         assertEq(c2.signerHash, hash2);
     }
 
-    function test_GetZoneConfig_ReturnsSignerHashAndNameServer() public {
+    function test_GetZoneConfig_ReturnsSignerHashAndNS() public {
         vm.prank(alice);
         registry.register(bytes32(0), "s1");
         bytes32 hashVal = keccak256("signer");
         vm.prank(alice);
         registry.update(50, alice, hashVal, "custom");
         MNSRegistry.ZoneConfig memory cfg = registry.getZoneConfig(50);
-        assertEq(cfg.nameServer, "custom");
+        assertEq(cfg.ns, "custom");
         assertEq(cfg.signerHash, hashVal);
     }
 
@@ -336,7 +336,7 @@ contract MNSRegistryTest is Test {
         vm.prank(alice);
         registry.register(bytes32(0), "s1");
         MNSRegistry.ZoneConfig memory cfg = registry.getZoneConfig(0);
-        assertEq(cfg.nameServer, "s1");
+        assertEq(cfg.ns, "s1");
         assertEq(cfg.signerHash, bytes32(0));
     }
 

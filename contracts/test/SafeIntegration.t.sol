@@ -41,9 +41,9 @@ contract MNSRegistryTest is Test, SafeTestTools {
     // Helpers
     // -------------------------------------------------------------------------
 
-    function _safeRegister(string memory nameServer) internal returns (uint256 batchIndex) {
+    function _safeRegister(string memory ns) internal returns (uint256 batchIndex) {
         batchIndex = _currentBatchCount();
-        bytes memory data = abi.encodeCall(registry.register, (bytes32(0), nameServer));
+        bytes memory data = abi.encodeCall(registry.register, (bytes32(0), ns));
         safeInstance.execTransaction({
             to: address(registry),
             value: 0,
@@ -75,7 +75,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
         _safeRegister("ns1.example.com");
         assertEq(registry.getOwner(0), _safeAddress(), "Safe should be batch owner");
         MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(0);
-        assertEq(ns.nameServer, "ns1.example.com");
+        assertEq(ns.ns, "ns1.example.com");
     }
 
     // -------------------------------------------------------------------------
@@ -100,7 +100,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
         });
 
         MNSRegistry.ZoneConfig memory resolved = registry.getZoneConfig(0);
-        assertEq(resolved.nameServer, "ns2.updated.com", "nameServer should be updated");
+        assertEq(resolved.ns, "ns2.updated.com", "ns should be updated");
         assertEq(registry.getOwner(0), _safeAddress(), "owner should be unchanged");
     }
 
@@ -205,7 +205,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
 
         assertEq(registry.getOwner(ordinal), newOwner);
         MNSRegistry.ZoneConfig memory resolved = registry.getZoneConfig(ordinal);
-        assertEq(resolved.nameServer, "entry.example.com");
+        assertEq(resolved.ns, "entry.example.com");
     }
 
     // -------------------------------------------------------------------------

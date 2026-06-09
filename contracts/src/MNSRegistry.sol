@@ -7,11 +7,12 @@ pragma solidity ^0.8.33;
 /// Architecture
 /// ────────────
 /// Ordinal space is divided into fixed-size Batches of BATCH_SIZE (256) ordinals each.
-/// Anyone may register a new Batch (consuming a rate-limit token). Each Batch has an
-/// owner and a default nameserver that resolves for every ordinal in [ordinal, ordinal+255].
+/// Anyone may register a new Batch (consuming a rate-limit token). 
+/// Each Batch has an owner and a default NS (authoritative name server RFC 1035) that resolves 
+/// for every ordinal in [ordinal, ordinal+255] except ones overridden with an Entry.
 ///
 /// Individual ordinals can be overridden via Entries. An Entry takes precedence over its
-/// containing Batch for both owner and nameserver resolution. Entries are permanent once
+/// containing Batch for both owner and NS resolution. Entries are permanent once
 /// created; the entry owner may update but not delete them. The batch owner has no authority
 /// over individual entries once created — entry ownership is fully independent.
 ///
@@ -48,7 +49,7 @@ contract MNSRegistry {
     uint64 public constant BATCH_SIZE = 256;
 
     /// @notice Maximum DNS name length per RFC 1035.
-    uint256 public constant MAX_NAMESERVER_LENGTH = 255;
+    uint256 public constant MAX_NS_LENGTH = 255;
 
     /// @notice Token bucket: ordinals (tokens) added per REFILL_PERIOD.
     /// At 1,048,576 ordinals/day the bucket refills at ~12 tokens/second.
@@ -67,31 +68,31 @@ contract MNSRegistry {
     // Data structures
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice DNS zone configuration for an ordinal. Bundles the signing key
-    /// hash with the zone's nameserver endpoint. 
+    /// @notice DNS zone configuration for an ordinal. Bundles the signing key hash 
+    /// with the zone's NS NSDNAME (https://datatracker.ietf.org/doc/html/rfc1035#section-3.3.11). 
     /// The signer hash is keccak256(abi.encode(pubkey, keyType)) — by hashing 
     /// both the public key and its type, any signature scheme is supported 
     /// off-chain without updating this contract.
     struct ZoneConfig {
         bytes32 signerHash;
-        string nameServer;
+        string ns;
     }
 
     /// @notice A contiguous block of BATCH_SIZE ordinals with a single owner
-    /// and default nameserver. Batches are append-only; ordinals increase
+    /// and default NS. Batches are append-only; ordinals increase
     /// monotonically by BATCH_SIZE.
     struct Batch {
         uint64 ordinal;
         address owner;
-        ZoneConfig ns;
+        ZoneConfig zone;
     }
 
     /// @notice A per-ordinal override. When present, supersedes the containing
-    /// Batch for both owner and nameserver resolution. Entries are permanent;
+    /// Batch for both owner and zone config resolution. Entries are permanent;
     /// they can be updated but not deleted.
     struct Entry {
         address owner;
-        ZoneConfig ns;
+        ZoneConfig zone;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -120,16 +121,16 @@ contract MNSRegistry {
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice Emitted when a new Batch is registered.
-    event BatchRegistered(uint64 indexed ordinal, address indexed owner, bytes32 signerHash, string nameServer);
+    event BatchRegistered(uint64 indexed ordinal, address indexed owner, bytes32 signerHash, string ns);
 
-    /// @notice Emitted when a Batch's owner or nameserver is updated.
-    event BatchUpdated(uint64 indexed ordinal, address indexed newOwner, bytes32 signerHash, string nameServer);
+    /// @notice Emitted when a Batch's owner or NS is updated.
+    event BatchUpdated(uint64 indexed ordinal, address indexed newOwner, bytes32 signerHash, string ns);
 
     /// @notice Emitted when a new Entry is created (first time for an ordinal).
-    event EntryCreated(uint64 indexed ordinal, address indexed newOwner, bytes32 signerHash, string nameServer);
+    event EntryCreated(uint64 indexed ordinal, address indexed newOwner, bytes32 signerHash, string ns);
 
     /// @notice Emitted when an existing Entry is updated.
-    event EntryUpdated(uint64 indexed ordinal, address indexed newOwner, bytes32 signerHash, string nameServer);
+    event EntryUpdated(uint64 indexed ordinal, address indexed newOwner, bytes32 signerHash, string ns);
 
     // ─────────────────────────────────────────────────────────────────────────
     // Views — registry state
@@ -140,19 +141,19 @@ contract MNSRegistry {
         return uint64(_batches.length * BATCH_SIZE);
     }
 
-    /// @notice Resolves the effective nameserver config for a given ordinal.
+    /// @notice Resolves the effective Zone config for a given ordinal.
     /// Entry takes precedence over Batch if one exists.
     /// @param target  The ordinal to resolve.
-    /// @return The ZoneConfig (signer hash + nameserver endpoint) for this ordinal.
+    /// @return The ZoneConfig (signer hash + NS endpoint) for this ordinal.
     /// @custom:error OrdinalNotRegistered if the ordinal has not been registered.
     function getZoneConfig(uint64 target) external view returns (ZoneConfig memory) {
         Entry storage entry = _entries[target];
         if (entry.owner != address(0)) {
-            return entry.ns;
+            return entry.zone;
         }
         (bool found, uint256 idx) = _getBatch(target);
         if (!found) revert OrdinalNotRegistered(target);
-        return _batches[idx].ns;
+        return _batches[idx].zone;
     }
 
     /// @notice Resolves the effective owner for a given ordinal.
@@ -183,16 +184,16 @@ contract MNSRegistry {
     /// Permissionless — anyone may register, subject to rate limits.
     /// @param signerHash  Hash of the signer's public key (and type).
     ///                    Pass bytes32(0) if no off-chain signing key.
-    /// @param nameServer  Nameserver DNS name (max 255 bytes). May be empty.
+    /// @param ns  NS DNS name (max 255 bytes). May be empty.
     /// @return r The newly created Batch.
-    function register(bytes32 signerHash, string calldata nameServer) external returns (Batch memory) {
-        _validateNameServer(nameServer);
+    function register(bytes32 signerHash, string calldata ns) external returns (Batch memory) {
+        _validateNS(ns);
         _consumeBucketToken();
         require(_batches.length < type(uint64).max / BATCH_SIZE, "ID space exhausted, what year is this?");
         uint64 newOrdinal = uint64(_batches.length * BATCH_SIZE);
-        Batch memory batch = Batch(newOrdinal, msg.sender, ZoneConfig(signerHash, nameServer));
+        Batch memory batch = Batch(newOrdinal, msg.sender, ZoneConfig(signerHash, ns));
         _batches.push(batch);
-        emit BatchRegistered(newOrdinal, msg.sender, signerHash, nameServer);
+        emit BatchRegistered(newOrdinal, msg.sender, signerHash, ns);
         return batch;
     }
 
@@ -202,18 +203,18 @@ contract MNSRegistry {
     /// @param newOwner     New owner address. Must be non-zero.
     /// @param signerHash   Hash of the signer's public key (and type).
     ///                     Pass bytes32(0) to clear the signing key.
-    /// @param nameServer   Nameserver DNS name (max 255 bytes). May be empty.
-    function updateBatch(uint64 ordinal, address newOwner, bytes32 signerHash, string calldata nameServer) external {
+    /// @param ns   NS DNS name (max 255 bytes). May be empty.
+    function updateBatch(uint64 ordinal, address newOwner, bytes32 signerHash, string calldata ns) external {
         (bool found, uint256 idx) = _getBatch(ordinal);
         if (!found) revert BatchNotRegistered(ordinal);
         require(_batches[idx].owner == msg.sender, "not owner");
-        _validateNameServer(nameServer);
+        _validateNS(ns);
         _validateOwner(newOwner);
         uint64 batchOrdinal = _batches[idx].ordinal;
         _batches[idx].owner = newOwner;
-        _batches[idx].ns.signerHash = signerHash;
-        _batches[idx].ns.nameServer = nameServer;
-        emit BatchUpdated(batchOrdinal, newOwner, signerHash, nameServer);
+        _batches[idx].zone.signerHash = signerHash;
+        _batches[idx].zone.ns = ns;
+        emit BatchUpdated(batchOrdinal, newOwner, signerHash, ns);
     }
 
     /// @notice Create or update a per-ordinal Entry.
@@ -226,22 +227,22 @@ contract MNSRegistry {
     /// @param newOwner     New entry owner. Must be non-zero.
     /// @param signerHash   Hash of the signer's public key (and type) that
     ///                     signs records off-chain. Pass bytes32(0) if unused.
-    /// @param nameServer   Nameserver DNS name (max 255 bytes). May be empty.
+    /// @param ns   NS DNS name (max 255 bytes). May be empty.
     /// @custom:error OrdinalNotRegistered if the ordinal's batch hasn't been registered.
     /// The authorization check implicitly validates batch existence.
-    function update(uint64 ordinal, address newOwner, bytes32 signerHash, string calldata nameServer) external {
+    function update(uint64 ordinal, address newOwner, bytes32 signerHash, string calldata ns) external {
         _validateOwner(newOwner);
-        _validateNameServer(nameServer);
+        _validateNS(ns);
         require(_getOwner(ordinal) == msg.sender, "not owner");
         bool existedBefore = _entries[ordinal].owner != address(0);
         Entry storage entry = _entries[ordinal];
         entry.owner = newOwner;
-        entry.ns.signerHash = signerHash;
-        entry.ns.nameServer = nameServer;
+        entry.zone.signerHash = signerHash;
+        entry.zone.ns = ns;
         if (existedBefore) {
-            emit EntryUpdated(ordinal, newOwner, signerHash, nameServer);
+            emit EntryUpdated(ordinal, newOwner, signerHash, ns);
         } else {
-            emit EntryCreated(ordinal, newOwner, signerHash, nameServer);
+            emit EntryCreated(ordinal, newOwner, signerHash, ns);
         }
     }
 
@@ -288,8 +289,8 @@ contract MNSRegistry {
         require(owner != address(0), "invalid owner");
     }
 
-    function _validateNameServer(string calldata nameServer) private pure {
-        require(bytes(nameServer).length <= MAX_NAMESERVER_LENGTH, "nameserver too long");
+    function _validateNS(string calldata ns) private pure {
+        require(bytes(ns).length <= MAX_NS_LENGTH, "ns too long");
     }
 
     // ─────────────────────────────────────────────────────────────────────────
