@@ -74,7 +74,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
         assertEq(registry.estimatedWaitTime(), 0, "should be able to register");
         _safeRegister("ns1.example.com");
         assertEq(registry.getOwner(0), _safeAddress(), "Safe should be batch owner");
-        MNSRegistry.NameserverConfig memory ns = registry.getNameserverConfig(0);
+        MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(0);
         assertEq(ns.nameServer, "ns1.example.com");
     }
 
@@ -99,7 +99,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
             signatures: ""
         });
 
-        MNSRegistry.NameserverConfig memory resolved = registry.getNameserverConfig(0);
+        MNSRegistry.ZoneConfig memory resolved = registry.getZoneConfig(0);
         assertEq(resolved.nameServer, "ns2.updated.com", "nameServer should be updated");
         assertEq(registry.getOwner(0), _safeAddress(), "owner should be unchanged");
     }
@@ -204,7 +204,7 @@ contract MNSRegistryTest is Test, SafeTestTools {
         });
 
         assertEq(registry.getOwner(ordinal), newOwner);
-        MNSRegistry.NameserverConfig memory resolved = registry.getNameserverConfig(ordinal);
+        MNSRegistry.ZoneConfig memory resolved = registry.getZoneConfig(ordinal);
         assertEq(resolved.nameServer, "entry.example.com");
     }
 

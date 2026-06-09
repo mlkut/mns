@@ -15,7 +15,7 @@ pragma solidity ^0.8.33;
 /// created; the entry owner may update but not delete them. The batch owner has no authority
 /// over individual entries once created — entry ownership is fully independent.
 ///
-/// Resolution order (getNameserverConfig / getOwner):
+/// Resolution order (getZoneConfig / getOwner):
 ///   1. If _entries[ordinal].owner != address(0)  → use entry
 ///   2. Otherwise                                 → use containing batch
 ///
@@ -67,11 +67,12 @@ contract MNSRegistry {
     // Data structures
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice Bundles a signing key hash with an optional nameserver string.
-    /// The signer hash is keccak256(abi.encode(pubkey, keyType)) — by hashing
-    /// both the public key and its type, any signature scheme is supported
+    /// @notice DNS zone configuration for an ordinal. Bundles the signing key
+    /// hash with the zone's nameserver endpoint. 
+    /// The signer hash is keccak256(abi.encode(pubkey, keyType)) — by hashing 
+    /// both the public key and its type, any signature scheme is supported 
     /// off-chain without updating this contract.
-    struct NameserverConfig {
+    struct ZoneConfig {
         bytes32 signerHash;
         string nameServer;
     }
@@ -82,7 +83,7 @@ contract MNSRegistry {
     struct Batch {
         uint64 ordinal;
         address owner;
-        NameserverConfig ns;
+        ZoneConfig ns;
     }
 
     /// @notice A per-ordinal override. When present, supersedes the containing
@@ -90,7 +91,7 @@ contract MNSRegistry {
     /// they can be updated but not deleted.
     struct Entry {
         address owner;
-        NameserverConfig ns;
+        ZoneConfig ns;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -142,9 +143,9 @@ contract MNSRegistry {
     /// @notice Resolves the effective nameserver config for a given ordinal.
     /// Entry takes precedence over Batch if one exists.
     /// @param target  The ordinal to resolve.
-    /// @return The nameserver config (signer hash + DNS name) for this ordinal.
+    /// @return The ZoneConfig (signer hash + nameserver endpoint) for this ordinal.
     /// @custom:error OrdinalNotRegistered if the ordinal has not been registered.
-    function getNameserverConfig(uint64 target) external view returns (NameserverConfig memory) {
+    function getZoneConfig(uint64 target) external view returns (ZoneConfig memory) {
         Entry storage entry = _entries[target];
         if (entry.owner != address(0)) {
             return entry.ns;
@@ -189,7 +190,7 @@ contract MNSRegistry {
         _consumeBucketToken();
         require(_batches.length < type(uint64).max / BATCH_SIZE, "ID space exhausted, what year is this?");
         uint64 newOrdinal = uint64(_batches.length * BATCH_SIZE);
-        Batch memory batch = Batch(newOrdinal, msg.sender, NameserverConfig(signerHash, nameServer));
+        Batch memory batch = Batch(newOrdinal, msg.sender, ZoneConfig(signerHash, nameServer));
         _batches.push(batch);
         emit BatchRegistered(newOrdinal, msg.sender, signerHash, nameServer);
         return batch;
