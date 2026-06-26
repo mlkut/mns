@@ -70,9 +70,9 @@ contract MNSRegistry {
 
     /// @notice DNS zone configuration for an ordinal. Bundles the zone signing key
     /// (ZSK) with the zone's NS NSDNAME (https://datatracker.ietf.org/doc/html/rfc1035#section-3.3.11).
-    /// The signing key is keccak256(abi.encode(pubkey, keyType)) — analogous to a DNSSEC ZSK, but signs
-    /// the entire DNS packet rather than individual RRsets. By hashing both the public key
-    /// and its type, any signature scheme is supported off-chain without updating this contract.
+    /// The zone signing key commitment is a hash(keyType || pubkey) — analogous to a DNSSEC ZSK, 
+    /// but signs the entire DNS packet rather than individual RRsets. 
+    /// By hashing both the public key and its type, any signature scheme is supported off-chain without updating this contract.
     struct ZoneConfig {
         bytes32 zsk;
         string ns;
@@ -182,8 +182,7 @@ contract MNSRegistry {
 
     /// @notice Register a new Batch. The caller becomes the owner.
     /// Permissionless — anyone may register, subject to rate limits.
-    /// @param zsk  Zone signing key: keccak256(abi.encode(pubkey, keyType)).
-    ///                    Signs the entire DNS packet off-chain. Pass bytes32(0) if unused.
+    /// @param zsk  Zone signing key commitment: hash(keyType || pubkey). Signs the entire DNS packet off-chain.
     /// @param ns  NS DNS name (max 255 bytes). May be empty.
     /// @return r The newly created Batch.
     function register(bytes32 zsk, string calldata ns) external returns (Batch memory) {
