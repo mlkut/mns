@@ -82,6 +82,57 @@ impl Name {
     pub(crate) fn as_u64(&self) -> u64 {
         self.0
     }
+
+    /// Renders a 40-bit value as a 9×9 mirrored pixel grid SVG.
+    /// Layout:
+    ///   Row 0: bits 0,1,2 — 3 central pixels, mirrored: c=2,6→bit0  c=3,5→bit1  c=4→bit2
+    ///   Rows 1–7: bits 3–37 — full 5-col source mirrored to 9 cols
+    ///   Row 8: bits 38,39 — 2 central pixels, mirrored: c=3,5→bit38  c=4→bit39
+    pub fn render_avatar_svg(&self) -> String {
+        let value = self.0;
+        const ROWS: usize = 9;
+        const COLS: usize = 9;
+        const MARGIN: f32 = 16.0;
+        const CELL: f32 = 26.0;
+        const BOARD: f32 = MARGIN * 2.0 + COLS as f32 * CELL; // 266
+
+        let mut rects = String::new();
+
+        for r in 0..ROWS {
+            for c in 0..COLS {
+                let bit: u64 = match r {
+                    0 => match c {
+                        2 | 6 => value & 1,
+                        3 | 5 => (value >> 1) & 1,
+                        4 => (value >> 2) & 1,
+                        _ => 0,
+                    },
+                    8 => match c {
+                        3 | 5 => (value >> 38) & 1,
+                        4 => (value >> 39) & 1,
+                        _ => 0,
+                    },
+                    _ => {
+                        let src_col = if c < 5 { c } else { 8 - c };
+                        let src_idx = 3 + (r - 1) * 5 + src_col;
+                        (value >> src_idx) & 1
+                    }
+                };
+
+                if bit == 1 {
+                    let x = MARGIN + c as f32 * CELL + 0.5;
+                    let y = MARGIN + r as f32 * CELL + 0.5;
+                    rects.push_str(&format!(
+                        r#"<rect class="mns-avatar-pixel" x="{x}" y="{y}" width="25" height="25"/>"#,
+                    ));
+                }
+            }
+        }
+
+        format!(
+            r#"<svg class="mns-avatar" width="100%" height="100%" viewBox="0 0 {BOARD} {BOARD}" xmlns="http://www.w3.org/2000/svg"><style>.mns-pixel{{fill:currentColor}}</style>{rects}</svg>"#,
+        )
+    }
 }
 
 impl Display for Name {
@@ -342,8 +393,10 @@ mod tests {
     #[test]
     #[ignore]
     fn check_names_for_ordinals() {
-        for ordinal in 1..=60u64 {
-            println!("{:>4}: {}", ordinal, Name::from_ordinal(ordinal));
+        for ordinal in 0..=6_u64 {
+            let name = Name::from_ordinal(ordinal);
+            println!("{ordinal:>4}: {name}");
+            println!("{}", name.render_avatar_svg());
         }
     }
 
