@@ -22,20 +22,24 @@ forge build
 forge test
 ```
 
+## Environment variables
+
+Copy `.env.dev` to `.env`, populate your address and private key, and once you deploy, populate the contract address.
+
 ## Deploy
 
 ```bash
 # Testnet
 forge script script/Deploy.s.sol \
-  --rpc-url rsk_testnet \
+  --rpc-url https://public-node.testnet.rsk.co \
   --broadcast \
-  --private-key <key>
+  --private-key $privatekey
 
 # Mainnet
 forge script script/Deploy.s.sol \
-  --rpc-url rsk_mainnet \
+  --rpc-url https://public-node.rsk.co \
   --broadcast \
-  --private-key <key>
+  --private-key $privatekey
 ```
 
 ## Local Dev
@@ -51,4 +55,17 @@ forge test                 # tests run against anvil by default
 src/                       # contract source
 test/                      # forge tests (unit + Safe integration)
 script/                    # deploy scripts
+```
+
+## Verify contract
+
+```bash
+forge verify-contract \
+  --chain-id 31 \
+  --watch \
+  --compiler-version v0.8.33 \
+  --verifier custom \
+  --verifier-url https://be.explorer.testnet.rootstock.io/api/v3/etherscan \
+  $contract \
+  src/MNSRegistry.sol:MNSRegistry
 ```
