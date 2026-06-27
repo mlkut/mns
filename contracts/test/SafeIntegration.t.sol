@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import "forge-std/Test.sol";
-import "safe-tools/SafeTestTools.sol";
-import "../src/MNSRegistry.sol";
+import {Test} from "forge-std/Test.sol";
+import {SafeTestTools, SafeTestLib, SafeInstance, AdvancedSafeInitParams} from "safe-tools/SafeTestTools.sol";
+import {Enum} from "lib/safe-contracts/contracts/interfaces/Enum.sol";
+import {MNSRegistry} from "../src/MNSRegistry.sol";
 
 contract MNSRegistryTest is Test, SafeTestTools {
     using SafeTestLib for SafeInstance;

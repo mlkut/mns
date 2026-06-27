@@ -73,7 +73,7 @@ contract MNSRegistry {
 
     /// @notice Token bucket: maximum burst size.
     /// Burst limit: BUCKET_CAPACITY / BATCH_SIZE = 8 batch registrations before
-    /// rate limiting kicks in. Sized to absorb a burst without meaningfully changing 
+    /// rate limiting kicks in. Sized to absorb a burst without meaningfully changing
     /// sustained throughput.
     uint64 public constant BUCKET_CAPACITY = 2048;
 
@@ -112,6 +112,15 @@ contract MNSRegistry {
         ZoneConfig zone;
     }
 
+    /// @notice Input type for updateMany(). Groups all fields for a single
+    /// entry update so callers pass an array of structs rather than parallel arrays.
+    struct EntryUpdate {
+        uint64 ordinal;
+        address newOwner;
+        bytes32 zsk;
+        string ns;
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Storage
     // ─────────────────────────────────────────────────────────────────────────
@@ -131,6 +140,7 @@ contract MNSRegistry {
     uint64 private _bucket = BUCKET_CAPACITY;
 
     /// @dev Timestamp of the last bucket write (consume or explicit update).
+    /// Initialized to deployment time.
     uint256 private _lastRefill = block.timestamp;
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -158,7 +168,7 @@ contract MNSRegistry {
         return uint64(_batches.length * BATCH_SIZE);
     }
 
-    /// @notice Resolves the effective Zone config for a given ordinal.
+    /// @notice Resolves the effective ZoneConfig for a given ordinal.
     /// Entry takes precedence over Batch if one exists.
     /// @param target  The ordinal to resolve.
     /// @return The ZoneConfig (zone signing key + NS NSDNAME) for this ordinal.
@@ -180,6 +190,24 @@ contract MNSRegistry {
     /// @custom:error OrdinalNotRegistered if the ordinal has not been registered.
     function getOwner(uint64 target) external view returns (address) {
         return _getOwner(target);
+    }
+
+    /// @notice Returns the Batch that contains the given ordinal.
+    /// @param ordinal  Any ordinal within the target batch.
+    /// @return The Batch struct for the containing batch.
+    /// @custom:error BatchNotRegistered if no batch covers this ordinal.
+    function getBatch(uint64 ordinal) external view returns (Batch memory) {
+        (bool found, uint256 idx) = _getBatch(ordinal);
+        if (!found) revert BatchNotRegistered(ordinal);
+        return _batches[idx];
+    }
+
+    /// @notice Returns whether a per-ordinal Entry exists for the given ordinal.
+    /// Useful for resolvers that need to distinguish entry vs. batch-default resolution.
+    /// @param ordinal  The ordinal to check.
+    /// @return True if an Entry exists; false if resolution falls back to the batch.
+    function hasEntry(uint64 ordinal) external view returns (bool) {
+        return _entries[ordinal].owner != address(0);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -204,7 +232,7 @@ contract MNSRegistry {
     /// @param ns   NS DNS name (max 255 bytes, byte length only). May be empty.
     /// @return r   The newly created Batch.
     function register(bytes32 zsk, string calldata ns) external returns (Batch memory) {
-        _validateNS(ns);
+        _validateNs(bytes(ns).length);
         _consumeBucketToken();
         require(_batches.length < type(uint64).max / BATCH_SIZE, "ID space exhausted, what year is this?");
         uint64 newOrdinal = uint64(_batches.length * BATCH_SIZE);
@@ -224,7 +252,7 @@ contract MNSRegistry {
         (bool found, uint256 idx) = _getBatch(ordinal);
         if (!found) revert BatchNotRegistered(ordinal);
         require(_batches[idx].owner == msg.sender, "not owner");
-        _validateNS(ns);
+        _validateNs(bytes(ns).length);
         _validateOwner(newOwner);
         uint64 batchOrdinal = _batches[idx].ordinal;
         _batches[idx].owner = newOwner;
@@ -245,8 +273,30 @@ contract MNSRegistry {
     /// @param ns        NS DNS name (max 255 bytes). May be empty.
     /// @custom:error OrdinalNotRegistered if the ordinal's batch hasn't been registered.
     function update(uint64 ordinal, address newOwner, bytes32 zsk, string calldata ns) external {
+        _update(ordinal, newOwner, zsk, ns);
+    }
+
+    /// @notice Create or update multiple per-ordinal Entries in a single transaction.
+    /// Equivalent to calling update() N times but saves per-transaction base cost.
+    /// Each update is independently authorized — the caller must be the effective
+    /// owner of every ordinal in the array. If any update fails the entire call reverts.
+    /// Registration (register()) is intentionally excluded; batch registration must
+    /// remain a standalone call to preserve rate-limit fairness.
+    /// @param updates  Array of EntryUpdate structs, each specifying ordinal, newOwner, zsk, ns.
+    function updateMany(EntryUpdate[] calldata updates) external {
+        for (uint256 i = 0; i < updates.length; i++) {
+            _update(updates[i].ordinal, updates[i].newOwner, updates[i].zsk, updates[i].ns);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Internal — mutate
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @dev Shared logic for update() and updateMany().
+    function _update(uint64 ordinal, address newOwner, bytes32 zsk, string memory ns) internal {
         _validateOwner(newOwner);
-        _validateNS(ns);
+        _validateNs(bytes(ns).length);
         require(_getOwner(ordinal) == msg.sender, "not owner");
         bool existedBefore = _entries[ordinal].owner != address(0);
         Entry storage entry = _entries[ordinal];
@@ -260,38 +310,12 @@ contract MNSRegistry {
         }
     }
 
-    /// @notice Execute multiple calls to this contract in a single transaction.
-    /// Each element of `data` is an ABI-encoded call to any external function.
-    /// Calls are executed with the original msg.sender preserved via delegatecall.
-    /// Reverts bubble up immediately — if any sub-call fails, the entire
-    /// multicall reverts and all state changes are rolled back.
-    ///
-    /// @dev Nested multicall (multicall calling multicall) is possible and
-    /// harmless since the contract holds no ETH and has no reentrancy-sensitive
-    /// state machine. The standard msg.value-in-loop risk does not apply.
-    ///
-    /// @param data     Array of ABI-encoded calldata for each sub-call.
-    /// @return results Array of raw returndata from each sub-call.
-    function multicall(bytes[] calldata data) external returns (bytes[] memory results) {
-        results = new bytes[](data.length);
-        for (uint256 i = 0; i < data.length; i++) {
-            (bool success, bytes memory result) = address(this).delegatecall(data[i]);
-            if (!success) {
-                // Bubble up the inner revert reason
-                assembly {
-                    revert(add(result, 32), mload(result))
-                }
-            }
-            results[i] = result;
-        }
-    }
-
     // ─────────────────────────────────────────────────────────────────────────
     // Internal — rate limiter
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @dev Consumes BATCH_SIZE tokens from the bucket (one per ordinal in the batch).
-    /// Reverts with RateLimit(estimatedWaitSeconds) if the bucket doesn't have enough tokens.
+    /// Reverts with RateLimit(estimatedWaitSeconds) if insufficient tokens.
     /// Advances _lastRefill by the floor of the accrual window so fractional time carries over.
     function _consumeBucketToken() private {
         (uint64 current,, uint256 accrued) = _computeBucket();
@@ -330,8 +354,9 @@ contract MNSRegistry {
     }
 
     /// @dev Validates byte length only. DNS label structure is not checked.
-    function _validateNS(string calldata ns) private pure {
-        require(bytes(ns).length <= MAX_NS_LENGTH, "ns too long");
+    /// Accepts pre-computed length to avoid redundant bytes() conversion at call sites.
+    function _validateNs(uint256 nsLength) private pure {
+        require(nsLength <= MAX_NS_LENGTH, "ns too long");
     }
 
     // ─────────────────────────────────────────────────────────────────────────

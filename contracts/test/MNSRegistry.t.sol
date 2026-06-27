@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import "forge-std/Test.sol";
-import "../src/MNSRegistry.sol";
+import {Test} from "forge-std/Test.sol";
+import {MNSRegistry} from "../src/MNSRegistry.sol";
 
 contract MNSRegistryTest is Test {
     MNSRegistry registry;
@@ -12,6 +12,10 @@ contract MNSRegistryTest is Test {
     function setUp() public {
         registry = new MNSRegistry();
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // register
+    // ─────────────────────────────────────────────────────────────────────────
 
     function test_Register_ReturnsBatchStartingAtZero() public {
         vm.prank(alice);
@@ -36,11 +40,36 @@ contract MNSRegistryTest is Test {
         assertEq(registry.nextOrdinal(), 256);
     }
 
+    function test_Register_CanPushMultiple() public {
+        vm.startPrank(alice);
+        registry.register(bytes32(0), "s");
+        registry.register(bytes32(0), "s");
+        vm.stopPrank();
+        assertEq(registry.nextOrdinal(), 512);
+    }
+
+    function test_Register_ReturnedBatchMatchesStorage() public {
+        vm.prank(alice);
+        MNSRegistry.Batch memory r = registry.register(bytes32(0), "s1");
+        assertEq(r.ordinal, 0);
+        assertEq(r.owner, registry.getOwner(0));
+        assertEq(registry.getZoneConfig(0).ns, "s1");
+    }
+
+    function test_Register_RevertsWhenNSTooLong() public {
+        vm.prank(alice);
+        vm.expectRevert("ns too long");
+        registry.register(bytes32(0), newString(256));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // getZoneConfig / getOwner
+    // ─────────────────────────────────────────────────────────────────────────
+
     function test_GetNS_ReturnsBatchNS() public {
         vm.prank(alice);
         registry.register(bytes32(0), "s1");
-        MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(0);
-        assertEq(ns.ns, "s1");
+        assertEq(registry.getZoneConfig(0).ns, "s1");
     }
 
     function test_GetNS_RoundsDownToCorrectBatch() public {
@@ -48,17 +77,13 @@ contract MNSRegistryTest is Test {
         registry.register(bytes32(0), "s1");
         vm.prank(bob);
         registry.register(bytes32(0), "s2");
-        MNSRegistry.ZoneConfig memory ns100 = registry.getZoneConfig(100);
-        MNSRegistry.ZoneConfig memory ns300 = registry.getZoneConfig(300);
-        assertEq(ns100.ns, "s1");
-        assertEq(ns300.ns, "s2");
+        assertEq(registry.getZoneConfig(100).ns, "s1");
+        assertEq(registry.getZoneConfig(300).ns, "s2");
     }
 
     function test_GetNS_RevertsWhenOrdinalOutOfBatch() public {
         vm.prank(alice);
         registry.register(bytes32(0), "s1");
-        vm.prank(bob);
-        registry.register(bytes32(0), "s2");
         vm.expectRevert(abi.encodeWithSelector(MNSRegistry.OrdinalNotRegistered.selector, 100000));
         registry.getZoneConfig(100000);
         vm.expectRevert(abi.encodeWithSelector(MNSRegistry.OrdinalNotRegistered.selector, 100000));
@@ -70,8 +95,7 @@ contract MNSRegistryTest is Test {
         registry.register(bytes32(0), "s1");
         vm.prank(alice);
         registry.update(50, bob, bytes32(0), "overridden");
-        MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(50);
-        assertEq(ns.ns, "overridden");
+        assertEq(registry.getZoneConfig(50).ns, "overridden");
     }
 
     function test_GetNS_ReturnsBatchNSWhenNoEntry() public {
@@ -79,8 +103,7 @@ contract MNSRegistryTest is Test {
         registry.register(bytes32(0), "s1");
         vm.prank(alice);
         registry.update(50, bob, bytes32(0), "overridden");
-        MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(51);
-        assertEq(ns.ns, "s1");
+        assertEq(registry.getZoneConfig(51).ns, "s1");
     }
 
     function test_GetNS_BoundaryExactMatch() public {
@@ -88,9 +111,64 @@ contract MNSRegistryTest is Test {
         registry.register(bytes32(0), "s1");
         vm.prank(bob);
         registry.register(bytes32(0), "s2");
-        MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(256);
-        assertEq(ns.ns, "s2");
+        assertEq(registry.getZoneConfig(256).ns, "s2");
     }
+
+    function test_GetZoneConfig_ReturnsSignerHashAndNS() public {
+        vm.prank(alice);
+        registry.register(bytes32(0), "s1");
+        bytes32 hashVal = keccak256("signer");
+        vm.prank(alice);
+        registry.update(50, alice, hashVal, "custom");
+        MNSRegistry.ZoneConfig memory cfg = registry.getZoneConfig(50);
+        assertEq(cfg.ns, "custom");
+        assertEq(cfg.zsk, hashVal);
+    }
+
+    function test_GetZoneConfig_SignerHashIsZeroForBatch() public {
+        vm.prank(alice);
+        registry.register(bytes32(0), "s1");
+        MNSRegistry.ZoneConfig memory cfg = registry.getZoneConfig(0);
+        assertEq(cfg.ns, "s1");
+        assertEq(cfg.zsk, bytes32(0));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // getBatch / hasEntry
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_GetBatch_ReturnsBatchForOrdinal() public {
+        vm.prank(alice);
+        registry.register(bytes32(0), "s1");
+        MNSRegistry.Batch memory b = registry.getBatch(100);
+        assertEq(b.ordinal, 0);
+        assertEq(b.owner, alice);
+        assertEq(b.zone.ns, "s1");
+    }
+
+    function test_GetBatch_RevertsWhenNotRegistered() public {
+        vm.expectRevert(abi.encodeWithSelector(MNSRegistry.BatchNotRegistered.selector, 999));
+        registry.getBatch(999);
+    }
+
+    function test_HasEntry_ReturnsFalseWithNoEntry() public {
+        vm.prank(alice);
+        registry.register(bytes32(0), "s1");
+        assertFalse(registry.hasEntry(50));
+    }
+
+    function test_HasEntry_ReturnsTrueAfterUpdate() public {
+        vm.prank(alice);
+        registry.register(bytes32(0), "s1");
+        vm.prank(alice);
+        registry.update(50, alice, bytes32(0), "e50");
+        assertTrue(registry.hasEntry(50));
+        assertFalse(registry.hasEntry(51));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // update
+    // ─────────────────────────────────────────────────────────────────────────
 
     function test_Entry_SetsEntryNSForOrdinal() public {
         vm.prank(alice);
@@ -98,8 +176,7 @@ contract MNSRegistryTest is Test {
         vm.prank(alice);
         registry.update(50, bob, bytes32(0), "custom");
         assertEq(registry.getOwner(50), bob);
-        MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(50);
-        assertEq(ns.ns, "custom");
+        assertEq(registry.getZoneConfig(50).ns, "custom");
     }
 
     function test_Update_BatchOwnerCreatesEntry() public {
@@ -125,8 +202,7 @@ contract MNSRegistryTest is Test {
         registry.update(50, bob, bytes32(0), "v1");
         vm.prank(bob);
         registry.update(50, alice, bytes32(0), "v2");
-        MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(50);
-        assertEq(ns.ns, "v2");
+        assertEq(registry.getZoneConfig(50).ns, "v2");
         assertEq(registry.getOwner(50), alice);
     }
 
@@ -148,28 +224,22 @@ contract MNSRegistryTest is Test {
         registry.update(50, address(0), bytes32(0), "s1");
     }
 
-    function test_Register_CanPushMultiple() public {
-        vm.startPrank(alice);
-        registry.register(bytes32(0), "s");
-        registry.register(bytes32(0), "s");
-        vm.stopPrank();
-        assertEq(registry.nextOrdinal(), 512);
+    function test_Entry_SetsAndUpdatesSignerHash() public {
+        vm.prank(alice);
+        registry.register(bytes32(0), "s1");
+        bytes32 hash1 = keccak256("key1");
+        vm.prank(alice);
+        registry.update(50, alice, hash1, "ns1");
+        assertEq(registry.getZoneConfig(50).zsk, hash1);
+        bytes32 hash2 = keccak256("key2");
+        vm.prank(alice);
+        registry.update(50, alice, hash2, "ns2");
+        assertEq(registry.getZoneConfig(50).zsk, hash2);
     }
 
-    function test_Register_ReturnedBatchMatchesStorage() public {
-        vm.prank(alice);
-        MNSRegistry.Batch memory r = registry.register(bytes32(0), "s1");
-        assertEq(r.ordinal, 0);
-        assertEq(r.owner, registry.getOwner(0));
-        MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(0);
-        assertEq(ns.ns, "s1");
-    }
-
-    function test_Register_RevertsWhenNSTooLong() public {
-        vm.prank(alice);
-        vm.expectRevert("ns too long");
-        registry.register(bytes32(0), newString(256));
-    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // updateBatch
+    // ─────────────────────────────────────────────────────────────────────────
 
     function test_UpdateBatch_UpdatesOwnerAndNS() public {
         vm.prank(alice);
@@ -177,8 +247,7 @@ contract MNSRegistryTest is Test {
         vm.prank(alice);
         registry.updateBatch(0, bob, bytes32(0), "ns1");
         assertEq(registry.getOwner(0), bob);
-        MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(0);
-        assertEq(ns.ns, "ns1");
+        assertEq(registry.getZoneConfig(0).ns, "ns1");
     }
 
     function test_UpdateBatch_BatchDefaultUpdatesGetNS() public {
@@ -186,8 +255,7 @@ contract MNSRegistryTest is Test {
         registry.register(bytes32(0), "s1");
         vm.prank(alice);
         registry.updateBatch(0, alice, bytes32(0), "ns1");
-        MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(50);
-        assertEq(ns.ns, "ns1");
+        assertEq(registry.getZoneConfig(50).ns, "ns1");
     }
 
     function test_UpdateBatch_DoesNotAffectExistingEntry() public {
@@ -197,10 +265,8 @@ contract MNSRegistryTest is Test {
         registry.update(50, alice, bytes32(0), "override");
         vm.prank(alice);
         registry.updateBatch(0, alice, bytes32(0), "newDefault");
-        MNSRegistry.ZoneConfig memory ns50 = registry.getZoneConfig(50);
-        MNSRegistry.ZoneConfig memory ns51 = registry.getZoneConfig(51);
-        assertEq(ns50.ns, "override");
-        assertEq(ns51.ns, "newDefault");
+        assertEq(registry.getZoneConfig(50).ns, "override");
+        assertEq(registry.getZoneConfig(51).ns, "newDefault");
     }
 
     function test_UpdateBatch_RevertsWhenOrdinalOutOfBatch() public {
@@ -242,9 +308,93 @@ contract MNSRegistryTest is Test {
         registry.updateBatch(0, bob, bytes32(0), "ns1");
         vm.prank(bob);
         registry.update(50, bob, bytes32(0), "entry");
-        MNSRegistry.ZoneConfig memory ns = registry.getZoneConfig(50);
-        assertEq(ns.ns, "entry");
+        assertEq(registry.getZoneConfig(50).ns, "entry");
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // updateMany
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_UpdateMany_BatchOwnerCreatesMultipleEntries() public {
+        vm.prank(alice);
+        registry.register(bytes32(0), "s1");
+
+        MNSRegistry.EntryUpdate[] memory updates = new MNSRegistry.EntryUpdate[](3);
+        updates[0] = MNSRegistry.EntryUpdate(10, alice, bytes32(0), "e10");
+        updates[1] = MNSRegistry.EntryUpdate(20, alice, bytes32(0), "e20");
+        updates[2] = MNSRegistry.EntryUpdate(30, alice, bytes32(0), "e30");
+
+        vm.prank(alice);
+        registry.updateMany(updates);
+
+        assertEq(registry.getZoneConfig(10).ns, "e10");
+        assertEq(registry.getZoneConfig(20).ns, "e20");
+        assertEq(registry.getZoneConfig(30).ns, "e30");
+    }
+
+    function test_UpdateMany_RevertsWhenNotOwner() public {
+        vm.prank(alice);
+        registry.register(bytes32(0), "s1");
+
+        MNSRegistry.EntryUpdate[] memory updates = new MNSRegistry.EntryUpdate[](1);
+        updates[0] = MNSRegistry.EntryUpdate(10, bob, bytes32(0), "hijack");
+
+        vm.prank(bob);
+        vm.expectRevert("not owner");
+        registry.updateMany(updates);
+    }
+
+    function test_UpdateMany_RevertsAndRollsBackOnFailure() public {
+        vm.prank(alice);
+        registry.register(bytes32(0), "s1"); // batch 0, ordinals 0-255, alice owns it
+        vm.prank(bob);
+        registry.register(bytes32(0), "s2"); // batch 1, ordinals 256-511, bob owns it
+
+        MNSRegistry.EntryUpdate[] memory updates = new MNSRegistry.EntryUpdate[](3);
+        updates[0] = MNSRegistry.EntryUpdate(10, alice, bytes32(0), "e10");
+        updates[1] = MNSRegistry.EntryUpdate(20, alice, bytes32(0), "e20");
+        updates[2] = MNSRegistry.EntryUpdate(300, alice, bytes32(0), "bad"); // bob's batch
+
+        vm.prank(alice);
+        vm.expectRevert("not owner");
+        registry.updateMany(updates);
+
+        // rollback check: entries were not persisted, ns falls back to batch defaults
+        assertEq(registry.getZoneConfig(10).ns, "s1");
+        assertEq(registry.getZoneConfig(20).ns, "s1");
+        assertEq(registry.getOwner(10), alice);
+        assertEq(registry.getOwner(20), alice);
+    }
+
+    function test_UpdateMany_RegistrarHandsOutEntriesToUsers() public {
+        // Demonstrates the registrar pattern: register a batch then distribute
+        // entries to users via updateMany. Registration stays as a standalone
+        // call — it cannot be batched with updateMany by design.
+        vm.prank(alice);
+        registry.register(bytes32(0), "registrar.ns");
+
+        MNSRegistry.EntryUpdate[] memory updates = new MNSRegistry.EntryUpdate[](3);
+        updates[0] = MNSRegistry.EntryUpdate(0, bob, bytes32(0), "user0");
+        updates[1] = MNSRegistry.EntryUpdate(1, bob, bytes32(0), "user1");
+        updates[2] = MNSRegistry.EntryUpdate(100, alice, bytes32(0), "user100");
+
+        vm.prank(alice);
+        registry.updateMany(updates);
+
+        assertEq(registry.getOwner(0), bob);
+        assertEq(registry.getOwner(1), bob);
+        assertEq(registry.getOwner(100), alice);
+        assertEq(registry.getZoneConfig(50).ns, "registrar.ns"); // batch default intact
+    }
+
+    function test_UpdateMany_EmptyArraySucceeds() public {
+        MNSRegistry.EntryUpdate[] memory updates = new MNSRegistry.EntryUpdate[](0);
+        registry.updateMany(updates); // should not revert
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // rate limiter
+    // ─────────────────────────────────────────────────────────────────────────
 
     function test_EstimatedWaitTime_ReturnsZeroAtStart() public view {
         assertEq(registry.estimatedWaitTime(), 0);
@@ -306,39 +456,9 @@ contract MNSRegistryTest is Test {
         registry.register(bytes32(0), "s");
     }
 
-    function test_Entry_SetsAndUpdatesSignerHash() public {
-        vm.prank(alice);
-        registry.register(bytes32(0), "s1");
-        bytes32 hash1 = keccak256("key1");
-        vm.prank(alice);
-        registry.update(50, alice, hash1, "ns1");
-        MNSRegistry.ZoneConfig memory c1 = registry.getZoneConfig(50);
-        assertEq(c1.zsk, hash1);
-        bytes32 hash2 = keccak256("key2");
-        vm.prank(alice);
-        registry.update(50, alice, hash2, "ns2");
-        MNSRegistry.ZoneConfig memory c2 = registry.getZoneConfig(50);
-        assertEq(c2.zsk, hash2);
-    }
-
-    function test_GetZoneConfig_ReturnsSignerHashAndNS() public {
-        vm.prank(alice);
-        registry.register(bytes32(0), "s1");
-        bytes32 hashVal = keccak256("signer");
-        vm.prank(alice);
-        registry.update(50, alice, hashVal, "custom");
-        MNSRegistry.ZoneConfig memory cfg = registry.getZoneConfig(50);
-        assertEq(cfg.ns, "custom");
-        assertEq(cfg.zsk, hashVal);
-    }
-
-    function test_GetZoneConfig_SignerHashIsZeroForBatch() public {
-        vm.prank(alice);
-        registry.register(bytes32(0), "s1");
-        MNSRegistry.ZoneConfig memory cfg = registry.getZoneConfig(0);
-        assertEq(cfg.ns, "s1");
-        assertEq(cfg.zsk, bytes32(0));
-    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // helpers
+    // ─────────────────────────────────────────────────────────────────────────
 
     function newString(uint256 len) internal pure returns (string memory) {
         bytes memory s = new bytes(len);
@@ -346,77 +466,5 @@ contract MNSRegistryTest is Test {
             s[i] = "a";
         }
         return string(s);
-    }
-
-    function test_Multicall_BatchOwnerCreatesMultipleEntries() public {
-        vm.prank(alice);
-        registry.register(bytes32(0), "s1");
-
-        bytes[] memory calls = new bytes[](3);
-        calls[0] = abi.encodeCall(registry.update, (10, alice, bytes32(0), "e10"));
-        calls[1] = abi.encodeCall(registry.update, (20, alice, bytes32(0), "e20"));
-        calls[2] = abi.encodeCall(registry.update, (30, alice, bytes32(0), "e30"));
-
-        vm.prank(alice);
-        registry.multicall(calls);
-
-        assertEq(registry.getZoneConfig(10).ns, "e10");
-        assertEq(registry.getZoneConfig(20).ns, "e20");
-        assertEq(registry.getZoneConfig(30).ns, "e30");
-    }
-
-    function test_Multicall_PreservesMsgSender() public {
-        vm.prank(alice);
-        registry.register(bytes32(0), "s1");
-
-        // bob is NOT the batch owner, so any update on this batch should revert
-        bytes[] memory calls = new bytes[](1);
-        calls[0] = abi.encodeCall(registry.update, (10, bob, bytes32(0), "hijack"));
-
-        vm.prank(bob);
-        vm.expectRevert("not owner");
-        registry.multicall(calls);
-    }
-
-    function test_Multicall_RevertsAndRollsBackOnFailure() public {
-        vm.prank(alice);
-        registry.register(bytes32(0), "s1"); // batch 0, ordinals 0-255, alice owns it
-        vm.prank(bob);
-        registry.register(bytes32(0), "s2"); // batch 1, ordinals 256-511, bob owns it
-
-        bytes[] memory calls = new bytes[](3);
-        calls[0] = abi.encodeCall(registry.update, (10, alice, bytes32(0), "e10"));
-        calls[1] = abi.encodeCall(registry.update, (20, alice, bytes32(0), "e20"));
-        // alice tries to write into bob's batch — should revert with "not owner"
-        calls[2] = abi.encodeCall(registry.update, (300, alice, bytes32(0), "bad"));
-
-        vm.prank(alice);
-        vm.expectRevert("not owner");
-        registry.multicall(calls);
-
-        // rollback check: entries were not persisted, ns falls back to batch defaults
-        assertEq(registry.getZoneConfig(10).ns, "s1");
-        assertEq(registry.getZoneConfig(20).ns, "s1");
-        // owner falls back to batch owner (alice), no entry was created
-        assertEq(registry.getOwner(10), alice);
-        assertEq(registry.getOwner(20), alice);
-    }
-
-    function test_Multicall_RegisterAndUpdateInOneTx() public {
-        // Demonstrates the registrar pattern: register a batch and immediately
-        // carve out several entries for users, all in one transaction.
-        bytes[] memory calls = new bytes[](4);
-        calls[0] = abi.encodeCall(registry.register, (bytes32(0), "registrar.ns"));
-        calls[1] = abi.encodeCall(registry.update, (0, bob, bytes32(0), "user0"));
-        calls[2] = abi.encodeCall(registry.update, (1, bob, bytes32(0), "user1"));
-        calls[3] = abi.encodeCall(registry.update, (100, alice, bytes32(0), "user100"));
-
-        vm.prank(alice);
-        registry.multicall(calls);
-
-        assertEq(registry.getOwner(0), bob);
-        assertEq(registry.getOwner(1), bob);
-        assertEq(registry.getOwner(100), alice);
-        assertEq(registry.getZoneConfig(50).ns, "registrar.ns"); // batch default intact
     }
 }
