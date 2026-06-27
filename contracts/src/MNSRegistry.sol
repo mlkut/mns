@@ -23,9 +23,22 @@ pragma solidity ^0.8.33;
 /// Rate limiting
 /// ─────────────
 /// A token bucket (BUCKET_CAPACITY / REFILL_RATE / REFILL_PERIOD) smooths the
-/// registration rate independently of block times, which vary on Rootstock. The
-/// bucket refills continuously; BUCKET_CAPACITY bounds the burst, REFILL_RATE
-/// bounds the sustained daily throughput.
+/// registration rate independently of block times, which vary on Rootstock
+/// (typically 15–30s, inherited from Bitcoin merged mining).
+/// The bucket refills continuously; BUCKET_CAPACITY bounds the burst,
+/// REFILL_RATE bounds the sustained daily throughput.
+///
+/// At the default constants:
+///   - Sustained max: 4,096 batch registrations/day (~12 trillion ordinals/day)
+///   - Burst: 8 batch registrations before rate limiting kicks in
+///   - Refill: one batch slot every ~21 seconds (well under one RSK block)
+///
+/// NS validation
+/// ─────────────
+/// The `ns` field is stored as a raw string and validated only for byte length
+/// (max 255 bytes per RFC 1035). DNS label structure, character set, and wire
+/// format are NOT validated on-chain. Off-chain resolvers should handle
+/// malformed names gracefully.
 contract MNSRegistry {
     // ─────────────────────────────────────────────────────────────────────────
     // Errors
@@ -45,21 +58,24 @@ contract MNSRegistry {
     // Constants
     // ─────────────────────────────────────────────────────────────────────────
 
+    /// @notice Maximum DNS name length per RFC 1035.
+    /// Note: only byte length is enforced; label structure is not validated on-chain.
+    uint256 public constant MAX_NS_LENGTH = 255;
+
     /// @notice Number of ordinals per batch. Batches cover [ordinal, ordinal + BATCH_SIZE).
     uint64 public constant BATCH_SIZE = 256;
-
-    /// @notice Maximum DNS name length per RFC 1035.
-    uint256 public constant MAX_NS_LENGTH = 255;
 
     /// @notice Token bucket: ordinals (tokens) added per REFILL_PERIOD.
     /// At 1,048,576 ordinals/day the bucket refills at ~12 tokens/second.
     /// Each register() consumes BATCH_SIZE tokens.
+    /// Sustained max: REFILL_RATE / BATCH_SIZE = 4,096 batch registrations/day.
     uint64 public constant REFILL_RATE = 2 ** 20;
 
-    /// @notice Token bucket: maximum burst size. Once depleted, callers must
-    /// wait for the bucket to refill.
-    /// @dev Burst limit: BUCKET_CAPACITY / BATCH_SIZE = 2 batch registrations.
-    uint64 public constant BUCKET_CAPACITY = 512;
+    /// @notice Token bucket: maximum burst size.
+    /// Burst limit: BUCKET_CAPACITY / BATCH_SIZE = 8 batch registrations before
+    /// rate limiting kicks in. Sized to absorb a burst without meaningfully changing 
+    /// sustained throughput.
+    uint64 public constant BUCKET_CAPACITY = 2048;
 
     /// @notice Period over which REFILL_RATE tokens are added to the bucket.
     uint256 public constant REFILL_PERIOD = 1 days;
@@ -72,7 +88,8 @@ contract MNSRegistry {
     /// (ZSK) with the zone's NS NSDNAME (https://datatracker.ietf.org/doc/html/rfc1035#section-3.3.11).
     /// The zone signing key commitment is a hash(keyType || pubkey) — analogous to a DNSSEC ZSK,
     /// but signs the entire DNS packet rather than individual RRsets.
-    /// By hashing both the public key and its type, any signature scheme is supported off-chain without updating this contract.
+    /// By hashing both the public key and its type, any signature scheme is supported
+    /// off-chain without updating this contract.
     struct ZoneConfig {
         bytes32 zsk;
         string ns;
@@ -182,9 +199,10 @@ contract MNSRegistry {
 
     /// @notice Register a new Batch. The caller becomes the owner.
     /// Permissionless — anyone may register, subject to rate limits.
-    /// @param zsk  Zone signing key commitment: hash(keyType || pubkey). Signs the entire DNS packet off-chain.
-    /// @param ns  NS DNS name (max 255 bytes). May be empty.
-    /// @return r The newly created Batch.
+    /// @param zsk  Zone signing key commitment: hash(keyType || pubkey).
+    ///             Signs the entire DNS packet off-chain.
+    /// @param ns   NS DNS name (max 255 bytes, byte length only). May be empty.
+    /// @return r   The newly created Batch.
     function register(bytes32 zsk, string calldata ns) external returns (Batch memory) {
         _validateNS(ns);
         _consumeBucketToken();
@@ -198,11 +216,10 @@ contract MNSRegistry {
 
     /// @notice Update the batch that contains the given ordinal.
     /// The caller must be the batch owner.
-    /// @param ordinal      Any ordinal within the target batch.
-    /// @param newOwner     New owner address. Must be non-zero.
-    /// @param zsk   Zone signing key (ZSK). Signs the entire DNS packet
-    ///                     off-chain. Pass bytes32(0) to clear.
-    /// @param ns   NS DNS name (max 255 bytes). May be empty.
+    /// @param ordinal   Any ordinal within the target batch.
+    /// @param newOwner  New owner address. Must be non-zero.
+    /// @param zsk       Zone signing key commitment. Pass bytes32(0) to clear.
+    /// @param ns        NS DNS name (max 255 bytes). May be empty.
     function updateBatch(uint64 ordinal, address newOwner, bytes32 zsk, string calldata ns) external {
         (bool found, uint256 idx) = _getBatch(ordinal);
         if (!found) revert BatchNotRegistered(ordinal);
@@ -222,13 +239,11 @@ contract MNSRegistry {
     /// entry owner can update it — the batch owner loses authority over this
     /// ordinal. This is intentional: entry ownership is fully independent of
     /// batch ownership.
-    /// @param ordinal      The ordinal to update.
-    /// @param newOwner     New entry owner. Must be non-zero.
-    /// @param zsk   Zone signing key (ZSK). Signs the entire DNS packet
-    ///                     off-chain. Pass bytes32(0) if unused.
-    /// @param ns   NS DNS name (max 255 bytes). May be empty.
+    /// @param ordinal   The ordinal to update.
+    /// @param newOwner  New entry owner. Must be non-zero.
+    /// @param zsk       Zone signing key commitment. Pass bytes32(0) if unused.
+    /// @param ns        NS DNS name (max 255 bytes). May be empty.
     /// @custom:error OrdinalNotRegistered if the ordinal's batch hasn't been registered.
-    /// The authorization check implicitly validates batch existence.
     function update(uint64 ordinal, address newOwner, bytes32 zsk, string calldata ns) external {
         _validateOwner(newOwner);
         _validateNS(ns);
@@ -249,9 +264,14 @@ contract MNSRegistry {
     /// Each element of `data` is an ABI-encoded call to any external function.
     /// Calls are executed with the original msg.sender preserved via delegatecall.
     /// Reverts bubble up immediately — if any sub-call fails, the entire
-    /// multicall reverts. Results are returned in the same order as inputs.
-    /// @param data  Array of ABI-encoded calldata for each sub-call.
-    /// @return results  Array of raw returndata from each sub-call.
+    /// multicall reverts and all state changes are rolled back.
+    ///
+    /// @dev Nested multicall (multicall calling multicall) is possible and
+    /// harmless since the contract holds no ETH and has no reentrancy-sensitive
+    /// state machine. The standard msg.value-in-loop risk does not apply.
+    ///
+    /// @param data     Array of ABI-encoded calldata for each sub-call.
+    /// @return results Array of raw returndata from each sub-call.
     function multicall(bytes[] calldata data) external returns (bytes[] memory results) {
         results = new bytes[](data.length);
         for (uint256 i = 0; i < data.length; i++) {
@@ -309,6 +329,7 @@ contract MNSRegistry {
         require(owner != address(0), "invalid owner");
     }
 
+    /// @dev Validates byte length only. DNS label structure is not checked.
     function _validateNS(string calldata ns) private pure {
         require(bytes(ns).length <= MAX_NS_LENGTH, "ns too long");
     }
