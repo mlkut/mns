@@ -347,4 +347,76 @@ contract MNSRegistryTest is Test {
         }
         return string(s);
     }
+
+    function test_Multicall_BatchOwnerCreatesMultipleEntries() public {
+        vm.prank(alice);
+        registry.register(bytes32(0), "s1");
+
+        bytes[] memory calls = new bytes[](3);
+        calls[0] = abi.encodeCall(registry.update, (10, alice, bytes32(0), "e10"));
+        calls[1] = abi.encodeCall(registry.update, (20, alice, bytes32(0), "e20"));
+        calls[2] = abi.encodeCall(registry.update, (30, alice, bytes32(0), "e30"));
+
+        vm.prank(alice);
+        registry.multicall(calls);
+
+        assertEq(registry.getZoneConfig(10).ns, "e10");
+        assertEq(registry.getZoneConfig(20).ns, "e20");
+        assertEq(registry.getZoneConfig(30).ns, "e30");
+    }
+
+    function test_Multicall_PreservesMsgSender() public {
+        vm.prank(alice);
+        registry.register(bytes32(0), "s1");
+
+        // bob is NOT the batch owner, so any update on this batch should revert
+        bytes[] memory calls = new bytes[](1);
+        calls[0] = abi.encodeCall(registry.update, (10, bob, bytes32(0), "hijack"));
+
+        vm.prank(bob);
+        vm.expectRevert("not owner");
+        registry.multicall(calls);
+    }
+
+    function test_Multicall_RevertsAndRollsBackOnFailure() public {
+        vm.prank(alice);
+        registry.register(bytes32(0), "s1"); // batch 0, ordinals 0-255, alice owns it
+        vm.prank(bob);
+        registry.register(bytes32(0), "s2"); // batch 1, ordinals 256-511, bob owns it
+
+        bytes[] memory calls = new bytes[](3);
+        calls[0] = abi.encodeCall(registry.update, (10, alice, bytes32(0), "e10"));
+        calls[1] = abi.encodeCall(registry.update, (20, alice, bytes32(0), "e20"));
+        // alice tries to write into bob's batch — should revert with "not owner"
+        calls[2] = abi.encodeCall(registry.update, (300, alice, bytes32(0), "bad"));
+
+        vm.prank(alice);
+        vm.expectRevert("not owner");
+        registry.multicall(calls);
+
+        // rollback check: entries were not persisted, ns falls back to batch defaults
+        assertEq(registry.getZoneConfig(10).ns, "s1");
+        assertEq(registry.getZoneConfig(20).ns, "s1");
+        // owner falls back to batch owner (alice), no entry was created
+        assertEq(registry.getOwner(10), alice);
+        assertEq(registry.getOwner(20), alice);
+    }
+
+    function test_Multicall_RegisterAndUpdateInOneTx() public {
+        // Demonstrates the registrar pattern: register a batch and immediately
+        // carve out several entries for users, all in one transaction.
+        bytes[] memory calls = new bytes[](4);
+        calls[0] = abi.encodeCall(registry.register, (bytes32(0), "registrar.ns"));
+        calls[1] = abi.encodeCall(registry.update, (0, bob, bytes32(0), "user0"));
+        calls[2] = abi.encodeCall(registry.update, (1, bob, bytes32(0), "user1"));
+        calls[3] = abi.encodeCall(registry.update, (100, alice, bytes32(0), "user100"));
+
+        vm.prank(alice);
+        registry.multicall(calls);
+
+        assertEq(registry.getOwner(0), bob);
+        assertEq(registry.getOwner(1), bob);
+        assertEq(registry.getOwner(100), alice);
+        assertEq(registry.getZoneConfig(50).ns, "registrar.ns"); // batch default intact
+    }
 }

@@ -70,8 +70,8 @@ contract MNSRegistry {
 
     /// @notice DNS zone configuration for an ordinal. Bundles the zone signing key
     /// (ZSK) with the zone's NS NSDNAME (https://datatracker.ietf.org/doc/html/rfc1035#section-3.3.11).
-    /// The zone signing key commitment is a hash(keyType || pubkey) — analogous to a DNSSEC ZSK, 
-    /// but signs the entire DNS packet rather than individual RRsets. 
+    /// The zone signing key commitment is a hash(keyType || pubkey) — analogous to a DNSSEC ZSK,
+    /// but signs the entire DNS packet rather than individual RRsets.
     /// By hashing both the public key and its type, any signature scheme is supported off-chain without updating this contract.
     struct ZoneConfig {
         bytes32 zsk;
@@ -242,6 +242,27 @@ contract MNSRegistry {
             emit EntryUpdated(ordinal, newOwner, zsk, ns);
         } else {
             emit EntryCreated(ordinal, newOwner, zsk, ns);
+        }
+    }
+
+    /// @notice Execute multiple calls to this contract in a single transaction.
+    /// Each element of `data` is an ABI-encoded call to any external function.
+    /// Calls are executed with the original msg.sender preserved via delegatecall.
+    /// Reverts bubble up immediately — if any sub-call fails, the entire
+    /// multicall reverts. Results are returned in the same order as inputs.
+    /// @param data  Array of ABI-encoded calldata for each sub-call.
+    /// @return results  Array of raw returndata from each sub-call.
+    function multicall(bytes[] calldata data) external returns (bytes[] memory results) {
+        results = new bytes[](data.length);
+        for (uint256 i = 0; i < data.length; i++) {
+            (bool success, bytes memory result) = address(this).delegatecall(data[i]);
+            if (!success) {
+                // Bubble up the inner revert reason
+                assembly {
+                    revert(add(result, 32), mload(result))
+                }
+            }
+            results[i] = result;
         }
     }
 
