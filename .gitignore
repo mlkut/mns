@@ -3,3 +3,4 @@
 /contracts/cache
 /contracts/lib
 .env
+/bindings
