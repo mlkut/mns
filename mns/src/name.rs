@@ -150,6 +150,7 @@ impl FromStr for Name {
 }
 
 const MASK_20: u64 = 0xF_FFFF;
+const MASK_40: u64 = 0xFF_FFFF_FFFF;
 
 #[inline(always)]
 fn round_f(val: u64, r: u64) -> u64 {
@@ -159,6 +160,8 @@ fn round_f(val: u64, r: u64) -> u64 {
 /// A 40-bit bijective permutation. No collisions across [0, 2^40).
 /// Feistel network with 4 rounds
 pub fn permute_ordinal(x: u64) -> u64 {
+    // Offset by one to avoid permuting 0 to 0.
+    let x = x.wrapping_add(1) & MASK_40;
     let mut left = (x >> 20) & MASK_20;
     let mut right = x & MASK_20;
     const R: [u64; 4] = [0x9E377, 0x6C62D, 0xB5A4B, 0xD2F3E];
@@ -180,7 +183,7 @@ pub fn unpermute_ordinal(x: u64) -> u64 {
         right = left;
         left = prev_left;
     }
-    (left << 20) | right
+    ((left << 20) | right).wrapping_sub(1) & MASK_40
 }
 
 /// Encode a 20-bit value into 8 ASCII characters: PREFIX + VOWEL_P + SUFFIX + VOWEL_S.
@@ -375,11 +378,11 @@ mod tests {
         // Update these by running the test once with `-- --nocapture` and
         // recording the output, then paste the values here.
         let cases: &[(u64, &str)] = &[
-            (0, "dozizody-dozizody"),
-            (1, "mokomedu-tasosuna"),
-            (42, "haluruto-magurego"),
-            (1_000_000, "halusuta-habarepy"),
-            (0xFF_FFFF_FFFF, "solonebu-laronupa"),
+            (0, "mokomedu-tasosuna"),
+            (1, "sikuteby-natubeku"),
+            (42, "tabofena-fituregu"),
+            (1_000_000, "hanitega-mopuseny"),
+            (0xFF_FFFF_FFFF, "dozizody-dozizody"),
         ];
         for &(ordinal, expected) in cases {
             let actual = Name::from_ordinal(ordinal).to_string();
@@ -396,7 +399,7 @@ mod tests {
         for ordinal in 0..=6_u64 {
             let name = Name::from_ordinal(ordinal);
             println!("{ordinal:>4}: {name}");
-            println!("{}", name.render_avatar_svg());
+            // println!("{}", name.render_avatar_svg());
         }
     }
 
