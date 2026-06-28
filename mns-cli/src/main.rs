@@ -7,7 +7,6 @@ use clap::{Parser, Subcommand};
 use mns::Name;
 use url::Url;
 
-const RPC_URL: &str = "https://public-node.testnet.rsk.co";
 const CONTRACT_ADDRESS: &str = "0xe916a48de922e8964542f4c4c66ec4837bbe3445";
 
 #[derive(Parser)]
@@ -41,10 +40,15 @@ enum Commands {
     },
 }
 
+fn rpc_url(cfg: &config::Config) -> String {
+    cfg.testnet_rpc_url()
+}
+
 async fn build_provider(
     signer: alloy::signers::local::PrivateKeySigner,
+    cfg: &config::Config,
 ) -> Result<impl alloy::providers::Provider, Box<dyn std::error::Error>> {
-    let url = Url::parse(RPC_URL)?;
+    let url = Url::parse(&rpc_url(cfg))?;
     let provider = ProviderBuilder::new()
         .with_chain_id(31)
         .wallet(signer)
@@ -52,8 +56,8 @@ async fn build_provider(
     Ok(provider)
 }
 
-fn build_readonly_provider() -> impl alloy::providers::Provider {
-    let url = Url::parse(RPC_URL).unwrap();
+fn build_readonly_provider(cfg: &config::Config) -> impl alloy::providers::Provider {
+    let url = Url::parse(&rpc_url(cfg)).unwrap();
     ProviderBuilder::new().with_chain_id(31).connect_http(url)
 }
 
@@ -74,7 +78,7 @@ fn ordinal_to_name(ordinal: u64) -> String {
     Name::from_ordinal(ordinal).to_string()
 }
 
-fn format_batch(ordinal: u64, batch: &MNSRegistry::Batch) {
+fn format_batch(ordinal: u64, batch: &MNSRegistry::Batch, has_entry: &[bool]) {
     let batch_number = ordinal / 256;
     let start = batch_number * 256;
     let end = start + 255;
@@ -83,7 +87,11 @@ fn format_batch(ordinal: u64, batch: &MNSRegistry::Batch) {
     println!("  ZSK: 0x{}", hex::encode(batch.zone.zsk));
     println!("  NS: {}", batch.zone.ns);
     println!();
-    for o in start..=end {
+    for (i, &taken) in has_entry.iter().enumerate() {
+        if taken {
+            continue;
+        }
+        let o = start + i as u64;
         let name = ordinal_to_name(o);
         println!("  {} -> {}", o, name);
     }
@@ -98,16 +106,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let signer = key::get_or_create_key()?;
             let address = signer.address();
             let mut cfg = config::Config::load();
-            if cfg.api_key.is_none() {
-                cfg.api_key = Some(String::new());
-                cfg.save()?;
+            if cfg.testnet.is_none() {
+                cfg.testnet = Some(config::NetworkConfig {
+                    api_key: Some(String::new()),
+                });
             }
+            if cfg.mainnet.is_none() {
+                cfg.mainnet = Some(config::NetworkConfig {
+                    api_key: Some(String::new()),
+                });
+            }
+            cfg.save()?;
             println!("RSK address: 0x{:x}", address);
             println!("Config: {}", config::Config::path().display());
+            println!("RPC: {}", cfg.testnet_rpc_url());
         }
         Commands::Register { zsk, ns } => {
+            let cfg = config::Config::load();
             let signer = key::get_key()?;
-            let provider = build_provider(signer).await?;
+            let provider = build_provider(signer, &cfg).await?;
             let address: alloy::primitives::Address = CONTRACT_ADDRESS.parse()?;
             let contract = MNSRegistry::new(address, &provider);
             let zsk_bytes = parse_bytes32(&zsk)?;
@@ -121,11 +138,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Registered! Tx: {:?}", receipt.transaction_hash);
         }
         Commands::List { ordinal } => {
-            let provider = build_readonly_provider();
+            let cfg = config::Config::load();
+            let provider = build_readonly_provider(&cfg);
             let address: alloy::primitives::Address = CONTRACT_ADDRESS.parse()?;
             let contract = MNSRegistry::new(address, &provider);
             let batch = contract.getBatch(ordinal).call().await?;
-            format_batch(ordinal, &batch);
+            let batch_number = ordinal / 256;
+            let start = batch_number * 256;
+            let end = start + 255;
+            let mut has_entry = Vec::with_capacity(256);
+            for o in start..=end {
+                has_entry.push(contract.hasEntry(o).call().await?);
+            }
+            format_batch(ordinal, &batch, &has_entry);
         }
         Commands::Update {
             ordinal,
@@ -133,8 +158,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             zsk,
             ns,
         } => {
+            let cfg = config::Config::load();
             let signer = key::get_key()?;
-            let provider = build_provider(signer).await?;
+            let provider = build_provider(signer, &cfg).await?;
             let address: alloy::primitives::Address = CONTRACT_ADDRESS.parse()?;
             let contract = MNSRegistry::new(address, &provider);
             let owner = parse_address(&new_owner)?;
@@ -154,8 +180,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             zsk,
             ns,
         } => {
+            let cfg = config::Config::load();
             let signer = key::get_key()?;
-            let provider = build_provider(signer).await?;
+            let provider = build_provider(signer, &cfg).await?;
             let address: alloy::primitives::Address = CONTRACT_ADDRESS.parse()?;
             let contract = MNSRegistry::new(address, &provider);
             let owner = parse_address(&new_owner)?;

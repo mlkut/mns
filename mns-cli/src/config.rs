@@ -3,14 +3,14 @@ use std::fs;
 use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Config {
+pub struct NetworkConfig {
     pub api_key: Option<String>,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self { api_key: None }
-    }
+#[derive(Default, Debug, Serialize, Deserialize)]
+pub struct Config {
+    pub testnet: Option<NetworkConfig>,
+    pub mainnet: Option<NetworkConfig>,
 }
 
 impl Config {
@@ -34,5 +34,16 @@ impl Config {
         }
         fs::write(&p, toml::to_string_pretty(self)?)?;
         Ok(())
+    }
+
+    pub fn testnet_rpc_url(&self) -> String {
+        if let Some(ref net) = self.testnet {
+            if let Some(ref key) = net.api_key {
+                if !key.is_empty() {
+                    return format!("https://rpc.rootstock.io/{}/testnet", key);
+                }
+            }
+        }
+        "https://public-node.testnet.rsk.co".to_string()
     }
 }
