@@ -12,7 +12,7 @@ fn keyring_entry() -> Result<keyring::Entry, Box<dyn std::error::Error>> {
 }
 
 fn secret_to_signer(secret: &SecretKey) -> Result<AlloySigner, Box<dyn std::error::Error>> {
-    let b256 = B256::from_slice(secret.to_bytes().as_slice());
+    let b256 = B256::from_slice(&secret.to_bytes()[..]);
     Ok(AlloySigner::from_bytes(&b256)?)
 }
 
@@ -27,7 +27,7 @@ pub fn get_or_create_key() -> Result<AlloySigner, Box<dyn std::error::Error>> {
         Err(_) => {
             let secret = SecretKey::random(&mut OsRng);
             let signer = secret_to_signer(&secret)?;
-            let hex = hex::encode(secret.to_bytes().as_slice());
+            let hex = hex::encode(&secret.to_bytes()[..]);
             entry.set_password(&hex)?;
             Ok(signer)
         }
