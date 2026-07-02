@@ -69,6 +69,30 @@ impl Name {
         unpermute_ordinal(self.0)
     }
 
+    /// The internal 40-bit permuted value used for wire encoding and name display.
+    pub fn as_u64(&self) -> u64 {
+        self.0
+    }
+
+    /// Reconstruct a [`Name`] from its internal 40-bit value (the same value
+    /// returned by [`Name::as_u64`]).
+    pub fn from_raw(val: u64) -> Self {
+        Name(val & MASK_40)
+    }
+
+    /// Encode the internal 40-bit value as 5 bytes (big-endian) for wire format.
+    pub fn to_wire_bytes(&self) -> [u8; 5] {
+        let be = self.0.to_be_bytes();
+        [be[3], be[4], be[5], be[6], be[7]]
+    }
+
+    /// Decode a [`Name`] from 5 wire-format bytes (big-endian, 40 bits).
+    pub fn from_wire_bytes(wire: &[u8; 5]) -> Self {
+        let mut buf = [0u8; 8];
+        buf[3..8].copy_from_slice(wire);
+        Name(u64::from_be_bytes(buf))
+    }
+
     pub(crate) fn encode(&self) -> String {
         let val = self.0;
         let mut result = String::with_capacity(17); // 8 + '-' + 8
@@ -76,11 +100,6 @@ impl Name {
         result.push('-');
         encode_word(val & MASK_20, &mut result);
         result
-    }
-
-    #[cfg(test)]
-    pub(crate) fn as_u64(&self) -> u64 {
-        self.0
     }
 
     /// Renders a 40-bit value as a 9×9 mirrored pixel grid SVG.
@@ -144,8 +163,32 @@ impl Display for Name {
 impl FromStr for Name {
     type Err = &'static str;
 
+    /// Parse a [`Name`] from a string.
+    ///
+    /// Accepts a bare name (`mokomedu-tasosuna`), a DNS label
+    /// (`mokomedu-tasosuna.mns.alt`), or any string containing the
+    /// `XXXXXXXX-XXXXXXXX` pattern. When multiple patterns are present the
+    /// **rightmost** match (the domain apex) is returned.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Name(decode(s)?))
+        if !s.is_ascii() {
+            return Err("name must be ASCII");
+        }
+
+        if s.len() == 17 && s.as_bytes()[8] == b'-' {
+            return Ok(Name(decode(s)?));
+        }
+
+        let bytes = s.as_bytes();
+        for start in (0..bytes.len().saturating_sub(16)).rev() {
+            if bytes[start + 8] == b'-' {
+                let candidate =
+                    std::str::from_utf8(&bytes[start..start + 17]).map_err(|_| "invalid UTF-8")?;
+                if let Ok(val) = decode(candidate) {
+                    return Ok(Name(val));
+                }
+            }
+        }
+        Err("could not find a valid mns name in the string")
     }
 }
 
@@ -461,6 +504,55 @@ mod tests {
             (avg_bit_diff - 20.0).abs() < 0.10,
             "Poor diffusion: avg bit diff = {avg_bit_diff}"
         );
+    }
+
+    #[test]
+    fn test_from_str_first_label() {
+        // A full DNS name — should pick the rightmost (apex) label.
+        let s = "hodolena-ravatudu.foo.risomuty-wanoweta.mns.alt";
+        let name: Name = s.parse().expect("parse DNS name");
+        assert_eq!(name.to_string(), "risomuty-wanoweta");
+    }
+
+    #[test]
+    fn test_from_str_only_name() {
+        let name: Name = "mokomedu-tasosuna".parse().unwrap();
+        assert_eq!(name.to_string(), "mokomedu-tasosuna");
+    }
+
+    #[test]
+    fn test_from_str_url_name() {
+        let name: Name = "https://mokomedu-tasosuna.mns.mlkut.org".parse().unwrap();
+        assert_eq!(name.to_string(), "mokomedu-tasosuna");
+    }
+
+    #[test]
+    fn test_from_str_no_suffix_fails() {
+        assert!("example.com".parse::<Name>().is_err());
+        assert!("foo.bar.baz".parse::<Name>().is_err());
+    }
+
+    #[test]
+    fn test_from_str_trailing_dot() {
+        // FQDN with trailing dot
+        let s = "tabofena-fituregu.";
+        let name: Name = s.parse().expect("parse FQDN");
+        assert_eq!(name.to_string(), "tabofena-fituregu");
+    }
+
+    #[test]
+    fn test_from_str_dash_prefix() {
+        // A subdomain like "sub-mid.mokomedu-tasosuna.mns.alt"
+        let s = "https://sub-mid.mokomedu-tasosuna.mns.alt";
+        let name: Name = s.parse().expect("parse with subdomain containing dash");
+        assert_eq!(name.to_string(), "mokomedu-tasosuna");
+    }
+
+    #[test]
+    fn test_from_str_rejects_malformed_hyphen() {
+        // Hyphen at wrong position
+        assert!("mokomedu-tasosuna".parse::<Name>().is_ok()); // correct
+        assert!("mokom-edutasosuna".parse::<Name>().is_err()); // wrong hyphen pos
     }
 }
 
