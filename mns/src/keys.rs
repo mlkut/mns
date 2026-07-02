@@ -1,6 +1,6 @@
 //! Type-prefixed public keys, supporting multiple key algorithms.
 //!
-//! Pkarr (<https://github.com/nuhvi/pkarr>) hard-codes Ed25519: a public key
+//! Pkarr (<https://pkarr.org>) hard-codes Ed25519: a public key
 //! is always exactly 32 bytes, and the z-base32 encoding of those 32 bytes
 //! *is* the identity/domain name. We don't want that assumption baked in,
 //! since we won't be using Ed25519 exclusively going forward. The prefix
@@ -119,7 +119,7 @@ impl PublicKey {
         out
     }
 
-    pub fn from_prefixed_bytes(bytes: &[u8]) -> Result<(Self, usize), KeyError> {
+    pub fn from_prefixed_bytes(bytes: &[u8]) -> Result<Self, KeyError> {
         let type_byte = *bytes.first().ok_or(KeyError::InvalidLength {
             expected: 1,
             got: 0,
@@ -138,7 +138,7 @@ impl PublicKey {
             KeyType::Ed25519 => {
                 let raw: [u8; 32] = bytes[1..33].try_into().expect("checked length above");
                 let vk = VerifyingKey::from_bytes(&raw)?;
-                Ok((PublicKey::Ed25519(vk), needed))
+                Ok(PublicKey::Ed25519(vk))
             }
         }
     }
@@ -245,8 +245,7 @@ mod tests {
         assert_eq!(prefixed.len(), 33);
         assert_eq!(prefixed[0], KeyType::Ed25519.as_byte());
 
-        let (parsed, consumed) = PublicKey::from_prefixed_bytes(&prefixed).unwrap();
-        assert_eq!(consumed, 33);
+        let parsed = PublicKey::from_prefixed_bytes(&prefixed).unwrap();
         assert_eq!(parsed, public_key);
     }
 
