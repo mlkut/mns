@@ -93,6 +93,11 @@ impl Name {
         Name(u64::from_be_bytes(buf))
     }
 
+    /// Returns the canonical zone domain for this Name.
+    pub fn canonical_domain(&self) -> String {
+        format!("{}.mns.alt", self.encode())
+    }
+
     pub(crate) fn encode(&self) -> String {
         let val = self.0;
         let mut result = String::with_capacity(17); // 8 + '-' + 8
