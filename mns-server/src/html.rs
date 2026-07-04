@@ -2,7 +2,7 @@ use mns::Name;
 use mns::ZSK_LEN;
 use simple_dns::ResourceRecord;
 
-const FAVICON: &str = "https://avatars.githubusercontent.com/u/201356953?s=64";
+const FAVICON: &str = "/static/favicon.png";
 const ACCENT: &str = "#800000";
 
 fn main_style() -> String {
@@ -137,7 +137,7 @@ fn main_style() -> String {
     display: flex;
     justify-content: center;
     margin-bottom: 1.75rem;
-    animation: avatarIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+    animation: avatarIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0s both;
   }}
 
   @keyframes avatarIn {{
@@ -172,7 +172,7 @@ fn main_style() -> String {
   .header {{
     text-align: center;
     margin-bottom: 2rem;
-    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0s both;
   }}
 
   @keyframes fadeUp {{
@@ -203,7 +203,7 @@ fn main_style() -> String {
     height: 1px;
     background: linear-gradient(90deg, transparent, var(--border), transparent);
     margin-bottom: 1.5rem;
-    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both;
+    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0s both;
   }}
 
   .meta-grid {{
@@ -211,7 +211,7 @@ fn main_style() -> String {
     flex-direction: column;
     gap: 1rem;
     margin-bottom: 1.75rem;
-    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both;
+    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0s both;
   }}
 
   .meta-row {{
@@ -298,7 +298,7 @@ fn main_style() -> String {
   .empty-state {{
     text-align: center;
     padding: 1.75rem 1rem;
-    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both;
+    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0s both;
   }}
 
   .empty-text {{
@@ -320,7 +320,7 @@ fn main_style() -> String {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.6s both;
+    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0s both;
   }}
 
   .footer-dot {{
@@ -594,6 +594,10 @@ pub fn render_html(
 
 {records_section}
 
+<div style="text-align:center;margin-top:0.75rem;z-index:1;position:relative;">
+  <a href="/" style="color:var(--fg-muted);font-size:0.75rem;text-decoration:none;">← Home</a>
+</div>
+
 {footer}
 
 {particles}
@@ -631,7 +635,7 @@ pub fn render_not_found_page(name: &Name, zsk: Option<&[u8; ZSK_LEN]>, ns: Optio
             "No signed packets published yet.",
         )
     } else {
-        (String::new(), "This name is not registered on MNS.")
+        (String::new(), "This name is not registered on MNS yet!.")
     };
 
     let style = main_style();
@@ -667,9 +671,140 @@ pub fn render_not_found_page(name: &Name, zsk: Option<&[u8; ZSK_LEN]>, ns: Optio
   </div>
 </div>
 
+<div style="text-align:center;margin-top:0.75rem;z-index:1;position:relative;">
+  <a href="/" style="color:var(--fg-muted);font-size:0.75rem;text-decoration:none;">← Home</a>
+</div>
+
 {footer}
 
 {particles}
+</body>
+</html>"#,
+    )
+}
+
+pub fn render_home_page() -> String {
+    let style = format!(
+        r##"{main_style}
+
+  .search-row {{
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+  }}
+  .search-row input {{
+    flex: 1;
+    min-width: 0;
+  }}
+  .search-row button {{
+    flex-shrink: 0;
+  }}
+
+  .history-list {{
+    margin-top: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }}
+  .history-item {{
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.2s;
+    text-decoration: none;
+    color: var(--fg);
+  }}
+  .history-item:hover {{
+    background: var(--surface-hover);
+  }}
+  .history-avatar {{
+    width: 28px;
+    height: 28px;
+    color: var(--accent-text);
+    flex-shrink: 0;
+    background: var(--fg-muted);
+  }}
+  .history-name {{
+    font-family: var(--mono);
+    font-size: 0.8rem;
+  }}
+
+  @media (max-width: 480px) {{
+    .search-row {{
+      flex-direction: column;
+    }}
+    .search-row button {{
+      width: 100%;
+    }}
+  }}
+"##,
+        main_style = main_style()
+    );
+    let head = page_head("Mlkut Name System", &style);
+    let particles = particles_script();
+    let footer = footer_html();
+
+    format!(
+        r#"{head}
+<body>
+
+<div class="grid-bg"></div>
+<div class="particles" id="particles"></div>
+
+<div class="card" style="text-align:center;">
+  <div class="avatar-wrap">
+    <img src="/static/mlkut.png" alt="mlkut logo" class="avatar" style="width:128px;height:128px;object-fit:contain;">
+  </div>
+
+  <div class="header">
+    <h1>Mlkut Name System</h1>
+    <div class="canonical" style="font-family:var(--sans);opacity:1;margin-top:1rem;">
+      Permissionless name registry for the next millennium.
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <form id="search-form" onsubmit="event.preventDefault();var q=this.querySelector('input').value;if(q){{try{{var h=JSON.parse(localStorage.getItem('mns-history')||'[]');h=h.filter(function(n){{return n!==q}});h.unshift(q);if(h.length>5)h.length=5;localStorage.setItem('mns-history',JSON.stringify(h))}}catch(e){{}}window.location.href='/'+encodeURIComponent(q);}}">
+    <div class="search-row">
+      <input type="text" id="search-input" placeholder="Search MNS name..." style="padding:0.85rem 1.1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--fg);font-family:var(--mono);font-size:0.9rem;outline:none;transition:border-color 0.25s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+      <button type="submit" style="padding:0.75rem 2rem;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:var(--sans);font-weight:600;font-size:0.9rem;cursor:pointer;transition:opacity 0.25s;" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">Search</button>
+    </div>
+  </form>
+
+  <div id="history"></div>
+
+  <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:center;font-size:0.82rem;">
+    <a href="https://mlkut.org" style="color:var(--accent-text);text-decoration:none;font-weight:500;">Read more</a>
+    <span style="color:var(--fg-dim);">·</span>
+    <a href="https://mlkut.org" style="color:var(--accent-text);text-decoration:none;font-weight:500;">Specs</a>
+  </div>
+</div>
+
+{footer}
+
+{particles}
+
+<script>
+(function() {{
+  var list;
+  try {{ list = JSON.parse(localStorage.getItem('mns-history') || '[]'); }} catch(e) {{ list = []; }}
+  if (list.length === 0) return;
+  var html = '<div class="history-list">';
+  for (var i = 0; i < list.length; i++) {{
+    var name = list[i];
+    html += '<a class="history-item" href="/' + encodeURIComponent(name) + '">' +
+      '<img class="history-avatar" src="/avatar/' + encodeURIComponent(name) + '" alt="" style="width:28px;height:28px;border-radius:4px;">' +
+      '<span class="history-name">' + name + '</span></a>';
+  }}
+  html += '</div>';
+  document.getElementById('history').innerHTML = html;
+}})();
+</script>
+
 </body>
 </html>"#,
     )

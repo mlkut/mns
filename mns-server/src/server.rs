@@ -25,9 +25,66 @@ pub struct FormatQuery {
 
 pub fn build_router<S: ZoneStore + 'static>(store: Arc<S>) -> Router {
     Router::new()
+        .route("/", get(root_handler))
+        .route("/static/{file}", get(static_handler))
+        .route("/avatar/{name}", get(avatar_handler::<S>))
         .route("/{*name}", get(get_handler::<S>).put(put_handler::<S>))
         .layer(CorsLayer::permissive())
         .with_state(store)
+}
+
+async fn root_handler() -> impl axum::response::IntoResponse {
+    (
+        axum::http::StatusCode::OK,
+        [("content-type", "text/html")],
+        html::render_home_page(),
+    )
+}
+
+async fn static_handler(Path(file): Path<String>) -> Response {
+    match file.as_str() {
+        "mlkut.png" => (
+            StatusCode::OK,
+            [("content-type", "image/png")],
+            include_bytes!("../static/mlkut.png").as_slice(),
+        )
+            .into_response(),
+        "favicon.png" => (
+            StatusCode::OK,
+            [("content-type", "image/png")],
+            include_bytes!("../static/favicon.png").as_slice(),
+        )
+            .into_response(),
+        _ => (
+            StatusCode::NOT_FOUND,
+            [("content-type", "text/plain")],
+            "not found",
+        )
+            .into_response(),
+    }
+}
+
+async fn avatar_handler<S: ZoneStore>(
+    _store: axum::extract::State<Arc<S>>,
+    Path(name_str): Path<String>,
+) -> Response {
+    let name = match name_str.parse::<Name>() {
+        Ok(n) => n,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                [("content-type", "text/plain")],
+                "invalid mns name",
+            )
+                .into_response()
+        }
+    };
+    (
+        StatusCode::OK,
+        [("content-type", "image/svg+xml")],
+        name.render_avatar_svg(),
+    )
+        .into_response()
 }
 
 async fn get_handler<S: ZoneStore>(
