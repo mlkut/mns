@@ -4,3 +4,4 @@
 /contracts/lib
 .env
 /bindings
+**/db

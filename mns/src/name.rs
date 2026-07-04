@@ -154,7 +154,7 @@ impl Name {
         }
 
         format!(
-            r#"<svg class="mns-avatar" width="100%" height="100%" viewBox="0 0 {BOARD} {BOARD}" xmlns="http://www.w3.org/2000/svg"><style>.mns-pixel{{fill:currentColor}}</style>{rects}</svg>"#,
+            r#"<svg class="mns-avatar" width="100%" height="100%" viewBox="0 0 {BOARD} {BOARD}" xmlns="http://www.w3.org/2000/svg"><style>.mns-avatar-pixel{{fill:currentColor}}</style>{rects}</svg>"#,
         )
     }
 }
