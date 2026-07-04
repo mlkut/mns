@@ -217,13 +217,13 @@ impl SignedPacket {
     /// `expected_zsk`.
     pub fn verify_for_zsk(
         bytes: &[u8],
-        expected_zsk: &[u8; ZSK_LEN],
+        expected_zsk: [u8; ZSK_LEN],
     ) -> Result<Self, SignedPacketError> {
         let packet = Self::verify(bytes)?;
         let zsk = packet.zsk();
-        if &zsk != expected_zsk {
+        if zsk != expected_zsk {
             return Err(SignedPacketError::ZskMismatch {
-                expected: *expected_zsk,
+                expected: expected_zsk,
                 got: packet.zsk(),
             });
         }
@@ -495,7 +495,7 @@ mod tests {
             .unwrap();
 
         let expected = keypair.zsk();
-        let verified = SignedPacket::verify_for_zsk(signed.as_bytes(), &expected).unwrap();
+        let verified = SignedPacket::verify_for_zsk(signed.as_bytes(), expected).unwrap();
         assert_eq!(verified, signed);
     }
 
@@ -514,7 +514,7 @@ mod tests {
             .unwrap();
 
         let wrong = [0u8; ZSK_LEN];
-        let err = SignedPacket::verify_for_zsk(signed.as_bytes(), &wrong).unwrap_err();
+        let err = SignedPacket::verify_for_zsk(signed.as_bytes(), wrong).unwrap_err();
         assert!(matches!(err, SignedPacketError::ZskMismatch { .. }));
     }
 
