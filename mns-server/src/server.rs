@@ -7,10 +7,11 @@ use axum::{
     response::IntoResponse,
     response::Response,
     routing::get,
-    Router,
+    Json, Router,
 };
 use mns::Name;
 use serde::Deserialize;
+use serde::Serialize;
 use tower_http::cors::CorsLayer;
 
 use crate::content_type;
@@ -28,9 +29,130 @@ pub fn build_router<S: ZoneStore + 'static>(store: Arc<S>) -> Router {
         .route("/", get(root_handler))
         .route("/static/{file}", get(static_handler))
         .route("/avatar/{name}", get(avatar_handler::<S>))
+        .route("/stats", get(stats_handler::<S>))
+        .route("/owners", get(owners_handler::<S>))
+        .route("/owner/{address}", get(owner_handler::<S>))
         .route("/{*name}", get(get_handler::<S>).put(put_handler::<S>))
         .layer(CorsLayer::permissive())
         .with_state(store)
+}
+
+#[derive(Serialize)]
+struct StatsResponse {
+    total_owners: u64,
+}
+
+async fn stats_handler<S: ZoneStore>(
+    store: axum::extract::State<Arc<S>>,
+) -> Result<Json<StatsResponse>, (StatusCode, String)> {
+    let total_owners = store.total_owners().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("store error: {e}"),
+        )
+    })?;
+    Ok(Json(StatsResponse { total_owners }))
+}
+
+const BATCH_SIZE: u64 = 256;
+
+async fn owner_handler<S: ZoneStore>(
+    store: axum::extract::State<Arc<S>>,
+    Path(address_str): Path<String>,
+) -> Response {
+    let address_str = address_str.trim();
+    if !address_str.starts_with("0x") || address_str.len() != 42 {
+        return (
+            StatusCode::BAD_REQUEST,
+            [("content-type", "text/html")],
+            html::render_error("invalid address format (expected 0x-prefixed 20-byte hex)"),
+        )
+            .into_response();
+    }
+
+    let owner_bytes = match hex::decode(&address_str[2..]) {
+        Ok(b) if b.len() == 20 => {
+            let mut arr = [0u8; 20];
+            arr.copy_from_slice(&b);
+            arr
+        }
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                [("content-type", "text/html")],
+                html::render_error("invalid address hex"),
+            )
+                .into_response()
+        }
+    };
+
+    let batches = match store.get_owner_batches(&owner_bytes).await {
+        Ok(b) => b,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                [("content-type", "text/html")],
+                html::render_error(&format!("store error: {e}")),
+            )
+                .into_response()
+        }
+    };
+
+    // Expand batches into individual names, filtering out entries owned by others
+    let mut names: Vec<String> = Vec::new();
+    for batch_start in &batches {
+        for offset in 0..BATCH_SIZE {
+            let ordinal = batch_start + offset;
+            let name = Name::from_ordinal(ordinal);
+            // Check if this ordinal has an entry owned by someone else
+            if let Some(entry_owner) = store.get_name_owner(&name).await.unwrap_or(None) {
+                if entry_owner != owner_bytes {
+                    continue; // entry owned by someone else → not this owner's name
+                }
+            }
+            names.push(name.to_string());
+        }
+    }
+
+    // Also add entries owned by this owner (they might not be in any batch,
+    // though they typically are; dedupe via the loop above already)
+    // Actually they're already covered by the batch expansion loop.
+    // But for safety, also fetch entry ordinals and include any not already present:
+    if let Ok(entries) = store.get_owner_entries(&owner_bytes).await {
+        for ordinal in entries {
+            let name_str = Name::from_ordinal(ordinal).to_string();
+            if !names.contains(&name_str) {
+                names.push(name_str);
+            }
+        }
+    }
+
+    let html_body = html::render_owner_page(address_str, &names);
+    (StatusCode::OK, [("content-type", "text/html")], html_body).into_response()
+}
+
+async fn owners_handler<S: ZoneStore>(store: axum::extract::State<Arc<S>>) -> Response {
+    let owners = match store.all_owners().await {
+        Ok(o) => o,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                [("content-type", "text/html")],
+                html::render_error(&format!("store error: {e}")),
+            )
+                .into_response()
+        }
+    };
+
+    let items: Vec<html::OwnerItemSimple> = owners
+        .iter()
+        .map(|addr| html::OwnerItemSimple {
+            name_or_addr: format!("0x{}", hex::encode(addr)),
+        })
+        .collect();
+
+    let html_body = html::render_owners_page(&items);
+    (StatusCode::OK, [("content-type", "text/html")], html_body).into_response()
 }
 
 async fn root_handler() -> impl axum::response::IntoResponse {
@@ -112,6 +234,8 @@ async fn get_handler<S: ZoneStore>(
 
     tracing::debug!(%name, "GET handler");
 
+    let owner = store.get_name_owner(&name).await.unwrap_or(None);
+
     match resolver::resolve_name(&**store, &name).await {
         Ok((packet_bytes, zsk, packet)) => {
             let format = query.format.as_deref();
@@ -131,8 +255,15 @@ async fn get_handler<S: ZoneStore>(
                     .await
                     .unwrap_or(None)
                     .unwrap_or_default();
-                let html_body =
-                    html::render_html(&name, &zsk, &ns, &records, &hex::encode(&packet_bytes), ts);
+                let html_body = html::render_html(
+                    &name,
+                    owner.as_ref(),
+                    &zsk,
+                    &ns,
+                    &records,
+                    &hex::encode(&packet_bytes),
+                    ts,
+                );
                 (StatusCode::OK, [("content-type", "text/html")], html_body).into_response()
             }
         }
@@ -162,7 +293,7 @@ async fn get_handler<S: ZoneStore>(
                 (
                     StatusCode::NOT_FOUND,
                     [("content-type", "text/html")],
-                    html::render_not_found_page(&name, zsk.as_ref(), ns.as_deref()),
+                    html::render_not_found_page(&name, owner.as_ref(), zsk.as_ref(), ns.as_deref()),
                 )
                     .into_response()
             }
@@ -177,7 +308,7 @@ async fn get_handler<S: ZoneStore>(
             (
                 StatusCode::NOT_FOUND,
                 [("content-type", "text/html")],
-                html::render_not_found_page(&name, zsk.as_ref(), ns.as_deref()),
+                html::render_not_found_page(&name, owner.as_ref(), zsk.as_ref(), ns.as_deref()),
             )
                 .into_response()
         }

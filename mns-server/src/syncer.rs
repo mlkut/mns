@@ -5,13 +5,13 @@ use mns::Name;
 use tracing::{error, info};
 
 use crate::registry::RegistryReader;
-use crate::store::ZoneStore;
+use crate::store::{StoredConfig, ZoneStore};
 
 pub struct Syncer<R: RegistryReader, S: ZoneStore> {
     registry: Arc<R>,
     store: Arc<S>,
     poll_interval: Duration,
-    reorg_lookback: u64,
+    deployment_block: u64,
 }
 
 impl<R: RegistryReader, S: ZoneStore> Syncer<R, S> {
@@ -19,58 +19,37 @@ impl<R: RegistryReader, S: ZoneStore> Syncer<R, S> {
         registry: Arc<R>,
         store: Arc<S>,
         poll_interval: Duration,
-        reorg_lookback: u64,
+        deployment_block: u64,
     ) -> Self {
         Self {
             registry,
             store,
             poll_interval,
-            reorg_lookback,
+            deployment_block,
         }
-    }
-
-    fn ordinal_to_name(ordinal: u64) -> Name {
-        Name::from_ordinal(ordinal)
-    }
-
-    async fn upsert_zsk(&self, ordinal: u64, zsk: [u8; 32], ns: &str) {
-        let name = Self::ordinal_to_name(ordinal);
-        if let Err(e) = self.store.set_zsk(&name, zsk).await {
-            error!("failed to store ZSK for ordinal {ordinal}: {e}");
-        }
-        if let Err(e) = self.store.set_ns(&name, ns).await {
-            error!("failed to store NS for ordinal {ordinal}: {e}");
-        }
-    }
-
-    /// Initial full sync: iterate all registered batches and fetch their zone configs.
-    pub async fn initial_sync(&self) -> Result<(), crate::registry::RegistryError> {
-        info!("starting initial sync from registry");
-
-        let total = self.registry.next_ordinal().await?;
-        info!("total registered ordinals: {total}");
-
-        let batch_size: u64 = 256;
-        let mut ordinal = 0u64;
-        while ordinal < total {
-            if let Some(config) = self.registry.get_zone_config(ordinal).await? {
-                self.upsert_zsk(ordinal, config.zsk, &config.ns).await;
-            }
-            ordinal += batch_size;
-        }
-
-        info!("initial sync complete");
-        Ok(())
     }
 
     /// Run the ongoing poll loop, processing new events.
     pub async fn run(&self) {
         loop {
-            let from = match self.store.get_checkpoint().await {
-                Ok(Some(block)) => block.saturating_sub(self.reorg_lookback),
-                Ok(None) => 0,
+            let from = match self.store.get_last_sync_block_number().await {
+                Ok(Some(block)) => block,
+                Ok(None) => {
+                    info!(
+                        "no checkpoint found, starting event sync from deployment block {}",
+                        self.deployment_block
+                    );
+                    if let Err(e) = self
+                        .store
+                        .set_last_sync_block_number(self.deployment_block)
+                        .await
+                    {
+                        error!("failed to store deployment block: {e}");
+                    }
+                    self.deployment_block
+                }
                 Err(e) => {
-                    error!("failed to read checkpoint: {e}");
+                    error!("failed to read last sync block: {e}");
                     tokio::time::sleep(self.poll_interval).await;
                     continue;
                 }
@@ -82,25 +61,46 @@ impl<R: RegistryReader, S: ZoneStore> Syncer<R, S> {
                         let ordinal = event.ordinal();
                         let zsk = event.zsk();
                         let ns = event.ns().to_string();
+                        let owner = event.owner();
                         info!(
-                            "processing event: ordinal={ordinal} zsk={}",
+                            "processing event: ordinal={ordinal} owner={} zsk={}",
+                            hex::encode(owner),
                             hex::encode(zsk)
                         );
-                        self.upsert_zsk(ordinal, zsk, &ns).await;
 
-                        // If the ZSK changed, also evict any cached signed packet for this name.
-                        let name = Self::ordinal_to_name(ordinal);
-                        if let Err(e) = self.store.set_signed_packet(&name, &[]).await {
-                            error!("failed to evict packet for ordinal {ordinal}: {e}");
+                        match event {
+                            crate::registry::RegistryEvent::BatchRegistered { .. }
+                            | crate::registry::RegistryEvent::BatchUpdated { .. } => {
+                                let stored = StoredConfig { zsk, ns, owner };
+                                if let Err(e) = self.store.set_batch(ordinal, &stored).await {
+                                    error!(
+                                        "failed to store batch config for ordinal {ordinal}: {e}"
+                                    );
+                                }
+                            }
+                            crate::registry::RegistryEvent::EntryCreated { .. }
+                            | crate::registry::RegistryEvent::EntryUpdated { .. } => {
+                                let stored = StoredConfig { zsk, ns, owner };
+                                if let Err(e) = self.store.set_entry(ordinal, &stored).await {
+                                    error!(
+                                        "failed to store entry config for ordinal {ordinal}: {e}"
+                                    );
+                                }
+                                // Evict any cached signed packet
+                                let name = Name::from_ordinal(ordinal);
+                                if let Err(e) = self.store.set_signed_packet(&name, &[]).await {
+                                    error!("failed to evict packet for ordinal {ordinal}: {e}");
+                                }
+                            }
                         }
                     }
 
                     if !events.is_empty() {
-                        info!("processed {} events, checkpoint={safe_block}", events.len());
+                        info!("processed {} events, sync_block={safe_block}", events.len());
                     }
 
-                    if let Err(e) = self.store.set_checkpoint(safe_block).await {
-                        error!("failed to store checkpoint: {e}");
+                    if let Err(e) = self.store.set_last_sync_block_number(safe_block).await {
+                        error!("failed to store last sync block: {e}");
                     }
                 }
                 Err(e) => {

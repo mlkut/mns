@@ -504,6 +504,7 @@ fn footer_html() -> String {
 
 pub fn render_html(
     name: &Name,
+    owner: Option<&[u8; 20]>,
     zsk: &[u8; ZSK_LEN],
     ns: &str,
     records: &[ResourceRecord],
@@ -532,6 +533,20 @@ pub fn render_html(
         format_timestamp(timestamp)
     } else {
         "--".into()
+    };
+
+    let owner_row = if let Some(owner) = owner {
+        let owner_hex = hex::encode(owner);
+        format!(
+            r#"<div class="meta-row inline">
+      <div class="meta-label">Owner</div>
+      <div class="meta-value dim">
+        <a href="/owner/0x{owner_hex}" style="color:var(--accent-text);text-decoration:none;">0x{owner_hex}</a>
+      </div>
+    </div>"#,
+        )
+    } else {
+        String::new()
     };
 
     let records_section = if records.is_empty() {
@@ -573,6 +588,7 @@ pub fn render_html(
   <div class="divider"></div>
 
   <div class="meta-grid">
+    {owner_row}
     <div class="meta-row inline">
       <div class="meta-label">ZSK</div>
       <div class="meta-value dim">0x{zsk_hex}</div>
@@ -606,10 +622,29 @@ pub fn render_html(
     )
 }
 
-pub fn render_not_found_page(name: &Name, zsk: Option<&[u8; ZSK_LEN]>, ns: Option<&str>) -> String {
+pub fn render_not_found_page(
+    name: &Name,
+    owner: Option<&[u8; 20]>,
+    zsk: Option<&[u8; ZSK_LEN]>,
+    ns: Option<&str>,
+) -> String {
     let name_str = name.to_string();
     let canonical = name.canonical_domain();
     let avatar_svg = name.render_avatar_svg();
+
+    let owner_row = if let Some(owner) = owner {
+        let owner_hex = hex::encode(owner);
+        format!(
+            r#"<div class="meta-row inline">
+      <div class="meta-label">Owner</div>
+      <div class="meta-value dim">
+        <a href="/owner/0x{owner_hex}" style="color:var(--accent-text);text-decoration:none;">0x{owner_hex}</a>
+      </div>
+    </div>"#,
+        )
+    } else {
+        String::new()
+    };
 
     let (meta_rows, empty_text) = if let Some(zsk) = zsk {
         let zsk_hex = hex::encode(zsk);
@@ -663,6 +698,7 @@ pub fn render_not_found_page(name: &Name, zsk: Option<&[u8; ZSK_LEN]>, ns: Optio
   <div class="divider"></div>
 
   <div class="meta-grid">
+    {owner_row}
     {meta_rows}
   </div>
 
@@ -698,6 +734,37 @@ pub fn render_home_page() -> String {
   }}
   .search-row button {{
     flex-shrink: 0;
+  }}
+
+  .stats {{
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-top: 1rem;
+    margin-bottom: 1.25rem;
+  }}
+
+  .stat {{
+    padding: 0.5rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    text-align: center;
+  }}
+
+  .stat-value {{
+    font-family: var(--mono);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--fg);
+  }}
+
+  .stat-label {{
+    font-size: 0.65rem;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 0.15rem;
   }}
 
   .history-list {{
@@ -768,12 +835,21 @@ pub fn render_home_page() -> String {
 
   <div class="divider"></div>
 
-  <form id="search-form" onsubmit="event.preventDefault();var q=this.querySelector('input').value;if(q){{try{{var h=JSON.parse(localStorage.getItem('mns-history')||'[]');h=h.filter(function(n){{return n!==q}});h.unshift(q);if(h.length>5)h.length=5;localStorage.setItem('mns-history',JSON.stringify(h))}}catch(e){{}}window.location.href='/'+encodeURIComponent(q);}}">
+  <form id="search-form" onsubmit="event.preventDefault();var q=this.querySelector('input').value.trim();if(q){{if(q.startsWith('0x')){{window.location.href='/owner/'+encodeURIComponent(q);return;}}try{{var h=JSON.parse(localStorage.getItem('mns-history')||'[]');h=h.filter(function(n){{return n!==q}});h.unshift(q);if(h.length>5)h.length=5;localStorage.setItem('mns-history',JSON.stringify(h))}}catch(e){{}}window.location.href='/'+encodeURIComponent(q);}}">
     <div class="search-row">
-      <input type="text" id="search-input" placeholder="Search MNS name..." style="padding:0.85rem 1.1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--fg);font-family:var(--mono);font-size:0.9rem;outline:none;transition:border-color 0.25s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+      <input type="text" id="search-input" placeholder="Search name or 0x address..." style="padding:0.85rem 1.1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--fg);font-family:var(--mono);font-size:0.9rem;outline:none;transition:border-color 0.25s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
       <button type="submit" style="padding:0.75rem 2rem;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:var(--sans);font-weight:600;font-size:0.9rem;cursor:pointer;transition:opacity 0.25s;" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">Search</button>
     </div>
   </form>
+
+  <div class="stats" id="stats">
+    <a href="/owners" style="text-decoration:none;color:inherit;">
+    <div class="stat">
+      <div class="stat-value" id="stat-owners">—</div>
+      <div class="stat-label">Owners</div>
+    </div>
+    </a>
+  </div>
 
   <div id="history"></div>
 
@@ -790,6 +866,8 @@ pub fn render_home_page() -> String {
 
 <script>
 (function() {{
+  fetch('/stats').then(function(r){{return r.json()}}).then(function(d){{document.getElementById('stat-owners').textContent=d.total_owners}}).catch(function(){{}});
+
   var list;
   try {{ list = JSON.parse(localStorage.getItem('mns-history') || '[]'); }} catch(e) {{ list = []; }}
   if (list.length === 0) return;
@@ -805,6 +883,208 @@ pub fn render_home_page() -> String {
 }})();
 </script>
 
+</body>
+</html>"#,
+    )
+}
+
+pub struct OwnerItemSimple {
+    pub name_or_addr: String,
+}
+
+pub fn render_owner_page(address: &str, names: &[String]) -> String {
+    let style = format!(
+        r##"{main_style}
+
+  .owner-address {{
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    color: var(--accent-text);
+    word-break: break-all;
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }}
+
+  .owner-grid {{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+    gap: 0.5rem;
+  }}
+
+  .owner-item {{
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.65rem;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    color: var(--fg);
+    transition: background 0.2s;
+  }}
+
+  .owner-item:hover {{
+    background: var(--surface-hover);
+  }}
+
+  .owner-avatar {{
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border-radius: 4px;
+    background: var(--fg);
+  }}
+
+  .owner-name {{
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    font-weight: 500;
+  }}
+
+  .empty-section {{
+    text-align: center;
+    padding: 1rem;
+    color: var(--fg-muted);
+    font-size: 0.82rem;
+  }}
+
+  @media (max-width: 480px) {{
+    .owner-grid {{
+      grid-template-columns: 1fr;
+    }}
+  }}
+"##,
+        main_style = main_style()
+    );
+    let head = page_head("Owner — MNS", &style);
+    let particles = particles_script();
+    let footer = footer_html();
+    let rows: String = if names.is_empty() {
+        r#"<div class="empty-section">No names owned.</div>"#.into()
+    } else {
+        names
+            .iter()
+            .map(|name| {
+                format!(
+                    r#"<a class="owner-item" href="/{name}">
+                <img class="owner-avatar" src="/avatar/{name}" alt="">
+                <span class="owner-name">{name}</span>
+              </a>"#,
+                    name = name
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("")
+    };
+
+    format!(
+        r#"{head}
+<body>
+
+<div class="grid-bg"></div>
+<div class="particles" id="particles"></div>
+
+<div class="card">
+  <div class="header">
+    <h1>Owner</h1>
+  </div>
+  <div class="owner-address">{address}</div>
+
+  <div class="divider"></div>
+
+  <div class="owner-grid">{rows}</div>
+</div>
+
+<div style="text-align:center;margin-top:0.75rem;z-index:1;position:relative;">
+  <a href="/" style="color:var(--fg-muted);font-size:0.75rem;text-decoration:none;">← Home</a>
+</div>
+
+{footer}
+
+{particles}
+</body>
+</html>"#,
+        address = address,
+    )
+}
+
+pub fn render_owners_page(items: &[OwnerItemSimple]) -> String {
+    let style = format!(
+        r##"{main_style}
+
+  .owner-list {{
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }}
+
+  .owner-row {{
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    transition: background 0.2s;
+  }}
+
+  .owner-row:hover {{
+    background: var(--surface-hover);
+  }}
+
+  .empty-section {{
+    text-align: center;
+    padding: 1rem;
+    color: var(--fg-muted);
+    font-size: 0.82rem;
+  }}
+"##,
+        main_style = main_style()
+    );
+    let head = page_head("Owners — MNS", &style);
+    let particles = particles_script();
+    let footer = footer_html();
+    let rows: String = if items.is_empty() {
+        r#"<div class="empty-section">No owners.</div>"#.into()
+    } else {
+        items
+            .iter()
+            .map(|item| {
+                format!(
+                    r#"<a class="owner-row" href="/owner/{addr}">{addr}</a>"#,
+                    addr = item.name_or_addr
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("")
+    };
+
+    format!(
+        r#"{head}
+<body>
+
+<div class="grid-bg"></div>
+<div class="particles" id="particles"></div>
+
+<div class="card">
+  <div class="header">
+    <h1>Owners</h1>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="owner-list">{rows}</div>
+</div>
+
+<div style="text-align:center;margin-top:0.75rem;z-index:1;position:relative;">
+  <a href="/" style="color:var(--fg-muted);font-size:0.75rem;text-decoration:none;">← Home</a>
+</div>
+
+{footer}
+
+{particles}
 </body>
 </html>"#,
     )

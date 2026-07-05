@@ -1,5 +1,6 @@
 mod keys;
 mod name;
+pub mod networks;
 mod signed_packet;
 
 pub use keys::{KeyError, KeyType, Keypair, PublicKey, ZSK_LEN, compute_zsk};

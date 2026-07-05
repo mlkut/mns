@@ -10,6 +10,7 @@ axum = "0.8"
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.6", features = ["cors"] }
 sneed = { version = "0.0.22", features = ["serde-wincode"] }
+fallible-iterator = "0.3"
 serde = { version = "1", features = ["derive"] }
 clap = { version = "4", features = ["derive"] }
 tracing = "0.1"
@@ -19,5 +20,6 @@ url = "2"
 hex = "0.4"
 thiserror = "2"
 async-trait = "0.1"
+dotenvy = "0.15"
 simple-dns = "0.11"
 time = { version = "0.3", features = ["formatting"] }

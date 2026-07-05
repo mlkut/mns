@@ -1,4 +1,3 @@
-use alloy::eips::BlockId;
 use alloy::eips::BlockNumberOrTag;
 use alloy::primitives::Address;
 use alloy::primitives::FixedBytes;
@@ -9,15 +8,20 @@ use alloy::sol_types::SolEvent;
 use bindings::mns_registry::MNSRegistry;
 use url::Url;
 
-use super::{RegistryError, RegistryEvent, RegistryReader, ZoneConfig};
+use super::{RegistryError, RegistryEvent, RegistryReader, BLOCK_CONFIRMATIONS};
 
 pub struct AlloyRegistry {
     contract: MNSRegistry::MNSRegistryInstance<RootProvider>,
     address: Address,
+    max_block_range: u64,
 }
 
 impl AlloyRegistry {
-    pub fn new(rpc_url: &str, contract_address: &str) -> Result<Self, RegistryError> {
+    pub fn new(
+        rpc_url: &str,
+        contract_address: &str,
+        max_block_range: u64,
+    ) -> Result<Self, RegistryError> {
         let url = Url::parse(rpc_url).map_err(|e| RegistryError::Rpc(e.to_string()))?;
         let provider = RootProvider::new_http(url);
 
@@ -27,7 +31,11 @@ impl AlloyRegistry {
 
         let contract = MNSRegistry::new(address, provider);
 
-        Ok(Self { contract, address })
+        Ok(Self {
+            contract,
+            address,
+            max_block_range,
+        })
     }
 
     fn bytes32_to_zsk(b: FixedBytes<32>) -> [u8; 32] {
@@ -35,42 +43,15 @@ impl AlloyRegistry {
         zsk.copy_from_slice(&b[..]);
         zsk
     }
+
+    fn address_to_bytes(addr: Address) -> [u8; 20] {
+        let addr: alloy::primitives::FixedBytes<20> = addr.into();
+        addr.0
+    }
 }
 
 #[async_trait::async_trait]
 impl RegistryReader for AlloyRegistry {
-    async fn next_ordinal(&self) -> Result<u64, RegistryError> {
-        self.contract
-            .nextOrdinal()
-            .call()
-            .await
-            .map_err(|e| RegistryError::Contract(e.to_string()))
-    }
-
-    async fn get_zone_config(&self, ordinal: u64) -> Result<Option<ZoneConfig>, RegistryError> {
-        let result = self
-            .contract
-            .getZoneConfig(ordinal)
-            .block(BlockId::Number(BlockNumberOrTag::Latest))
-            .call()
-            .await;
-
-        match result {
-            Ok(config) => Ok(Some(ZoneConfig {
-                zsk: Self::bytes32_to_zsk(config.zsk),
-                ns: config.ns,
-            })),
-            Err(e) => {
-                if e.as_decoded_error::<MNSRegistry::OrdinalNotRegistered>()
-                    .is_some()
-                {
-                    return Ok(None);
-                }
-                Err(RegistryError::Contract(e.to_string()))
-            }
-        }
-    }
-
     async fn poll_events(
         &self,
         from_block: u64,
@@ -79,88 +60,173 @@ impl RegistryReader for AlloyRegistry {
         let to_block = provider
             .get_block_number()
             .await
-            .map(|n| n.saturating_sub(1))
+            .map(|n| n.saturating_sub(BLOCK_CONFIRMATIONS))
             .map_err(|e| RegistryError::Rpc(e.to_string()))?;
 
-        if to_block <= from_block {
-            return Ok((Vec::new(), from_block));
+        if from_block > to_block {
+            return Ok((Vec::new(), to_block));
         }
 
-        let filter = Filter::new()
-            .from_block(from_block + 1)
-            .to_block(BlockNumberOrTag::Number(to_block))
-            .address(self.address);
-
-        let logs = match provider.get_logs(&filter).await {
-            Ok(logs) => logs,
-            Err(e) => {
-                let msg = e.to_string();
-                if msg.contains("does not exist/is not available")
-                    || msg.contains("method not found")
-                    || msg.contains("-32601")
-                {
-                    tracing::warn!(
-                        "eth_getLogs not supported by this RPC provider; event polling disabled"
-                    );
-                    return Ok((Vec::new(), to_block));
-                }
-                return Err(RegistryError::Rpc(msg));
-            }
-        };
-
         let mut events = Vec::new();
+        let mut current = from_block;
 
-        for log in logs {
-            let topic0 = log.topics().first().copied();
+        while current <= to_block {
+            let mut chunk_size = self.max_block_range;
+            let mut chunk_end;
+            let logs = loop {
+                chunk_end = std::cmp::min(current.saturating_add(chunk_size - 1), to_block);
+                tracing::debug!(from = current, to = chunk_end, "querying event logs");
 
-            if let Some(topic) = topic0 {
-                if topic == MNSRegistry::BatchRegistered::SIGNATURE_HASH {
-                    if let Ok(event) =
-                        MNSRegistry::BatchRegistered::decode_log(&(log.clone().into()))
-                    {
-                        let ordinal = event.ordinal;
-                        let zsk = Self::bytes32_to_zsk(event.zsk);
-                        let ns = event.ns.clone();
-                        events.push(RegistryEvent::BatchRegistered { ordinal, zsk, ns });
-                        continue;
+                let filter = Filter::new()
+                    .from_block(current)
+                    .to_block(BlockNumberOrTag::Number(chunk_end))
+                    .address(self.address);
+
+                match provider.get_logs(&filter).await {
+                    Ok(logs) => {
+                        tracing::debug!(count = logs.len(), "got event logs");
+                        break logs;
+                    }
+                    Err(e) => {
+                        let msg = e.to_string();
+                        if msg.contains("does not exist/is not available")
+                            || msg.contains("method not found")
+                            || msg.contains("-32601")
+                        {
+                            tracing::warn!(
+                                "eth_getLogs not supported by this RPC provider; event polling disabled"
+                            );
+                            return Ok((Vec::new(), to_block));
+                        }
+                        if is_range_too_large(&msg) {
+                            if let Some(limit) = parse_range_limit(&msg) {
+                                chunk_size = limit;
+                            } else {
+                                chunk_size /= 2;
+                            }
+                            if chunk_size < 2 {
+                                return Err(RegistryError::Rpc(format!(
+                                    "eth_getLogs range too small even after halving: {msg}"
+                                )));
+                            }
+                            tracing::warn!(
+                                "eth_getLogs range too large, retrying with chunk_size={chunk_size}: {msg}"
+                            );
+                            continue;
+                        }
+                        return Err(RegistryError::Rpc(msg));
                     }
                 }
+            };
 
-                if topic == MNSRegistry::BatchUpdated::SIGNATURE_HASH {
-                    if let Ok(event) = MNSRegistry::BatchUpdated::decode_log(&(log.clone().into()))
-                    {
-                        let ordinal = event.ordinal;
-                        let zsk = Self::bytes32_to_zsk(event.zsk);
-                        let ns = event.ns.clone();
-                        events.push(RegistryEvent::BatchUpdated { ordinal, zsk, ns });
-                        continue;
+            for log in logs {
+                let topic0 = log.topics().first().copied();
+
+                if let Some(topic) = topic0 {
+                    if topic == MNSRegistry::BatchRegistered::SIGNATURE_HASH {
+                        if let Ok(event) =
+                            MNSRegistry::BatchRegistered::decode_log(&(log.clone().into()))
+                        {
+                            let ordinal = event.ordinal;
+                            let owner = Self::address_to_bytes(event.owner);
+                            let zsk = Self::bytes32_to_zsk(event.zsk);
+                            let ns = event.ns.clone();
+                            events.push(RegistryEvent::BatchRegistered {
+                                ordinal,
+                                owner,
+                                zsk,
+                                ns,
+                            });
+                            continue;
+                        }
                     }
-                }
 
-                if topic == MNSRegistry::EntryCreated::SIGNATURE_HASH {
-                    if let Ok(event) = MNSRegistry::EntryCreated::decode_log(&(log.clone().into()))
-                    {
-                        let ordinal = event.ordinal;
-                        let zsk = Self::bytes32_to_zsk(event.zsk);
-                        let ns = event.ns.clone();
-                        events.push(RegistryEvent::EntryCreated { ordinal, zsk, ns });
-                        continue;
+                    if topic == MNSRegistry::BatchUpdated::SIGNATURE_HASH {
+                        if let Ok(event) =
+                            MNSRegistry::BatchUpdated::decode_log(&(log.clone().into()))
+                        {
+                            let ordinal = event.ordinal;
+                            let owner = Self::address_to_bytes(event.newOwner);
+                            let zsk = Self::bytes32_to_zsk(event.zsk);
+                            let ns = event.ns.clone();
+                            events.push(RegistryEvent::BatchUpdated {
+                                ordinal,
+                                owner,
+                                zsk,
+                                ns,
+                            });
+                            continue;
+                        }
                     }
-                }
 
-                if topic == MNSRegistry::EntryUpdated::SIGNATURE_HASH {
-                    if let Ok(event) = MNSRegistry::EntryUpdated::decode_log(&(log.clone().into()))
-                    {
-                        let ordinal = event.ordinal;
-                        let zsk = Self::bytes32_to_zsk(event.zsk);
-                        let ns = event.ns.clone();
-                        events.push(RegistryEvent::EntryUpdated { ordinal, zsk, ns });
-                        continue;
+                    if topic == MNSRegistry::EntryCreated::SIGNATURE_HASH {
+                        if let Ok(event) =
+                            MNSRegistry::EntryCreated::decode_log(&(log.clone().into()))
+                        {
+                            let ordinal = event.ordinal;
+                            let owner = Self::address_to_bytes(event.newOwner);
+                            let zsk = Self::bytes32_to_zsk(event.zsk);
+                            let ns = event.ns.clone();
+                            events.push(RegistryEvent::EntryCreated {
+                                ordinal,
+                                owner,
+                                zsk,
+                                ns,
+                            });
+                            continue;
+                        }
+                    }
+
+                    if topic == MNSRegistry::EntryUpdated::SIGNATURE_HASH {
+                        if let Ok(event) =
+                            MNSRegistry::EntryUpdated::decode_log(&(log.clone().into()))
+                        {
+                            let ordinal = event.ordinal;
+                            let owner = Self::address_to_bytes(event.newOwner);
+                            let zsk = Self::bytes32_to_zsk(event.zsk);
+                            let ns = event.ns.clone();
+                            events.push(RegistryEvent::EntryUpdated {
+                                ordinal,
+                                owner,
+                                zsk,
+                                ns,
+                            });
+                            continue;
+                        }
                     }
                 }
             }
+
+            current = chunk_end + 1;
         }
 
         Ok((events, to_block))
     }
+}
+
+fn is_range_too_large(msg: &str) -> bool {
+    let lower = msg.to_lowercase();
+    lower.contains("range")
+        || lower.contains("too large")
+        || lower.contains("too many")
+        || lower.contains("limit")
+        || lower.contains("max ")
+        || lower.contains("exceeded")
+}
+
+fn parse_range_limit(msg: &str) -> Option<u64> {
+    // Try to find a number near keywords like "max", "limit", "range"
+    for keyword in &["max ", "limit ", "limit of ", "range of ", "more than "] {
+        if let Some(pos) = msg.to_lowercase().find(keyword) {
+            let after = &msg[pos + keyword.len()..];
+            if let Some(num_end) = after.find(|c: char| !c.is_ascii_digit()) {
+                if let Ok(n) = after[..num_end].parse::<u64>() {
+                    return Some(n);
+                }
+            } else if let Ok(n) = after.parse::<u64>() {
+                return Some(n);
+            }
+        }
+    }
+    None
 }

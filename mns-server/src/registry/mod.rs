@@ -1,30 +1,31 @@
 pub mod alloy;
 
-#[derive(Debug, Clone)]
-pub struct ZoneConfig {
-    pub zsk: [u8; 32],
-    pub ns: String,
-}
+/// Number of block confirmations before considering a block safe from reorgs.
+pub const BLOCK_CONFIRMATIONS: u64 = 6;
 
 #[derive(Debug, Clone)]
 pub enum RegistryEvent {
     BatchRegistered {
         ordinal: u64,
+        owner: [u8; 20],
         zsk: [u8; 32],
         ns: String,
     },
     BatchUpdated {
         ordinal: u64,
+        owner: [u8; 20],
         zsk: [u8; 32],
         ns: String,
     },
     EntryCreated {
         ordinal: u64,
+        owner: [u8; 20],
         zsk: [u8; 32],
         ns: String,
     },
     EntryUpdated {
         ordinal: u64,
+        owner: [u8; 20],
         zsk: [u8; 32],
         ns: String,
     },
@@ -37,6 +38,15 @@ impl RegistryEvent {
             | RegistryEvent::BatchUpdated { ordinal, .. }
             | RegistryEvent::EntryCreated { ordinal, .. }
             | RegistryEvent::EntryUpdated { ordinal, .. } => *ordinal,
+        }
+    }
+
+    pub fn owner(&self) -> [u8; 20] {
+        match self {
+            RegistryEvent::BatchRegistered { owner, .. }
+            | RegistryEvent::BatchUpdated { owner, .. }
+            | RegistryEvent::EntryCreated { owner, .. }
+            | RegistryEvent::EntryUpdated { owner, .. } => *owner,
         }
     }
 
@@ -74,12 +84,6 @@ pub enum RegistryError {
 
 #[async_trait::async_trait]
 pub trait RegistryReader: Send + Sync {
-    /// Total registered ordinals (nextOrdinal).
-    async fn next_ordinal(&self) -> Result<u64, RegistryError>;
-
-    /// Zone config (ZSK + NS) for an ordinal, read at the safe block.
-    async fn get_zone_config(&self, ordinal: u64) -> Result<Option<ZoneConfig>, RegistryError>;
-
     /// Poll for registry events since `from_block`, up to the current safe block.
     /// Returns (events, safe_block_number).
     async fn poll_events(
