@@ -27,6 +27,29 @@ fn main_style() -> String {
     --sans: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     --radius: 16px;
     --radius-sm: 10px;
+    --navbar-bg: rgba(8,9,13,0.85);
+    --grid-color: rgba(255,255,255,0.015);
+    --glow-1: rgba(128,0,0,0.06);
+    --glow-2: rgba(128,0,0,0.04);
+  }}
+
+  html[data-theme="light"] {{
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --surface-hover: rgba(0,0,0,0.04);
+    --border: rgba(0,0,0,0.08);
+    --border-focus: rgba(128,0,0,0.25);
+    --fg: #1a1a2e;
+    --fg-muted: #6b7280;
+    --fg-dim: #c0c4cc;
+    --accent: {accent};
+    --accent-dim: rgba(128,0,0,0.07);
+    --accent-glow: rgba(128,0,0,0.08);
+    --accent-text: #a04545;
+    --navbar-bg: rgba(245,245,247,0.85);
+    --grid-color: rgba(0,0,0,0.04);
+    --glow-1: rgba(128,0,0,0.03);
+    --glow-2: rgba(128,0,0,0.02);
   }}
 
   body {{
@@ -50,7 +73,7 @@ fn main_style() -> String {
     transform: translateX(-50%);
     width: 700px;
     height: 700px;
-    background: radial-gradient(circle, rgba(128,0,0,0.06) 0%, transparent 70%);
+    background: radial-gradient(circle, var(--glow-1) 0%, transparent 70%);
     pointer-events: none;
     z-index: 0;
     animation: breathe 8s ease-in-out infinite;
@@ -63,7 +86,7 @@ fn main_style() -> String {
     left: 30%;
     width: 500px;
     height: 500px;
-    background: radial-gradient(circle, rgba(128,0,0,0.04) 0%, transparent 70%);
+    background: radial-gradient(circle, var(--glow-2) 0%, transparent 70%);
     pointer-events: none;
     z-index: 0;
     animation: breathe 10s ease-in-out 3s infinite reverse;
@@ -78,8 +101,8 @@ fn main_style() -> String {
     position: fixed;
     inset: 0;
     background-image:
-      linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+      linear-gradient(var(--grid-color) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
     background-size: 60px 60px;
     pointer-events: none;
     z-index: 0;
@@ -400,6 +423,21 @@ fn error_style() -> String {
     --accent-glow: rgba(128,0,0,0.15);
     --sans: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     --radius: 16px;
+    --navbar-bg: rgba(8,9,13,0.85);
+    --glow-1: rgba(128,0,0,0.06);
+  }}
+
+  html[data-theme="light"] {{
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --border: rgba(0,0,0,0.08);
+    --fg: #1a1a2e;
+    --accent: {accent};
+    --accent-glow: rgba(128,0,0,0.08);
+    --sans: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    --radius: 16px;
+    --navbar-bg: rgba(245,245,247,0.85);
+    --glow-1: rgba(128,0,0,0.03);
   }}
 
   body {{
@@ -417,7 +455,7 @@ fn error_style() -> String {
     content: '';
     position: fixed;
     inset: 0;
-    background: radial-gradient(circle at 50% 30%, rgba(128,0,0,0.06) 0%, transparent 60%);
+    background: radial-gradient(circle at 50% 30%, var(--glow-1) 0%, transparent 60%);
     pointer-events: none;
   }}
 
@@ -469,6 +507,7 @@ fn page_head(title: &str, style: &str) -> String {
 <link rel="icon" href="{FAVICON}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>(function(){{var t=localStorage.getItem('mns-theme');if(!t){{t=window.matchMedia('(prefers-color-scheme:light)').matches?'light':'dark'}}document.documentElement.setAttribute('data-theme',t);window._toggleTheme=function(){{var c=document.documentElement.getAttribute('data-theme');var n=c==='light'?'dark':'light';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('mns-theme',n)}}}})()</script>
 <style>{style}</style>
 </head>"#,
     )
@@ -533,10 +572,19 @@ fn navbar_html(nav: &Navbar) -> String {
   </a>
   <div class="navbar-right">
     <a class="navbar-network" href="{contract_url}" target="_blank" title="View contract on explorer">{network}</a>
-    <a class="navbar-block" href="{block_url}" target="_blank" title="View block {block} on explorer">
+    <a class="navbar-block" href="{block_url}" target="_blank" title="view latest indexed block {block} on explorer">
       <span class="liveness-dot"></span>
       <span class="block-number">{block}</span>
     </a>
+    <button class="theme-toggle" onclick="_toggleTheme()" aria-label="Switch theme">
+      <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5"/>
+        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+      </svg>
+      <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
   </div>
 </nav>"#,
         network = nav.network,
@@ -558,7 +606,7 @@ fn navbar_style() -> String {
     align-items: center;
     justify-content: space-between;
     padding: 0 1.25rem;
-    background: rgba(8,9,13,0.85);
+    background: var(--navbar-bg);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
@@ -630,6 +678,34 @@ fn navbar_style() -> String {
 
   .block-number {
     font-variant-numeric: tabular-nums;
+  }
+
+  .theme-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 5px;
+    line-height: 0;
+    color: var(--fg-muted);
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .theme-toggle:hover {
+    color: var(--fg);
+    border-color: var(--accent);
+  }
+  .theme-toggle svg {
+    width: 15px;
+    height: 15px;
+    display: block;
+  }
+  html[data-theme="dark"] .theme-icon-sun,
+  html[data-theme="light"] .theme-icon-moon {
+    display: block;
+  }
+  html[data-theme="dark"] .theme-icon-moon,
+  html[data-theme="light"] .theme-icon-sun {
+    display: none;
   }
 "##
     .to_string()
