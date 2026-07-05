@@ -979,6 +979,13 @@ pub fn render_not_found_page(
     let particles = particles_script();
     let footer = footer_html();
     let nav_html = navbar_html(nav);
+    let history_script = if owner.is_some() {
+        format!(
+            r#"<script>try{{var h=JSON.parse(localStorage.getItem('mns-history')||'[]');h=h.filter(function(n){{return n!=='{name_str}'}});h.unshift('{name_str}');if(h.length>5)h.length=5;localStorage.setItem('mns-history',JSON.stringify(h))}}catch(e){{}}</script>"#,
+        )
+    } else {
+        String::new()
+    };
 
     format!(
         r#"{head}
@@ -1017,6 +1024,7 @@ pub fn render_not_found_page(
 {footer}
 
 {particles}
+{history_script}
 </body>
 </html>"#,
     )
@@ -1148,7 +1156,7 @@ pub fn render_home_page(nav: &Navbar) -> String {
 
   <div class="divider"></div>
 
-  <form id="search-form" onsubmit="event.preventDefault();var q=this.querySelector('input').value.trim();if(q){{if(q.startsWith('0x')){{window.location.href='/owner/'+encodeURIComponent(q);return;}}try{{var h=JSON.parse(localStorage.getItem('mns-history')||'[]');h=h.filter(function(n){{return n!==q}});h.unshift(q);if(h.length>5)h.length=5;localStorage.setItem('mns-history',JSON.stringify(h))}}catch(e){{}}window.location.href='/'+encodeURIComponent(q);}}">
+  <form id="search-form" onsubmit="event.preventDefault();var q=this.querySelector('input').value.trim();if(q){{if(q.startsWith('0x')){{window.location.href='/owner/'+encodeURIComponent(q);return;}}window.location.href='/'+encodeURIComponent(q);}}">
     <div class="search-row">
       <input type="text" id="search-input" class="search-input" placeholder="Search name or owner address...">
       <button type="submit" class="search-btn">Search</button>
