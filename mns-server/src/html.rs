@@ -11,12 +11,14 @@ fn main_style() -> String {
   *, *::before, *::after {{ margin: 0; padding: 0; box-sizing: border-box; }}
 
   :root {{
+    --white: #e4e8ef;
+
     --bg: #08090d;
     --surface: rgba(255,255,255,0.03);
     --surface-hover: rgba(255,255,255,0.055);
     --border: rgba(255,255,255,0.06);
     --border-focus: rgba(128,0,0,0.3);
-    --fg: #e4e8ef;
+    --fg: var(--white);
     --fg-muted: #6b7280;
     --fg-dim: #3a3f4b;
     --accent: {accent};
@@ -183,6 +185,10 @@ fn main_style() -> String {
   .avatar:hover {{
     transform: scale(1.05) rotate(1deg);
     box-shadow: 0 0 30px -5px var(--accent-glow);
+  }}
+
+  .avatar .mns-avatar {{ 
+    color: var(--white);
   }}
 
   .mns-avatar {{
