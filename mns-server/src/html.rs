@@ -1246,7 +1246,7 @@ pub fn render_home_page(nav: &Navbar) -> String {
         </div>
       </li>
       <li class="stat-row">
-        <div class="stat-row-content" title="Signed DNS packets published on-chain">
+        <div class="stat-row-content" title="Signed DNS packets published off-chain on this server">
           <span class="stat-label">Packets</span>
           <span class="stat-value" id="stat-packets">—</span>
         </div>
