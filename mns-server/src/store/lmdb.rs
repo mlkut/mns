@@ -400,4 +400,34 @@ impl ZoneStore for LmdbStore {
         let owners = self.all_owners().await?;
         Ok(owners.len() as u64)
     }
+
+    async fn total_batches(&self) -> Result<u64, StoreError> {
+        let rtxn = self
+            .env
+            .read_txn()
+            .map_err(|e| StoreError::Db(e.to_string()))?;
+        self.batches_db
+            .len(&rtxn)
+            .map_err(|e| StoreError::Db(e.to_string()))
+    }
+
+    async fn total_entries(&self) -> Result<u64, StoreError> {
+        let rtxn = self
+            .env
+            .read_txn()
+            .map_err(|e| StoreError::Db(e.to_string()))?;
+        self.entries_db
+            .len(&rtxn)
+            .map_err(|e| StoreError::Db(e.to_string()))
+    }
+
+    async fn total_packets(&self) -> Result<u64, StoreError> {
+        let rtxn = self
+            .env
+            .read_txn()
+            .map_err(|e| StoreError::Db(e.to_string()))?;
+        self.packet_db
+            .len(&rtxn)
+            .map_err(|e| StoreError::Db(e.to_string()))
+    }
 }

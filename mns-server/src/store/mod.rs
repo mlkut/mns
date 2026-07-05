@@ -55,4 +55,11 @@ pub trait ZoneStore: Send + Sync {
     async fn all_owners(&self) -> Result<Vec<[u8; 20]>, StoreError>;
     /// Total unique owner count.
     async fn total_owners(&self) -> Result<u64, StoreError>;
+
+    /// Total number of batch registrations.
+    async fn total_batches(&self) -> Result<u64, StoreError>;
+    /// Total number of entry (individual name) overrides.
+    async fn total_entries(&self) -> Result<u64, StoreError>;
+    /// Total number of signed packets stored.
+    async fn total_packets(&self) -> Result<u64, StoreError>;
 }

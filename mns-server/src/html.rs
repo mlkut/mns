@@ -467,11 +467,6 @@ fn main_style() -> String {
     opacity: 0.85;
   }}
 
-  .owners-link {{
-    text-decoration: none;
-    color: inherit;
-  }}
-
   .home-links {{
     margin-top: 1.5rem;
     display: flex;
@@ -1047,49 +1042,77 @@ pub fn render_home_page(nav: &Navbar) -> String {
     flex-shrink: 0;
   }}
 
-  .stats {{
+  .content-grid {{
     display: flex;
-    gap: 0.5rem;
-    justify-content: center;
-    margin-top: 1rem;
-    margin-bottom: 1.25rem;
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+    align-items: flex-start;
   }}
 
-  .stat {{
-    padding: 0.5rem 1rem;
+  .stats-card {{
+    flex: 0 0 200px;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    overflow: hidden;
   }}
 
-  .stat-value {{
-    font-family: var(--mono);
-    font-size: 1rem;
-    font-weight: 600;
+  .stat-row {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.78rem;
+    text-decoration: none;
     color: var(--fg);
+    transition: background 0.2s;
   }}
-
-  .stat-label {{
-    font-size: 0.65rem;
+  .stat-row:not(:last-child) {{
+    border-bottom: 1px solid var(--border);
+  }}
+  .stat-row:hover {{
+    background: var(--surface-hover);
+  }}
+  .stat-row .stat-label {{
     color: var(--fg-muted);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-top: 0.15rem;
+    letter-spacing: 0.06em;
+    font-size: 0.68rem;
+  }}
+  .stat-row .stat-value {{
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 0.82rem;
+  }}
+
+  #history {{
+    flex: 1;
+    min-width: 0;
+  }}
+
+  @media (max-width: 640px) {{
+    .content-grid {{
+      flex-direction: column;
+    }}
+    .stats-card {{
+      flex: none;
+      width: 100%;
+    }}
   }}
 
   .history-list {{
-    margin-top: 1.25rem;
     display: flex;
     flex-direction: column;
-    gap: 0.2rem;
   }}
   .history-item {{
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    padding: 0.4rem 0.5rem;
-    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.75rem;
+    border-radius: 0;
     cursor: pointer;
     transition: background 0.2s;
     text-decoration: none;
@@ -1163,16 +1186,30 @@ pub fn render_home_page(nav: &Navbar) -> String {
     </div>
   </form>
 
-  <div class="stats" id="stats">
-    <a class="owners-link" href="/owners">
-    <div class="stat">
-      <div class="stat-value" id="stat-owners">—</div>
-      <div class="stat-label">Owners</div>
-    </div>
-    </a>
-  </div>
+  <div class="content-grid">
 
-  <div id="history"></div>
+    <div id="history"></div>
+
+    <div class="stats-card" id="stats">
+      <a class="stat-row" href="/owners" title="Unique addresses that own one or more names">
+        <span class="stat-label">Owners</span>
+        <span class="stat-value" id="stat-owners">—</span>
+      </a>
+      <div class="stat-row" title="Total registered name slots (batch × 256 + entries)">
+        <span class="stat-label">Names</span>
+        <span class="stat-value" id="stat-names">—</span>
+      </div>
+      <div class="stat-row" title="Signed DNS packets published on-chain">
+        <span class="stat-label">Packets</span>
+        <span class="stat-value" id="stat-packets">—</span>
+      </div>
+      <div class="stat-row" title="Most recently synced Rootstock block">
+        <span class="stat-label">Block</span>
+        <span class="stat-value" id="stat-block">—</span>
+      </div>
+    </div>
+
+  </div>
 
   <div class="home-links">
     <a href="https://mlkut.org" class="ext-link">Read more</a>
@@ -1187,7 +1224,12 @@ pub fn render_home_page(nav: &Navbar) -> String {
 
 <script>
 (function() {{
-  fetch('/stats').then(function(r){{return r.json()}}).then(function(d){{document.getElementById('stat-owners').textContent=d.total_owners}}).catch(function(){{}});
+  fetch('/stats').then(function(r){{return r.json()}}).then(function(d){{
+    document.getElementById('stat-owners').textContent=d.total_owners;
+    document.getElementById('stat-names').textContent=d.total_names;
+    document.getElementById('stat-packets').textContent=d.total_packets;
+    document.getElementById('stat-block').textContent=d.last_block;
+  }}).catch(function(){{}});
 
   var list;
   try {{ list = JSON.parse(localStorage.getItem('mns-history') || '[]'); }} catch(e) {{ list = []; }}
