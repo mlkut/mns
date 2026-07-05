@@ -402,6 +402,94 @@ fn main_style() -> String {
     }}
   }}
 
+  .owner-link {{
+    color: var(--accent-text);
+    text-decoration: none;
+  }}
+
+  .back-wrap {{
+    text-align: center;
+    margin-top: 0.75rem;
+    z-index: 1;
+    position: relative;
+  }}
+
+  .back-link {{
+    color: var(--fg-muted);
+    font-size: 0.75rem;
+    text-decoration: none;
+  }}
+
+  .card-center {{
+    text-align: center;
+  }}
+
+  .home-logo {{
+    width: 128px;
+    height: 128px;
+    object-fit: contain;
+  }}
+
+  .home-desc {{
+    font-family: var(--sans);
+    opacity: 1;
+    margin-top: 1rem;
+  }}
+
+  .search-input {{
+    padding: 0 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.25s;
+  }}
+  .search-input:focus {{
+    border-color: var(--accent);
+  }}
+
+  .search-btn {{
+    padding: 0.75rem 2rem;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: opacity 0.25s;
+  }}
+  .search-btn:hover {{
+    opacity: 0.85;
+  }}
+
+  .owners-link {{
+    text-decoration: none;
+    color: inherit;
+  }}
+
+  .home-links {{
+    margin-top: 1.5rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    font-size: 0.82rem;
+  }}
+
+  .ext-link {{
+    color: var(--accent-text);
+    text-decoration: none;
+    font-weight: 500;
+  }}
+
+  .sep-dot {{
+    color: var(--fg-dim);
+  }}
+
   {navbar_style}
 "##,
         accent = ACCENT,
@@ -750,7 +838,7 @@ pub fn render_html(
             r#"<div class="meta-row inline">
       <div class="meta-label">Owner</div>
       <div class="meta-value dim">
-        <a href="/owner/0x{owner_hex}" style="color:var(--accent-text);text-decoration:none;">0x{owner_hex}</a>
+        <a class="owner-link" href="/owner/0x{owner_hex}">0x{owner_hex}</a>
       </div>
     </div>"#,
         )
@@ -822,8 +910,8 @@ pub fn render_html(
 
 {records_section}
 
-<div style="text-align:center;margin-top:0.75rem;z-index:1;position:relative;">
-  <a href="/" style="color:var(--fg-muted);font-size:0.75rem;text-decoration:none;">← Home</a>
+<div class="back-wrap">
+  <a class="back-link" href="/">← Home</a>
 </div>
 
 {footer}
@@ -851,7 +939,7 @@ pub fn render_not_found_page(
             r#"<div class="meta-row inline">
       <div class="meta-label">Owner</div>
       <div class="meta-value dim">
-        <a href="/owner/0x{owner_hex}" style="color:var(--accent-text);text-decoration:none;">0x{owner_hex}</a>
+        <a class="owner-link" href="/owner/0x{owner_hex}">0x{owner_hex}</a>
       </div>
     </div>"#,
         )
@@ -922,8 +1010,8 @@ pub fn render_not_found_page(
   </div>
 </div>
 
-<div style="text-align:center;margin-top:0.75rem;z-index:1;position:relative;">
-  <a href="/" style="color:var(--fg-muted);font-size:0.75rem;text-decoration:none;">← Home</a>
+<div class="back-wrap">
+  <a class="back-link" href="/">← Home</a>
 </div>
 
 {footer}
@@ -1005,9 +1093,16 @@ pub fn render_home_page(nav: &Navbar) -> String {
   .history-avatar {{
     width: 28px;
     height: 28px;
-    color: var(--accent-text);
+    color: var(--fg);
     flex-shrink: 0;
-    background: var(--fg-muted);
+    border-radius: 4px;
+    overflow: hidden;
+    display: inline-block;
+  }}
+  .history-avatar svg {{
+    width: 100%;
+    height: 100%;
+    display: block;
   }}
   .history-name {{
     font-family: var(--mono);
@@ -1039,14 +1134,14 @@ pub fn render_home_page(nav: &Navbar) -> String {
 <div class="grid-bg"></div>
 <div class="particles" id="particles"></div>
 
-<div class="card" style="text-align:center;">
+<div class="card card-center">
   <div class="avatar-wrap">
-    <img src="/static/mlkut.png" alt="mlkut logo" class="avatar" style="width:128px;height:128px;object-fit:contain;">
+    <img src="/static/mlkut.png" alt="mlkut logo" class="avatar home-logo">
   </div>
 
   <div class="header">
     <h1>Mlkut Name System</h1>
-    <div class="canonical" style="font-family:var(--sans);opacity:1;margin-top:1rem;">
+    <div class="home-desc">
       Permissionless name registry for the next millennium.
     </div>
   </div>
@@ -1055,13 +1150,13 @@ pub fn render_home_page(nav: &Navbar) -> String {
 
   <form id="search-form" onsubmit="event.preventDefault();var q=this.querySelector('input').value.trim();if(q){{if(q.startsWith('0x')){{window.location.href='/owner/'+encodeURIComponent(q);return;}}try{{var h=JSON.parse(localStorage.getItem('mns-history')||'[]');h=h.filter(function(n){{return n!==q}});h.unshift(q);if(h.length>5)h.length=5;localStorage.setItem('mns-history',JSON.stringify(h))}}catch(e){{}}window.location.href='/'+encodeURIComponent(q);}}">
     <div class="search-row">
-      <input type="text" id="search-input" placeholder="Search name or 0x address..." style="padding:0.85rem 1.1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--fg);font-family:var(--mono);font-size:0.9rem;outline:none;transition:border-color 0.25s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
-      <button type="submit" style="padding:0.75rem 2rem;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:var(--sans);font-weight:600;font-size:0.9rem;cursor:pointer;transition:opacity 0.25s;" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">Search</button>
+      <input type="text" id="search-input" class="search-input" placeholder="Search name or owner address...">
+      <button type="submit" class="search-btn">Search</button>
     </div>
   </form>
 
   <div class="stats" id="stats">
-    <a href="/owners" style="text-decoration:none;color:inherit;">
+    <a class="owners-link" href="/owners">
     <div class="stat">
       <div class="stat-value" id="stat-owners">—</div>
       <div class="stat-label">Owners</div>
@@ -1071,10 +1166,10 @@ pub fn render_home_page(nav: &Navbar) -> String {
 
   <div id="history"></div>
 
-  <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:center;font-size:0.82rem;">
-    <a href="https://mlkut.org" style="color:var(--accent-text);text-decoration:none;font-weight:500;">Read more</a>
-    <span style="color:var(--fg-dim);">·</span>
-    <a href="https://mlkut.org" style="color:var(--accent-text);text-decoration:none;font-weight:500;">Specs</a>
+  <div class="home-links">
+    <a href="https://mlkut.org" class="ext-link">Read more</a>
+    <span class="sep-dot">·</span>
+    <a href="https://mlkut.org" class="ext-link">Specs</a>
   </div>
 </div>
 
@@ -1093,11 +1188,17 @@ pub fn render_home_page(nav: &Navbar) -> String {
   for (var i = 0; i < list.length; i++) {{
     var name = list[i];
     html += '<a class="history-item" href="/' + encodeURIComponent(name) + '">' +
-      '<img class="history-avatar" src="/avatar/' + encodeURIComponent(name) + '" alt="" style="width:28px;height:28px;border-radius:4px;">' +
+      '<span class="history-avatar" data-name="' + encodeURIComponent(name) + '"></span>' +
       '<span class="history-name">' + name + '</span></a>';
   }}
   html += '</div>';
   document.getElementById('history').innerHTML = html;
+  var avatars = document.querySelectorAll('.history-avatar[data-name]');
+  for (var i = 0; i < avatars.length; i++) {{
+    (function(el) {{
+      fetch('/avatar/' + el.getAttribute('data-name')).then(function(r){{return r.text()}}).then(function(svg){{el.innerHTML=svg;var s=el.querySelector('svg');if(s){{s.style.cssText='width:100%;height:100%;display:block;';s.removeAttribute('width');s.removeAttribute('height')}}}}).catch(function(){{}});
+    }})(avatars[i]);
+  }}
 }})();
 </script>
 
@@ -1110,7 +1211,7 @@ pub struct OwnerItemSimple {
     pub name_or_addr: String,
 }
 
-pub fn render_owner_page(address: &str, names: &[String], nav: &Navbar) -> String {
+pub fn render_owner_page(address: &str, names: &[Name], nav: &Navbar) -> String {
     let style = format!(
         r##"{main_style}
 
@@ -1149,7 +1250,13 @@ pub fn render_owner_page(address: &str, names: &[String], nav: &Navbar) -> Strin
     height: 28px;
     flex-shrink: 0;
     border-radius: 4px;
-    background: var(--fg);
+    overflow: hidden;
+    color: var(--fg);
+  }}
+  .owner-avatar svg {{
+    width: 100%;
+    height: 100%;
+    display: block;
   }}
 
   .owner-name {{
@@ -1183,12 +1290,15 @@ pub fn render_owner_page(address: &str, names: &[String], nav: &Navbar) -> Strin
         names
             .iter()
             .map(|name| {
+                let svg = name.render_avatar_svg();
+                let name_str = name.to_string();
                 format!(
-                    r#"<a class="owner-item" href="/{name}">
-                <img class="owner-avatar" src="/avatar/{name}" alt="">
-                <span class="owner-name">{name}</span>
+                    r#"<a class="owner-item" href="/{href}">
+                <span class="owner-avatar">{svg}</span>
+                <span class="owner-name">{name_str}</span>
               </a>"#,
-                    name = name
+                    href = name_str,
+                    name_str = name_str,
                 )
             })
             .collect::<Vec<_>>()
@@ -1215,8 +1325,8 @@ pub fn render_owner_page(address: &str, names: &[String], nav: &Navbar) -> Strin
   <div class="owner-grid">{rows}</div>
 </div>
 
-<div style="text-align:center;margin-top:0.75rem;z-index:1;position:relative;">
-  <a href="/" style="color:var(--fg-muted);font-size:0.75rem;text-decoration:none;">← Home</a>
+<div class="back-wrap">
+  <a class="back-link" href="/">← Home</a>
 </div>
 
 {footer}
@@ -1302,8 +1412,8 @@ pub fn render_owners_page(items: &[OwnerItemSimple], nav: &Navbar) -> String {
   <div class="owner-list">{rows}</div>
 </div>
 
-<div style="text-align:center;margin-top:0.75rem;z-index:1;position:relative;">
-  <a href="/" style="color:var(--fg-muted);font-size:0.75rem;text-decoration:none;">← Home</a>
+<div class="back-wrap">
+  <a class="back-link" href="/">← Home</a>
 </div>
 
 {footer}

@@ -113,6 +113,11 @@ impl Name {
     ///   Rows 1–7: bits 3–37 — full 5-col source mirrored to 9 cols
     ///   Row 8: bits 38,39 — 2 central pixels, mirrored: c=3,5→bit38  c=4→bit39
     pub fn render_avatar_svg(&self) -> String {
+        self.render_avatar_svg_with_color("currentColor")
+    }
+
+    /// Same as [`render_avatar_svg`] but with a custom fill color.
+    pub fn render_avatar_svg_with_color(&self, fill: &str) -> String {
         let value = self.0;
         const ROWS: usize = 9;
         const COLS: usize = 9;
@@ -154,7 +159,8 @@ impl Name {
         }
 
         format!(
-            r#"<svg class="mns-avatar" width="100%" height="100%" viewBox="0 0 {BOARD} {BOARD}" xmlns="http://www.w3.org/2000/svg"><style>.mns-avatar-pixel{{fill:currentColor}}</style>{rects}</svg>"#,
+            r#"<svg class="mns-avatar" width="100%" height="100%" viewBox="0 0 {BOARD} {BOARD}" xmlns="http://www.w3.org/2000/svg"><style>.mns-avatar-pixel{{fill:{fill}}}</style>{rects}</svg>"#,
+            fill = fill,
         )
     }
 }

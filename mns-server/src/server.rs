@@ -136,7 +136,7 @@ async fn owner_handler<S: ZoneStore>(
         }
     };
 
-    let mut names: Vec<String> = Vec::new();
+    let mut names: Vec<Name> = Vec::new();
     for batch_start in &batches {
         for offset in 0..BATCH_SIZE {
             let ordinal = batch_start + offset;
@@ -146,15 +146,15 @@ async fn owner_handler<S: ZoneStore>(
                     continue;
                 }
             }
-            names.push(name.to_string());
+            names.push(name);
         }
     }
 
     if let Ok(entries) = state.store.get_owner_entries(&owner_bytes).await {
         for ordinal in entries {
-            let name_str = Name::from_ordinal(ordinal).to_string();
-            if !names.contains(&name_str) {
-                names.push(name_str);
+            let name = Name::from_ordinal(ordinal);
+            if !names.contains(&name) {
+                names.push(name);
             }
         }
     }
