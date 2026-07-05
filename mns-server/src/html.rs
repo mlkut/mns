@@ -29,6 +29,7 @@ fn main_style() -> String {
     --sans: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     --radius: 16px;
     --radius-sm: 10px;
+    --radius-xs: 5px;
     --navbar-bg: rgba(8,9,13,0.85);
     --grid-color: rgba(255,255,255,0.015);
     --glow-1: rgba(128,0,0,0.06);
@@ -110,6 +111,15 @@ fn main_style() -> String {
     z-index: 0;
     mask-image: radial-gradient(ellipse 60% 50% at 50% 30%, black 20%, transparent 100%);
     -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 30%, black 20%, transparent 100%);
+  }}
+
+  main {{
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }}
 
   .card {{
@@ -265,11 +275,11 @@ fn main_style() -> String {
     gap: 1rem;
   }}
 
-  .meta-row.inline .meta-value {{
+  .meta-row.inline dd {{
     text-align: left;
   }}
 
-  .meta-label {{
+  dt.meta-label {{
     color: var(--fg-muted);
     font-size: 0.7rem;
     font-weight: 500;
@@ -277,7 +287,7 @@ fn main_style() -> String {
     letter-spacing: 0.08em;
   }}
 
-  .meta-value {{
+  dd.meta-value {{
     font-family: var(--mono);
     font-size: 0.82rem;
     color: var(--fg);
@@ -286,7 +296,7 @@ fn main_style() -> String {
     opacity: 0.85;
   }}
 
-  .meta-value.dim {{
+  dd.meta-value.dim {{
     color: var(--fg-dim);
     font-size: 0.78rem;
   }}
@@ -327,14 +337,11 @@ fn main_style() -> String {
   .empty-state {{
     text-align: center;
     padding: 1.75rem 1rem;
-    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0s both;
-  }}
-
-  .empty-text {{
     color: var(--fg-muted);
     font-size: 0.88rem;
     font-weight: 400;
     line-height: 1.5;
+    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0s both;
   }}
 
   .footer {{
@@ -397,7 +404,7 @@ fn main_style() -> String {
     h1 {{ font-size: 1.35rem; }}
     .avatar {{ width: 96px; height: 96px; padding: 8px; }}
     .meta-row.inline {{ flex-direction: column; align-items: flex-start; gap: 0.35rem; }}
-    .meta-row.inline .meta-value {{ text-align: left; }}
+    .meta-row.inline dd {{ text-align: left; }}
   }}
 
   @media (prefers-reduced-motion: reduce) {{
@@ -491,6 +498,18 @@ fn main_style() -> String {
     color: var(--fg-dim);
   }}
 
+  .visually-hidden {{
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }}
+
   {navbar_style}
 "##,
         accent = ACCENT,
@@ -546,6 +565,14 @@ fn error_style() -> String {
     inset: 0;
     background: radial-gradient(circle at 50% 30%, var(--glow-1) 0%, transparent 60%);
     pointer-events: none;
+  }}
+
+  main {{
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    display: flex;
+    justify-content: center;
   }}
 
   .card {{
@@ -629,10 +656,10 @@ fn particles_script() -> String {
 }
 
 fn footer_html() -> String {
-    r#"<div class="footer">
-  <span class="footer-dot"></span>
+    r#"<footer class="footer">
+  <span class="footer-dot" aria-hidden="true"></span>
   MNS Resolver
-</div>"#
+</footer>"#
         .to_string()
 }
 
@@ -655,22 +682,22 @@ fn navbar_html(nav: &Navbar) -> String {
         nav.contract_address
     );
     format!(
-        r#"<nav class="navbar">
-  <a href="/" class="navbar-logo">
+        r#"<nav class="navbar" aria-label="Primary">
+  <a href="/" class="navbar-logo" aria-label="MNS home">
     <img src="/static/mlkut.png" alt="MNS">
   </a>
   <div class="navbar-right">
-    <a class="navbar-network" href="{contract_url}" target="_blank" title="View contract on explorer">{network}</a>
-    <a class="navbar-block" href="{block_url}" target="_blank" title="view latest indexed block {block} on explorer">
-      <span class="liveness-dot"></span>
+    <a class="navbar-network" href="{contract_url}" target="_blank" rel="noopener noreferrer" title="View contract on explorer">{network}</a>
+    <a class="navbar-block" href="{block_url}" target="_blank" rel="noopener noreferrer" title="view latest indexed block {block} on explorer">
+      <span class="liveness-dot" aria-hidden="true"></span>
       <span class="block-number">{block}</span>
     </a>
-    <button class="theme-toggle" onclick="_toggleTheme()" aria-label="Switch theme">
-      <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <button type="button" class="theme-toggle" onclick="_toggleTheme()" aria-label="Switch theme">
+      <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="12" cy="12" r="5"/>
         <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
       </svg>
-      <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
       </svg>
     </button>
@@ -837,10 +864,10 @@ pub fn render_html(
         let owner_hex = hex::encode(owner);
         format!(
             r#"<div class="meta-row inline">
-      <div class="meta-label">Owner</div>
-      <div class="meta-value dim">
+      <dt class="meta-label">Owner</dt>
+      <dd class="meta-value dim">
         <a class="owner-link" href="/owner/0x{owner_hex}">0x{owner_hex}</a>
-      </div>
+      </dd>
     </div>"#,
         )
     } else {
@@ -851,13 +878,13 @@ pub fn render_html(
         String::new()
     } else {
         format!(
-            r#"<div class="card records-card">
-  <h2>Resource Records</h2>
+            r#"<section class="card records-card" aria-labelledby="records-heading">
+  <h2 id="records-heading">Resource Records</h2>
   <table>
-    <thead><tr><th>Name</th><th>Type</th><th>TTL</th><th>Data</th></tr></thead>
+    <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">TTL</th><th scope="col">Data</th></tr></thead>
     <tbody>{rows}</tbody>
   </table>
-</div>"#,
+</section>"#,
         )
     };
 
@@ -873,47 +900,47 @@ pub fn render_html(
 
 {nav_html}
 
-<div class="grid-bg"></div>
-<div class="particles" id="particles"></div>
+<div class="grid-bg" aria-hidden="true"></div>
+<div class="particles" id="particles" aria-hidden="true"></div>
 
-<div class="card">
+<main>
+<article class="card">
   <div class="avatar-wrap">
     <div class="avatar">{avatar_svg}</div>
   </div>
 
-  <div class="header">
+  <header class="header">
     <h1>{name_str}</h1>
-    <div class="canonical">{canonical}</div>
-  </div>
+    <p class="canonical">{canonical}</p>
+  </header>
 
-  <div class="divider"></div>
+  <div class="divider" role="separator"></div>
 
-  <div class="meta-grid">
+  <dl class="meta-grid">
     {owner_row}
     <div class="meta-row inline">
-      <div class="meta-label">ZSK</div>
-      <div class="meta-value dim">0x{zsk_hex}</div>
+      <dt class="meta-label">ZSK</dt>
+      <dd class="meta-value dim">0x{zsk_hex}</dd>
     </div>
     <div class="meta-row inline">
-      <div class="meta-label">NS</div>
-      <div class="meta-value dim">{ns}</div>
+      <dt class="meta-label">NS</dt>
+      <dd class="meta-value dim">{ns}</dd>
     </div>
     <div class="meta-row inline">
-      <div class="meta-label">Updated</div>
-      <div class="meta-value dim">{ts}</div>
+      <dt class="meta-label">Updated</dt>
+      <dd class="meta-value dim">{ts}</dd>
     </div>
-  </div>
+  </dl>
 
-  <div class="empty-state">
-    <p class="empty-text">No signed packets published yet.</p>
-  </div>
-</div>
+  <p class="empty-state">No signed packets published yet.</p>
+</article>
 
 {records_section}
 
-<div class="back-wrap">
+<nav class="back-wrap" aria-label="Breadcrumb">
   <a class="back-link" href="/">← Home</a>
-</div>
+</nav>
+</main>
 
 {footer}
 
@@ -938,10 +965,10 @@ pub fn render_not_found_page(
         let owner_hex = hex::encode(owner);
         format!(
             r#"<div class="meta-row inline">
-      <div class="meta-label">Owner</div>
-      <div class="meta-value dim">
+      <dt class="meta-label">Owner</dt>
+      <dd class="meta-value dim">
         <a class="owner-link" href="/owner/0x{owner_hex}">0x{owner_hex}</a>
-      </div>
+      </dd>
     </div>"#,
         )
     } else {
@@ -954,8 +981,8 @@ pub fn render_not_found_page(
         let ns_row = if !ns_val.is_empty() {
             format!(
                 r#"<div class="meta-row inline">
-      <div class="meta-label">NS</div>
-      <div class="meta-value dim">{ns_val}</div>
+      <dt class="meta-label">NS</dt>
+      <dd class="meta-value dim">{ns_val}</dd>
     </div>"#,
             )
         } else {
@@ -964,8 +991,8 @@ pub fn render_not_found_page(
         (
             format!(
                 r#"<div class="meta-row inline">
-      <div class="meta-label">ZSK</div>
-      <div class="meta-value dim">0x{zsk_hex}</div>
+      <dt class="meta-label">ZSK</dt>
+      <dd class="meta-value dim">0x{zsk_hex}</dd>
     </div>
     {ns_row}"#,
             ),
@@ -993,34 +1020,34 @@ pub fn render_not_found_page(
 <body>
 
 {nav_html}
-<div class="grid-bg"></div>
-<div class="particles" id="particles"></div>
+<div class="grid-bg" aria-hidden="true"></div>
+<div class="particles" id="particles" aria-hidden="true"></div>
 
-<div class="card">
+<main>
+<article class="card">
   <div class="avatar-wrap">
     <div class="avatar">{avatar_svg}</div>
   </div>
 
-  <div class="header">
+  <header class="header">
     <h1>{name_str}</h1>
-    <div class="canonical">{canonical}</div>
-  </div>
+    <p class="canonical">{canonical}</p>
+  </header>
 
-  <div class="divider"></div>
+  <div class="divider" role="separator"></div>
 
-  <div class="meta-grid">
+  <dl class="meta-grid">
     {owner_row}
     {meta_rows}
-  </div>
+  </dl>
 
-  <div class="empty-state">
-    <p class="empty-text">{empty_text}</p>
-  </div>
-</div>
+  <p class="empty-state">{empty_text}</p>
+</article>
 
-<div class="back-wrap">
+<nav class="back-wrap" aria-label="Breadcrumb">
   <a class="back-link" href="/">← Home</a>
-</div>
+</nav>
+</main>
 
 {footer}
 
@@ -1062,11 +1089,19 @@ pub fn render_home_page(nav: &Navbar) -> String {
     border-radius: var(--radius-sm);
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    list-style: none;
     overflow: hidden;
   }}
 
   .stat-row {{
+    border-bottom: 1px solid var(--border);
+  }}
+  .stat-row:last-child {{
+    border-bottom: none;
+  }}
+
+  .stat-row > a,
+  .stat-row > .stat-row-content {{
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1076,10 +1111,8 @@ pub fn render_home_page(nav: &Navbar) -> String {
     color: var(--fg);
     transition: background 0.2s;
   }}
-  .stat-row:not(:last-child) {{
-    border-bottom: 1px solid var(--border);
-  }}
-  .stat-row:hover {{
+  .stat-row > a:hover,
+  .stat-row > .stat-row-content:hover {{
     background: var(--surface-hover);
   }}
   .stat-row .stat-label {{
@@ -1112,6 +1145,7 @@ pub fn render_home_page(nav: &Navbar) -> String {
   .history-list {{
     display: flex;
     flex-direction: column;
+    list-style: none;
   }}
   .history-item {{
     display: flex;
@@ -1168,61 +1202,72 @@ pub fn render_home_page(nav: &Navbar) -> String {
 
 {nav_html}
 
-<div class="grid-bg"></div>
-<div class="particles" id="particles"></div>
+<div class="grid-bg" aria-hidden="true"></div>
+<div class="particles" id="particles" aria-hidden="true"></div>
 
-<div class="card card-center">
+<main>
+<section class="card card-center">
   <div class="avatar-wrap">
     <img src="/static/mlkut.png" alt="mlkut logo" class="avatar home-logo">
   </div>
 
-  <div class="header">
+  <header class="header">
     <h1>Mlkut Name System</h1>
-    <div class="home-desc">
+    <p class="home-desc">
       Permissionless name registry for the next millennium.
-    </div>
-  </div>
+    </p>
+  </header>
 
-  <div class="divider"></div>
+  <div class="divider" role="separator"></div>
 
-  <form id="search-form" onsubmit="event.preventDefault();var q=this.querySelector('input').value.trim();if(q){{if(q.startsWith('0x')){{window.location.href='/owner/'+encodeURIComponent(q);return;}}window.location.href='/'+encodeURIComponent(q);}}">
+  <form id="search-form" role="search" onsubmit="event.preventDefault();var q=this.querySelector('input').value.trim();if(q){{if(q.startsWith('0x')){{window.location.href='/owner/'+encodeURIComponent(q);return;}}window.location.href='/'+encodeURIComponent(q);}}">
     <div class="search-row">
-      <input type="text" id="search-input" class="search-input" placeholder="Search name or owner address...">
+      <label for="search-input" class="visually-hidden">Search name or owner address</label>
+      <input type="text" id="search-input" name="q" class="search-input" placeholder="Search name or owner address...">
       <button type="submit" class="search-btn">Search</button>
     </div>
   </form>
 
   <div class="content-grid">
 
-    <div id="history"></div>
+    <section id="history" aria-label="Recently viewed names"></section>
 
-    <div class="stats-card" id="stats">
-      <a class="stat-row" href="/owners" title="Unique addresses that own one or more names">
-        <span class="stat-label">Owners</span>
-        <span class="stat-value" id="stat-owners">—</span>
-      </a>
-      <div class="stat-row" title="Total registered name slots (batch × 256 + entries)">
-        <span class="stat-label">Names</span>
-        <span class="stat-value" id="stat-names">—</span>
-      </div>
-      <div class="stat-row" title="Signed DNS packets published on-chain">
-        <span class="stat-label">Packets</span>
-        <span class="stat-value" id="stat-packets">—</span>
-      </div>
-      <div class="stat-row" title="Most recently synced Rootstock block">
-        <span class="stat-label">Block</span>
-        <span class="stat-value" id="stat-block">—</span>
-      </div>
-    </div>
+    <ul class="stats-card" id="stats" aria-label="Registry statistics">
+      <li class="stat-row">
+        <a href="/owners" title="Unique addresses that own one or more names">
+          <span class="stat-label">Owners</span>
+          <span class="stat-value" id="stat-owners">—</span>
+        </a>
+      </li>
+      <li class="stat-row">
+        <div class="stat-row-content" title="Total registered name slots (batch × 256 + entries)">
+          <span class="stat-label">Names</span>
+          <span class="stat-value" id="stat-names">—</span>
+        </div>
+      </li>
+      <li class="stat-row">
+        <div class="stat-row-content" title="Signed DNS packets published on-chain">
+          <span class="stat-label">Packets</span>
+          <span class="stat-value" id="stat-packets">—</span>
+        </div>
+      </li>
+      <li class="stat-row">
+        <div class="stat-row-content" title="Most recently synced Rootstock block">
+          <span class="stat-label">Block</span>
+          <span class="stat-value" id="stat-block">—</span>
+        </div>
+      </li>
+    </ul>
 
   </div>
 
-  <div class="home-links">
+  <nav class="home-links" aria-label="External resources">
     <a href="https://mlkut.org" class="ext-link">Read more</a>
-    <span class="sep-dot">·</span>
+    <span class="sep-dot" aria-hidden="true">·</span>
     <a href="https://mlkut.org" class="ext-link">Specs</a>
-  </div>
-</div>
+  </nav>
+</section>
+</main>
 
 {footer}
 
@@ -1240,14 +1285,14 @@ pub fn render_home_page(nav: &Navbar) -> String {
   var list;
   try {{ list = JSON.parse(localStorage.getItem('mns-history') || '[]'); }} catch(e) {{ list = []; }}
   if (list.length === 0) return;
-  var html = '<div class="history-list">';
+  var html = '<ul class="history-list">';
   for (var i = 0; i < list.length; i++) {{
     var name = list[i];
-    html += '<a class="history-item" href="/' + encodeURIComponent(name) + '">' +
+    html += '<li><a class="history-item" href="/' + encodeURIComponent(name) + '">' +
       '<span class="history-avatar" data-name="' + encodeURIComponent(name) + '"></span>' +
-      '<span class="history-name">' + name + '</span></a>';
+      '<span class="history-name">' + name + '</span></a></li>';
   }}
-  html += '</div>';
+  html += '</ul>';
   document.getElementById('history').innerHTML = html;
   var avatars = document.querySelectorAll('.history-avatar[data-name]');
   for (var i = 0; i < avatars.length; i++) {{
@@ -1283,15 +1328,15 @@ pub fn render_owner_page(address: &str, names: &[Name], nav: &Navbar) -> String 
   .owner-grid {{
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
-    gap: 0.5rem;
+    list-style: none;
   }}
 
   .owner-item {{
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    padding: 0.5rem 0.65rem;
-    border-radius: var(--radius-sm);
+    gap: 0.3rem;
+    padding: 0.5rem 0.5rem;
+    border-radius: var(--radius-xs);
     text-decoration: none;
     color: var(--fg);
     transition: background 0.2s;
@@ -1341,24 +1386,25 @@ pub fn render_owner_page(address: &str, names: &[Name], nav: &Navbar) -> String 
     let footer = footer_html();
     let nav_html = navbar_html(nav);
     let rows: String = if names.is_empty() {
-        r#"<div class="empty-section">No names owned.</div>"#.into()
+        r#"<p class="empty-section">No names owned.</p>"#.into()
     } else {
-        names
+        let items: String = names
             .iter()
             .map(|name| {
                 let svg = name.render_avatar_svg();
                 let name_str = name.to_string();
                 format!(
-                    r#"<a class="owner-item" href="/{href}">
+                    r#"<li><a class="owner-item" href="/{href}">
                 <span class="owner-avatar">{svg}</span>
                 <span class="owner-name">{name_str}</span>
-              </a>"#,
+              </a></li>"#,
                     href = name_str,
                     name_str = name_str,
                 )
             })
             .collect::<Vec<_>>()
-            .join("")
+            .join("");
+        format!(r#"<ul class="owner-grid">{items}</ul>"#)
     };
 
     format!(
@@ -1367,23 +1413,25 @@ pub fn render_owner_page(address: &str, names: &[Name], nav: &Navbar) -> String 
 
 {nav_html}
 
-<div class="grid-bg"></div>
-<div class="particles" id="particles"></div>
+<div class="grid-bg" aria-hidden="true"></div>
+<div class="particles" id="particles" aria-hidden="true"></div>
 
-<div class="card">
-  <div class="header">
+<main>
+<section class="card">
+  <header class="header">
     <h1>Owner</h1>
-  </div>
-  <div class="owner-address">{address}</div>
+  </header>
+  <p class="owner-address">{address}</p>
 
-  <div class="divider"></div>
+  <div class="divider" role="separator"></div>
 
-  <div class="owner-grid">{rows}</div>
-</div>
+  {rows}
+</section>
 
-<div class="back-wrap">
+<nav class="back-wrap" aria-label="Breadcrumb">
   <a class="back-link" href="/">← Home</a>
-</div>
+</nav>
+</main>
 
 {footer}
 
@@ -1402,6 +1450,7 @@ pub fn render_owners_page(items: &[OwnerItemSimple], nav: &Navbar) -> String {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
+    list-style: none;
   }}
 
   .owner-row {{
@@ -1435,18 +1484,19 @@ pub fn render_owners_page(items: &[OwnerItemSimple], nav: &Navbar) -> String {
     let footer = footer_html();
     let nav_html = navbar_html(nav);
     let rows: String = if items.is_empty() {
-        r#"<div class="empty-section">No owners.</div>"#.into()
+        r#"<p class="empty-section">No owners.</p>"#.into()
     } else {
-        items
+        let items_html: String = items
             .iter()
             .map(|item| {
                 format!(
-                    r#"<a class="owner-row" href="/owner/{addr}">{addr}</a>"#,
+                    r#"<li><a class="owner-row" href="/owner/{addr}">{addr}</a></li>"#,
                     addr = item.name_or_addr
                 )
             })
             .collect::<Vec<_>>()
-            .join("")
+            .join("");
+        format!(r#"<ul class="owner-list">{items_html}</ul>"#)
     };
 
     format!(
@@ -1455,22 +1505,24 @@ pub fn render_owners_page(items: &[OwnerItemSimple], nav: &Navbar) -> String {
 
 {nav_html}
 
-<div class="grid-bg"></div>
-<div class="particles" id="particles"></div>
+<div class="grid-bg" aria-hidden="true"></div>
+<div class="particles" id="particles" aria-hidden="true"></div>
 
-<div class="card">
-  <div class="header">
+<main>
+<section class="card">
+  <header class="header">
     <h1>Owners</h1>
-  </div>
+  </header>
 
-  <div class="divider"></div>
+  <div class="divider" role="separator"></div>
 
-  <div class="owner-list">{rows}</div>
-</div>
+  {rows}
+</section>
 
-<div class="back-wrap">
+<nav class="back-wrap" aria-label="Breadcrumb">
   <a class="back-link" href="/">← Home</a>
-</div>
+</nav>
+</main>
 
 {footer}
 
@@ -1488,7 +1540,9 @@ pub fn render_error(message: &str, nav: &Navbar) -> String {
         r#"{head}
 <body>
 {nav_html}
-<div class="card"><div class="msg">{message}</div></div>
+<main>
+<section class="card" role="alert"><p class="msg">{message}</p></section>
+</main>
 </body>
 </html>"#,
     )
