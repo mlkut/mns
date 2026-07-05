@@ -24,7 +24,26 @@ pub struct FormatQuery {
     format: Option<String>,
 }
 
-pub fn build_router<S: ZoneStore + 'static>(store: Arc<S>) -> Router {
+pub struct AppState<S: ZoneStore> {
+    pub store: Arc<S>,
+    pub network: String,
+    pub explorer_url: String,
+    pub contract_address: String,
+}
+
+pub fn build_router<S: ZoneStore + 'static>(
+    store: Arc<S>,
+    network: &str,
+    explorer_url: &str,
+    contract_address: &str,
+) -> Router {
+    let state = Arc::new(AppState {
+        store,
+        network: network.to_string(),
+        explorer_url: explorer_url.to_string(),
+        contract_address: contract_address.to_string(),
+    });
+
     Router::new()
         .route("/", get(root_handler))
         .route("/static/{file}", get(static_handler))
@@ -34,7 +53,22 @@ pub fn build_router<S: ZoneStore + 'static>(store: Arc<S>) -> Router {
         .route("/owner/{address}", get(owner_handler::<S>))
         .route("/{*name}", get(get_handler::<S>).put(put_handler::<S>))
         .layer(CorsLayer::permissive())
-        .with_state(store)
+        .with_state(state)
+}
+
+async fn nav_info<S: ZoneStore>(state: &AppState<S>) -> html::Navbar {
+    let sync_block = state
+        .store
+        .get_last_sync_block_number()
+        .await
+        .unwrap_or(None)
+        .unwrap_or(0);
+    html::Navbar {
+        sync_block,
+        network: state.network.clone(),
+        explorer_url: state.explorer_url.clone(),
+        contract_address: state.contract_address.clone(),
+    }
 }
 
 #[derive(Serialize)]
@@ -43,9 +77,9 @@ struct StatsResponse {
 }
 
 async fn stats_handler<S: ZoneStore>(
-    store: axum::extract::State<Arc<S>>,
+    state: axum::extract::State<Arc<AppState<S>>>,
 ) -> Result<Json<StatsResponse>, (StatusCode, String)> {
-    let total_owners = store.total_owners().await.map_err(|e| {
+    let total_owners = state.store.total_owners().await.map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             format!("store error: {e}"),
@@ -57,7 +91,7 @@ async fn stats_handler<S: ZoneStore>(
 const BATCH_SIZE: u64 = 256;
 
 async fn owner_handler<S: ZoneStore>(
-    store: axum::extract::State<Arc<S>>,
+    state: axum::extract::State<Arc<AppState<S>>>,
     Path(address_str): Path<String>,
 ) -> Response {
     let address_str = address_str.trim();
@@ -65,7 +99,10 @@ async fn owner_handler<S: ZoneStore>(
         return (
             StatusCode::BAD_REQUEST,
             [("content-type", "text/html")],
-            html::render_error("invalid address format (expected 0x-prefixed 20-byte hex)"),
+            html::render_error(
+                "invalid address format (expected 0x-prefixed 20-byte hex)",
+                &nav_info(&state).await,
+            ),
         )
             .into_response();
     }
@@ -80,45 +117,40 @@ async fn owner_handler<S: ZoneStore>(
             return (
                 StatusCode::BAD_REQUEST,
                 [("content-type", "text/html")],
-                html::render_error("invalid address hex"),
+                html::render_error("invalid address hex", &nav_info(&state).await),
             )
                 .into_response()
         }
     };
 
-    let batches = match store.get_owner_batches(&owner_bytes).await {
+    let nav = nav_info(&state).await;
+    let batches = match state.store.get_owner_batches(&owner_bytes).await {
         Ok(b) => b,
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 [("content-type", "text/html")],
-                html::render_error(&format!("store error: {e}")),
+                html::render_error(&format!("store error: {e}"), &nav),
             )
                 .into_response()
         }
     };
 
-    // Expand batches into individual names, filtering out entries owned by others
     let mut names: Vec<String> = Vec::new();
     for batch_start in &batches {
         for offset in 0..BATCH_SIZE {
             let ordinal = batch_start + offset;
             let name = Name::from_ordinal(ordinal);
-            // Check if this ordinal has an entry owned by someone else
-            if let Some(entry_owner) = store.get_name_owner(&name).await.unwrap_or(None) {
+            if let Some(entry_owner) = state.store.get_name_owner(&name).await.unwrap_or(None) {
                 if entry_owner != owner_bytes {
-                    continue; // entry owned by someone else → not this owner's name
+                    continue;
                 }
             }
             names.push(name.to_string());
         }
     }
 
-    // Also add entries owned by this owner (they might not be in any batch,
-    // though they typically are; dedupe via the loop above already)
-    // Actually they're already covered by the batch expansion loop.
-    // But for safety, also fetch entry ordinals and include any not already present:
-    if let Ok(entries) = store.get_owner_entries(&owner_bytes).await {
+    if let Ok(entries) = state.store.get_owner_entries(&owner_bytes).await {
         for ordinal in entries {
             let name_str = Name::from_ordinal(ordinal).to_string();
             if !names.contains(&name_str) {
@@ -127,23 +159,24 @@ async fn owner_handler<S: ZoneStore>(
         }
     }
 
-    let html_body = html::render_owner_page(address_str, &names);
+    let html_body = html::render_owner_page(address_str, &names, &nav);
     (StatusCode::OK, [("content-type", "text/html")], html_body).into_response()
 }
 
-async fn owners_handler<S: ZoneStore>(store: axum::extract::State<Arc<S>>) -> Response {
-    let owners = match store.all_owners().await {
+async fn owners_handler<S: ZoneStore>(state: axum::extract::State<Arc<AppState<S>>>) -> Response {
+    let owners = match state.store.all_owners().await {
         Ok(o) => o,
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 [("content-type", "text/html")],
-                html::render_error(&format!("store error: {e}")),
+                html::render_error(&format!("store error: {e}"), &nav_info(&state).await),
             )
                 .into_response()
         }
     };
 
+    let nav = nav_info(&state).await;
     let items: Vec<html::OwnerItemSimple> = owners
         .iter()
         .map(|addr| html::OwnerItemSimple {
@@ -151,15 +184,18 @@ async fn owners_handler<S: ZoneStore>(store: axum::extract::State<Arc<S>>) -> Re
         })
         .collect();
 
-    let html_body = html::render_owners_page(&items);
+    let html_body = html::render_owners_page(&items, &nav);
     (StatusCode::OK, [("content-type", "text/html")], html_body).into_response()
 }
 
-async fn root_handler() -> impl axum::response::IntoResponse {
+async fn root_handler(
+    state: axum::extract::State<Arc<AppState<impl ZoneStore>>>,
+) -> impl axum::response::IntoResponse {
+    let nav = nav_info(&state).await;
     (
         axum::http::StatusCode::OK,
         [("content-type", "text/html")],
-        html::render_home_page(),
+        html::render_home_page(&nav),
     )
 }
 
@@ -187,7 +223,7 @@ async fn static_handler(Path(file): Path<String>) -> Response {
 }
 
 async fn avatar_handler<S: ZoneStore>(
-    _store: axum::extract::State<Arc<S>>,
+    _state: axum::extract::State<Arc<AppState<S>>>,
     Path(name_str): Path<String>,
 ) -> Response {
     let name = match name_str.parse::<Name>() {
@@ -210,7 +246,7 @@ async fn avatar_handler<S: ZoneStore>(
 }
 
 async fn get_handler<S: ZoneStore>(
-    store: axum::extract::State<Arc<S>>,
+    state: axum::extract::State<Arc<AppState<S>>>,
     Path(name_str): Path<String>,
     Query(query): Query<FormatQuery>,
     headers: HeaderMap,
@@ -221,7 +257,7 @@ async fn get_handler<S: ZoneStore>(
             return (
                 StatusCode::BAD_REQUEST,
                 [("content-type", "text/html")],
-                html::render_error("invalid mns name"),
+                html::render_error("invalid mns name", &nav_info(&state).await),
             )
                 .into_response()
         }
@@ -234,9 +270,9 @@ async fn get_handler<S: ZoneStore>(
 
     tracing::debug!(%name, "GET handler");
 
-    let owner = store.get_name_owner(&name).await.unwrap_or(None);
+    let owner = state.store.get_name_owner(&name).await.unwrap_or(None);
 
-    match resolver::resolve_name(&**store, &name).await {
+    match resolver::resolve_name(&*state.store, &name).await {
         Ok((packet_bytes, zsk, packet)) => {
             let format = query.format.as_deref();
 
@@ -250,20 +286,15 @@ async fn get_handler<S: ZoneStore>(
             } else {
                 let records = packet.all_resource_records();
                 let ts = packet.timestamp().as_u64();
-                let ns = store
+                let ns = state
+                    .store
                     .get_ns(&name)
                     .await
                     .unwrap_or(None)
                     .unwrap_or_default();
-                let html_body = html::render_html(
-                    &name,
-                    owner.as_ref(),
-                    &zsk,
-                    &ns,
-                    &records,
-                    &hex::encode(&packet_bytes),
-                    ts,
-                );
+                let nav = nav_info(&state).await;
+                let html_body =
+                    html::render_html(&name, owner.as_ref(), &zsk, &ns, &records, ts, &nav);
                 (StatusCode::OK, [("content-type", "text/html")], html_body).into_response()
             }
         }
@@ -288,12 +319,19 @@ async fn get_handler<S: ZoneStore>(
                 )
                     .into_response()
             } else {
-                let zsk = store.get_zsk(&name).await.unwrap_or(None);
-                let ns = store.get_ns(&name).await.unwrap_or(None);
+                let nav = nav_info(&state).await;
+                let zsk = state.store.get_zsk(&name).await.unwrap_or(None);
+                let ns = state.store.get_ns(&name).await.unwrap_or(None);
                 (
                     StatusCode::NOT_FOUND,
                     [("content-type", "text/html")],
-                    html::render_not_found_page(&name, owner.as_ref(), zsk.as_ref(), ns.as_deref()),
+                    html::render_not_found_page(
+                        &name,
+                        owner.as_ref(),
+                        zsk.as_ref(),
+                        ns.as_deref(),
+                        &nav,
+                    ),
                 )
                     .into_response()
             }
@@ -302,13 +340,20 @@ async fn get_handler<S: ZoneStore>(
             err @ (resolver::ResolveError::ZskMismatch | resolver::ResolveError::InvalidSignature),
         ) => {
             tracing::debug!(%name, error = %err, "GET evicting packet and returning 404");
-            let _ = store.set_signed_packet(&name, &[]).await;
-            let zsk = store.get_zsk(&name).await.unwrap_or(None);
-            let ns = store.get_ns(&name).await.unwrap_or(None);
+            let _ = state.store.set_signed_packet(&name, &[]).await;
+            let nav = nav_info(&state).await;
+            let zsk = state.store.get_zsk(&name).await.unwrap_or(None);
+            let ns = state.store.get_ns(&name).await.unwrap_or(None);
             (
                 StatusCode::NOT_FOUND,
                 [("content-type", "text/html")],
-                html::render_not_found_page(&name, owner.as_ref(), zsk.as_ref(), ns.as_deref()),
+                html::render_not_found_page(
+                    &name,
+                    owner.as_ref(),
+                    zsk.as_ref(),
+                    ns.as_deref(),
+                    &nav,
+                ),
             )
                 .into_response()
         }
@@ -317,7 +362,7 @@ async fn get_handler<S: ZoneStore>(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 [("content-type", "text/html")],
-                html::render_error("internal server error"),
+                html::render_error("internal server error", &nav_info(&state).await),
             )
                 .into_response()
         }
@@ -325,7 +370,7 @@ async fn get_handler<S: ZoneStore>(
 }
 
 async fn put_handler<S: ZoneStore>(
-    store: axum::extract::State<Arc<S>>,
+    state: axum::extract::State<Arc<AppState<S>>>,
     Path(name_str): Path<String>,
     headers: HeaderMap,
     body: axum::body::Bytes,
@@ -336,7 +381,7 @@ async fn put_handler<S: ZoneStore>(
             return (
                 StatusCode::BAD_REQUEST,
                 [("content-type", "text/html")],
-                html::render_error("invalid mns name"),
+                html::render_error("invalid mns name", &nav_info(&state).await),
             )
                 .into_response()
         }
@@ -351,38 +396,44 @@ async fn put_handler<S: ZoneStore>(
         return (
             StatusCode::UNSUPPORTED_MEDIA_TYPE,
             [("content-type", "text/html")],
-            html::render_error(&format!(
-                "unsupported content type, expected {} or application/octet-stream",
-                content_type::MNS_PAYLOAD
-            )),
+            html::render_error(
+                &format!(
+                    "unsupported content type, expected {} or application/octet-stream",
+                    content_type::MNS_PAYLOAD
+                ),
+                &nav_info(&state).await,
+            ),
         )
             .into_response();
     }
 
-    match resolver::put_packet(&**store, &name, &body).await {
+    match resolver::put_packet(&*state.store, &name, &body).await {
         Ok(()) => (StatusCode::NO_CONTENT,).into_response(),
         Err(resolver::ResolveError::InvalidSignature | resolver::ResolveError::Parse(_)) => (
             StatusCode::BAD_REQUEST,
             [("content-type", "text/html")],
-            html::render_error("invalid signature or malformed packet"),
+            html::render_error(
+                "invalid signature or malformed packet",
+                &nav_info(&state).await,
+            ),
         )
             .into_response(),
         Err(resolver::ResolveError::NameMismatch) => (
             StatusCode::BAD_REQUEST,
             [("content-type", "text/html")],
-            html::render_error("name in packet does not match URL"),
+            html::render_error("name in packet does not match URL", &nav_info(&state).await),
         )
             .into_response(),
         Err(resolver::ResolveError::NameNotFound) => (
             StatusCode::NOT_FOUND,
             [("content-type", "text/html")],
-            html::render_error("name not registered on-chain"),
+            html::render_error("name not registered on-chain", &nav_info(&state).await),
         )
             .into_response(),
         Err(resolver::ResolveError::ZskMismatch) => (
             StatusCode::FORBIDDEN,
             [("content-type", "text/html")],
-            html::render_error("key not authorized for this name"),
+            html::render_error("key not authorized for this name", &nav_info(&state).await),
         )
             .into_response(),
         Err(e) => {
@@ -390,7 +441,7 @@ async fn put_handler<S: ZoneStore>(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 [("content-type", "text/html")],
-                html::render_error("internal server error"),
+                html::render_error("internal server error", &nav_info(&state).await),
             )
                 .into_response()
         }

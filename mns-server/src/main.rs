@@ -103,10 +103,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("opening database at {}", cfg.db_path.display());
     let store = Arc::new(LmdbStore::open(&cfg.db_path)?);
 
-    info!(
-        "connecting to Rootstock RPC: {} with an api key",
-        &cli.rpc_url
-    );
+    info!("connecting to Rootstock RPC: {}", &cli.rpc_url);
     let registry = Arc::new(crate::registry::alloy::AlloyRegistry::new(
         &cfg.rpc_url,
         &cfg.contract_address,
@@ -126,7 +123,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     // Build HTTP server
-    let app = crate::server::build_router(store);
+    let app = crate::server::build_router(
+        store,
+        &cli.network,
+        network_info.explorer_url,
+        network_info.contract_address,
+    );
     let listener = tokio::net::TcpListener::bind(&cfg.listen).await?;
     info!("listening on {}", cfg.listen);
 

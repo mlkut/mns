@@ -37,7 +37,7 @@ fn main_style() -> String {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 3rem 1.25rem 2rem;
+    padding: 5rem 1.25rem 2rem;
     overflow-x: hidden;
     position: relative;
   }}
@@ -378,8 +378,11 @@ fn main_style() -> String {
       transition-duration: 0.01ms !important;
     }}
   }}
+
+  {navbar_style}
 "##,
-        accent = ACCENT
+        accent = ACCENT,
+        navbar_style = navbar_style()
     )
 }
 
@@ -407,7 +410,7 @@ fn error_style() -> String {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 2rem;
+    padding: 5rem 2rem 2rem;
   }}
 
   body::before {{
@@ -447,8 +450,11 @@ fn error_style() -> String {
     font-weight: 500;
     color: var(--fg);
   }}
+
+  {navbar_style}
 "##,
-        accent = ACCENT
+        accent = ACCENT,
+        navbar_style = navbar_style()
     )
 }
 
@@ -502,14 +508,141 @@ fn footer_html() -> String {
         .to_string()
 }
 
+pub struct Navbar {
+    pub sync_block: u64,
+    pub network: String,
+    pub explorer_url: String,
+    pub contract_address: String,
+}
+
+fn navbar_html(nav: &Navbar) -> String {
+    let block_url = format!(
+        "{}/block/{}",
+        nav.explorer_url.trim_end_matches('/'),
+        nav.sync_block
+    );
+    let contract_url = format!(
+        "{}/address/{}?tab=contract",
+        nav.explorer_url.trim_end_matches('/'),
+        nav.contract_address
+    );
+    format!(
+        r#"<nav class="navbar">
+  <a href="/" class="navbar-logo">
+    <img src="/static/mlkut.png" alt="MNS">
+  </a>
+  <div class="navbar-right">
+    <a class="navbar-network" href="{contract_url}" target="_blank" title="View contract on explorer">{network}</a>
+    <a class="navbar-block" href="{block_url}" target="_blank" title="View block {block} on explorer">
+      <span class="liveness-dot"></span>
+      <span class="block-number">{block}</span>
+    </a>
+  </div>
+</nav>"#,
+        network = nav.network,
+        block = nav.sync_block,
+        block_url = block_url,
+        contract_url = contract_url,
+    )
+}
+
+fn navbar_style() -> String {
+    r##"
+  .navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.25rem;
+    background: rgba(8,9,13,0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+  }
+
+  .navbar-logo img {
+    height: 26px;
+    width: auto;
+    display: block;
+    opacity: 0.85;
+    transition: opacity 0.2s;
+  }
+  .navbar-logo:hover img { opacity: 1; }
+
+  .navbar-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .navbar-network {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-muted);
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    text-decoration: none;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .navbar-network:hover {
+    color: var(--fg);
+    border-color: var(--accent);
+  }
+
+  .navbar-block {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--fg);
+    text-decoration: none;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .navbar-block:hover {
+    border-color: var(--accent);
+    background: var(--surface-hover);
+  }
+
+  .liveness-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #22c55e;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .block-number {
+    font-variant-numeric: tabular-nums;
+  }
+"##
+    .to_string()
+}
+
 pub fn render_html(
     name: &Name,
     owner: Option<&[u8; 20]>,
     zsk: &[u8; ZSK_LEN],
     ns: &str,
     records: &[ResourceRecord],
-    _packet_hex: &str,
     timestamp: u64,
+    nav: &Navbar,
 ) -> String {
     let name_str = name.to_string();
     let canonical = name.canonical_domain();
@@ -567,10 +700,13 @@ pub fn render_html(
     let head = page_head(&name_str, &style);
     let particles = particles_script();
     let footer = footer_html();
+    let nav_html = navbar_html(nav);
 
     format!(
         r#"{head}
 <body>
+
+{nav_html}
 
 <div class="grid-bg"></div>
 <div class="particles" id="particles"></div>
@@ -627,6 +763,7 @@ pub fn render_not_found_page(
     owner: Option<&[u8; 20]>,
     zsk: Option<&[u8; ZSK_LEN]>,
     ns: Option<&str>,
+    nav: &Navbar,
 ) -> String {
     let name_str = name.to_string();
     let canonical = name.canonical_domain();
@@ -677,11 +814,13 @@ pub fn render_not_found_page(
     let head = page_head(&name_str, &style);
     let particles = particles_script();
     let footer = footer_html();
+    let nav_html = navbar_html(nav);
 
     format!(
         r#"{head}
 <body>
 
+{nav_html}
 <div class="grid-bg"></div>
 <div class="particles" id="particles"></div>
 
@@ -719,7 +858,7 @@ pub fn render_not_found_page(
     )
 }
 
-pub fn render_home_page() -> String {
+pub fn render_home_page(nav: &Navbar) -> String {
     let style = format!(
         r##"{main_style}
 
@@ -813,10 +952,13 @@ pub fn render_home_page() -> String {
     let head = page_head("Mlkut Name System", &style);
     let particles = particles_script();
     let footer = footer_html();
+    let nav_html = navbar_html(nav);
 
     format!(
         r#"{head}
 <body>
+
+{nav_html}
 
 <div class="grid-bg"></div>
 <div class="particles" id="particles"></div>
@@ -892,7 +1034,7 @@ pub struct OwnerItemSimple {
     pub name_or_addr: String,
 }
 
-pub fn render_owner_page(address: &str, names: &[String]) -> String {
+pub fn render_owner_page(address: &str, names: &[String], nav: &Navbar) -> String {
     let style = format!(
         r##"{main_style}
 
@@ -958,6 +1100,7 @@ pub fn render_owner_page(address: &str, names: &[String]) -> String {
     let head = page_head("Owner — MNS", &style);
     let particles = particles_script();
     let footer = footer_html();
+    let nav_html = navbar_html(nav);
     let rows: String = if names.is_empty() {
         r#"<div class="empty-section">No names owned.</div>"#.into()
     } else {
@@ -979,6 +1122,8 @@ pub fn render_owner_page(address: &str, names: &[String]) -> String {
     format!(
         r#"{head}
 <body>
+
+{nav_html}
 
 <div class="grid-bg"></div>
 <div class="particles" id="particles"></div>
@@ -1007,7 +1152,7 @@ pub fn render_owner_page(address: &str, names: &[String]) -> String {
     )
 }
 
-pub fn render_owners_page(items: &[OwnerItemSimple]) -> String {
+pub fn render_owners_page(items: &[OwnerItemSimple], nav: &Navbar) -> String {
     let style = format!(
         r##"{main_style}
 
@@ -1046,6 +1191,7 @@ pub fn render_owners_page(items: &[OwnerItemSimple]) -> String {
     let head = page_head("Owners — MNS", &style);
     let particles = particles_script();
     let footer = footer_html();
+    let nav_html = navbar_html(nav);
     let rows: String = if items.is_empty() {
         r#"<div class="empty-section">No owners.</div>"#.into()
     } else {
@@ -1064,6 +1210,8 @@ pub fn render_owners_page(items: &[OwnerItemSimple]) -> String {
     format!(
         r#"{head}
 <body>
+
+{nav_html}
 
 <div class="grid-bg"></div>
 <div class="particles" id="particles"></div>
@@ -1090,12 +1238,14 @@ pub fn render_owners_page(items: &[OwnerItemSimple]) -> String {
     )
 }
 
-pub fn render_error(message: &str) -> String {
+pub fn render_error(message: &str, nav: &Navbar) -> String {
     let style = error_style();
     let head = page_head("Error", &style);
+    let nav_html = navbar_html(nav);
     format!(
         r#"{head}
 <body>
+{nav_html}
 <div class="card"><div class="msg">{message}</div></div>
 </body>
 </html>"#,
