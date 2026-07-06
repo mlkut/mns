@@ -655,6 +655,70 @@ fn particles_script() -> String {
         .to_string()
 }
 
+fn wallet_script() -> String {
+    r#"<script>
+(function() {
+  var el = document.getElementById('wallet-connect');
+  if (!el) return;
+  var KEY = 'mns-account';
+
+  function truncate(addr) {
+    return addr.slice(0, 6) + '…' + addr.slice(-4);
+  }
+
+  function showConnected(account) {
+    try { sessionStorage.setItem(KEY, account); } catch(e) {}
+    el.innerHTML =
+      '<a href="/owner/' + account + '" class="wc-addr" title="' + account + '">' + truncate(account) + '</a>' +
+      '<button class="wc-disc" id="wc-disc" aria-label="Disconnect wallet">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>' +
+        '</svg>' +
+      '</button>';
+    document.getElementById('wc-disc').onclick = function() {
+      try { sessionStorage.removeItem(KEY); } catch(e) {}
+      window.ethereum.request({ method: 'wallet_revokePermissions', params: [{ eth_accounts: {} }] }).catch(function() {});
+      showDisconnected();
+    };
+  }
+
+  function showDisconnected() {
+    try { sessionStorage.removeItem(KEY); } catch(e) {}
+    el.innerHTML =
+      typeof window.ethereum === 'undefined'
+        ? '<button class="wc-btn" disabled>No Wallet</button>'
+        : '<button class="wc-btn" id="wc-btn">Connect</button>';
+    var btn = document.getElementById('wc-btn');
+    if (btn) {
+      btn.onclick = function() {
+        window.ethereum.request({ method: 'eth_requestAccounts' }).then(function(accounts) {
+          if (accounts.length > 0) showConnected(accounts[0]);
+        }).catch(function(e) { console.error(e); });
+      };
+    }
+  }
+
+  var saved;
+  try { saved = sessionStorage.getItem(KEY); } catch(e) {}
+  if (saved) {
+    showConnected(saved);
+  } else if (typeof window.ethereum !== 'undefined') {
+    showDisconnected();
+  } else {
+    showDisconnected();
+  }
+
+  if (typeof window.ethereum !== 'undefined' && window.ethereum.on) {
+    window.ethereum.on('accountsChanged', function(accounts) {
+      if (accounts.length > 0) showConnected(accounts[0]);
+      else showDisconnected();
+    });
+  }
+})();
+</script>"#
+        .to_string()
+}
+
 fn footer_html() -> String {
     r#"<footer class="footer">
   <span class="footer-dot" aria-hidden="true"></span>
@@ -692,6 +756,7 @@ fn navbar_html(nav: &Navbar) -> String {
       <span class="liveness-dot" aria-hidden="true"></span>
       <span class="block-number">{block}</span>
     </a>
+    <div class="wallet-connect" id="wallet-connect"></div>
     <button type="button" class="theme-toggle" onclick="_toggleTheme()" aria-label="Switch theme">
       <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="12" cy="12" r="5"/>
@@ -796,6 +861,67 @@ fn navbar_style() -> String {
     font-variant-numeric: tabular-nums;
   }
 
+  .wallet-connect {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .wallet-connect .wc-btn {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 4px 10px;
+    color: var(--fg-muted);
+    transition: color 0.2s, border-color 0.2s, background 0.2s;
+    white-space: nowrap;
+  }
+  .wallet-connect .wc-btn:hover:not(:disabled) {
+    color: var(--fg);
+    border-color: var(--accent);
+    background: var(--surface-hover);
+  }
+  .wallet-connect .wc-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .wallet-connect .wc-addr {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--fg);
+    text-decoration: none;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    transition: border-color 0.2s, background 0.2s;
+    white-space: nowrap;
+  }
+  .wallet-connect .wc-addr:hover {
+    border-color: var(--accent);
+    background: var(--surface-hover);
+  }
+  .wallet-connect .wc-disc {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 5px;
+    line-height: 0;
+    color: var(--fg-muted);
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .wallet-connect .wc-disc:hover {
+    color: var(--fg);
+    border-color: var(--accent);
+  }
+  .wallet-connect .wc-disc svg {
+    width: 13px;
+    height: 13px;
+    display: block;
+  }
+
   .theme-toggle {
     background: none;
     border: 1px solid var(--border);
@@ -891,6 +1017,7 @@ pub fn render_html(
     let style = main_style();
     let head = page_head(&name_str, &style);
     let particles = particles_script();
+    let wallet_script = wallet_script();
     let footer = footer_html();
     let nav_html = navbar_html(nav);
 
@@ -945,6 +1072,7 @@ pub fn render_html(
 {footer}
 
 {particles}
+{wallet_script}
 </body>
 </html>"#,
     )
@@ -1005,6 +1133,7 @@ pub fn render_not_found_page(
     let style = main_style();
     let head = page_head(&name_str, &style);
     let particles = particles_script();
+    let wallet_script = wallet_script();
     let footer = footer_html();
     let nav_html = navbar_html(nav);
     let history_script = if owner.is_some() {
@@ -1052,6 +1181,7 @@ pub fn render_not_found_page(
 {footer}
 
 {particles}
+{wallet_script}
 {history_script}
 </body>
 </html>"#,
@@ -1193,6 +1323,7 @@ pub fn render_home_page(nav: &Navbar) -> String {
     );
     let head = page_head("Mlkut Name System", &style);
     let particles = particles_script();
+    let wallet_script = wallet_script();
     let footer = footer_html();
     let nav_html = navbar_html(nav);
 
@@ -1278,6 +1409,7 @@ pub fn render_home_page(nav: &Navbar) -> String {
 {footer}
 
 {particles}
+{wallet_script}
 
 <script>
 (function() {{
@@ -1390,6 +1522,7 @@ pub fn render_owner_page(address: &str, names: &[Name], nav: &Navbar) -> String 
     );
     let head = page_head("Owner — MNS", &style);
     let particles = particles_script();
+    let wallet_script = wallet_script();
     let footer = footer_html();
     let nav_html = navbar_html(nav);
     let rows: String = if names.is_empty() {
@@ -1443,6 +1576,7 @@ pub fn render_owner_page(address: &str, names: &[Name], nav: &Navbar) -> String 
 {footer}
 
 {particles}
+{wallet_script}
 </body>
 </html>"#,
         address = address,
@@ -1488,6 +1622,7 @@ pub fn render_owners_page(items: &[OwnerItemSimple], nav: &Navbar) -> String {
     );
     let head = page_head("Owners — MNS", &style);
     let particles = particles_script();
+    let wallet_script = wallet_script();
     let footer = footer_html();
     let nav_html = navbar_html(nav);
     let rows: String = if items.is_empty() {
@@ -1534,6 +1669,7 @@ pub fn render_owners_page(items: &[OwnerItemSimple], nav: &Navbar) -> String {
 {footer}
 
 {particles}
+{wallet_script}
 </body>
 </html>"#,
     )
@@ -1542,6 +1678,7 @@ pub fn render_owners_page(items: &[OwnerItemSimple], nav: &Navbar) -> String {
 pub fn render_error(message: &str, nav: &Navbar) -> String {
     let style = error_style();
     let head = page_head("Error", &style);
+    let wallet_script = wallet_script();
     let nav_html = navbar_html(nav);
     format!(
         r#"{head}
@@ -1550,6 +1687,7 @@ pub fn render_error(message: &str, nav: &Navbar) -> String {
 <main>
 <section class="card" role="alert"><p class="msg">{message}</p></section>
 </main>
+{wallet_script}
 </body>
 </html>"#,
     )
