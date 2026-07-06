@@ -62,4 +62,9 @@ pub trait ZoneStore: Send + Sync {
     async fn total_entries(&self) -> Result<u64, StoreError>;
     /// Total number of signed packets stored.
     async fn total_packets(&self) -> Result<u64, StoreError>;
+
+    /// Total unique name servers across all batches and entries.
+    async fn total_ns(&self) -> Result<u64, StoreError>;
+    /// All unique name server strings.
+    async fn all_ns(&self) -> Result<Vec<String>, StoreError>;
 }

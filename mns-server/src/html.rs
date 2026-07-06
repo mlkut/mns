@@ -1252,6 +1252,12 @@ pub fn render_home_page(nav: &Navbar) -> String {
         </div>
       </li>
       <li class="stat-row">
+        <div class="stat-row-content" title="Unique name servers across all registered batches and entries">
+          <span class="stat-label">NS</span>
+          <span class="stat-value" id="stat-ns">—</span>
+        </div>
+      </li>
+      <li class="stat-row">
         <div class="stat-row-content" title="Most recently synced Rootstock block">
           <span class="stat-label">Block</span>
           <span class="stat-value" id="stat-block">—</span>
@@ -1279,6 +1285,7 @@ pub fn render_home_page(nav: &Navbar) -> String {
     document.getElementById('stat-owners').textContent=d.total_owners;
     document.getElementById('stat-names').textContent=d.total_names;
     document.getElementById('stat-packets').textContent=d.total_packets;
+    document.getElementById('stat-ns').textContent=d.total_ns;
     document.getElementById('stat-block').textContent=d.last_block;
   }}).catch(function(){{}});
 

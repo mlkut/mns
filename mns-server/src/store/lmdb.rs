@@ -34,6 +34,7 @@ type PacketDb = DatabaseUnique<SerdeWincode<[u8; 5]>, SerdeWincode<Vec<u8>>>;
 type MetaDb = DatabaseUnique<SerdeWincode<String>, SerdeWincode<Vec<u8>>>;
 type OwnerBatchesDb = DatabaseUnique<SerdeWincode<[u8; 20]>, SerdeWincode<Vec<u64>>>;
 type OwnerEntriesDb = DatabaseUnique<SerdeWincode<[u8; 20]>, SerdeWincode<Vec<u64>>>;
+type NsDb = DatabaseUnique<SerdeWincode<String>, SerdeWincode<u64>>;
 
 pub struct LmdbStore {
     env: Arc<Env>,
@@ -43,6 +44,7 @@ pub struct LmdbStore {
     meta_db: MetaDb,
     owner_batches_db: OwnerBatchesDb,
     owner_entries_db: OwnerEntriesDb,
+    ns_db: NsDb,
     write_lock: Arc<Mutex<()>>,
 }
 
@@ -69,6 +71,8 @@ impl LmdbStore {
             .map_err(|e| StoreError::Db(e.to_string()))?;
         let owner_entries_db = OwnerEntriesDb::create(&env, &mut wtxn, "owner-entries")
             .map_err(|e| StoreError::Db(e.to_string()))?;
+        let ns_db = NsDb::create(&env, &mut wtxn, "ns")
+            .map_err(|e| StoreError::Db(e.to_string()))?;
 
         wtxn.commit().map_err(|e| StoreError::Db(e.to_string()))?;
 
@@ -80,6 +84,7 @@ impl LmdbStore {
             meta_db,
             owner_batches_db,
             owner_entries_db,
+            ns_db,
             write_lock: Arc::new(Mutex::new(())),
         })
     }
@@ -106,27 +111,67 @@ impl ZoneStore for LmdbStore {
             .write_txn()
             .map_err(|e| StoreError::Db(e.to_string()))?;
 
-        // Handle owner transfer
-        if let Some(old) = self
+        let old = self
             .batches_db
             .try_get(&wtxn, &ordinal_key(ordinal))
-            .map_err(|e| StoreError::Db(e.to_string()))?
-        {
-            if old.owner != config.owner {
+            .map_err(|e| StoreError::Db(e.to_string()))?;
+
+        // NS refcount tracking
+        match &old {
+            Some(old_config) if old_config.ns != config.ns => {
+                let rc = self
+                    .ns_db
+                    .try_get(&wtxn, &old_config.ns)
+                    .map_err(|e| StoreError::Db(e.to_string()))?
+                    .unwrap_or(0);
+                if rc <= 1 {
+                    self.ns_db
+                        .delete(&mut wtxn, &old_config.ns)
+                        .map_err(|e| StoreError::Db(format!("delete ns: {e}")))?;
+                } else {
+                    self.ns_db
+                        .put(&mut wtxn, &old_config.ns, &(rc - 1))
+                        .map_err(|e| StoreError::Db(e.to_string()))?;
+                }
+                let rc = self
+                    .ns_db
+                    .try_get(&wtxn, &config.ns)
+                    .map_err(|e| StoreError::Db(e.to_string()))?
+                    .unwrap_or(0);
+                self.ns_db
+                    .put(&mut wtxn, &config.ns, &(rc + 1))
+                    .map_err(|e| StoreError::Db(e.to_string()))?;
+            }
+            None => {
+                let rc = self
+                    .ns_db
+                    .try_get(&wtxn, &config.ns)
+                    .map_err(|e| StoreError::Db(e.to_string()))?
+                    .unwrap_or(0);
+                self.ns_db
+                    .put(&mut wtxn, &config.ns, &(rc + 1))
+                    .map_err(|e| StoreError::Db(e.to_string()))?;
+            }
+            _ => {}
+        }
+
+        // Handle owner transfer
+        if let Some(ref old_config) = old {
+            if old_config.owner != config.owner {
                 // Remove from old owner
                 let mut list: Vec<u64> = self
                     .owner_batches_db
-                    .try_get(&wtxn, &old.owner)
+                    .try_get(&wtxn, &old_config.owner)
                     .map_err(|e| StoreError::Db(e.to_string()))?
                     .unwrap_or_default();
                 list.retain(|&b| b != ordinal);
                 if list.is_empty() {
                     self.owner_batches_db
-                        .delete(&mut wtxn, &old.owner)
+                        .delete(&mut wtxn, &old_config.owner)
                         .map_err(|e| StoreError::Db(format!("delete: {e}")))?;
                 } else {
                     self.owner_batches_db
-                        .put(&mut wtxn, &old.owner, &list)
+                        .put(&mut wtxn, &old_config.owner, &list)
                         .map_err(|e| StoreError::Db(e.to_string()))?;
                 }
                 // Add to new owner
@@ -184,27 +229,67 @@ impl ZoneStore for LmdbStore {
             .write_txn()
             .map_err(|e| StoreError::Db(e.to_string()))?;
 
-        // Handle owner transfer
-        if let Some(old) = self
+        let old = self
             .entries_db
             .try_get(&wtxn, &ordinal_key(ordinal))
-            .map_err(|e| StoreError::Db(e.to_string()))?
-        {
-            if old.owner != config.owner {
+            .map_err(|e| StoreError::Db(e.to_string()))?;
+
+        // NS refcount tracking
+        match &old {
+            Some(old_config) if old_config.ns != config.ns => {
+                let rc = self
+                    .ns_db
+                    .try_get(&wtxn, &old_config.ns)
+                    .map_err(|e| StoreError::Db(e.to_string()))?
+                    .unwrap_or(0);
+                if rc <= 1 {
+                    self.ns_db
+                        .delete(&mut wtxn, &old_config.ns)
+                        .map_err(|e| StoreError::Db(format!("delete ns: {e}")))?;
+                } else {
+                    self.ns_db
+                        .put(&mut wtxn, &old_config.ns, &(rc - 1))
+                        .map_err(|e| StoreError::Db(e.to_string()))?;
+                }
+                let rc = self
+                    .ns_db
+                    .try_get(&wtxn, &config.ns)
+                    .map_err(|e| StoreError::Db(e.to_string()))?
+                    .unwrap_or(0);
+                self.ns_db
+                    .put(&mut wtxn, &config.ns, &(rc + 1))
+                    .map_err(|e| StoreError::Db(e.to_string()))?;
+            }
+            None => {
+                let rc = self
+                    .ns_db
+                    .try_get(&wtxn, &config.ns)
+                    .map_err(|e| StoreError::Db(e.to_string()))?
+                    .unwrap_or(0);
+                self.ns_db
+                    .put(&mut wtxn, &config.ns, &(rc + 1))
+                    .map_err(|e| StoreError::Db(e.to_string()))?;
+            }
+            _ => {}
+        }
+
+        // Handle owner transfer
+        if let Some(ref old_config) = old {
+            if old_config.owner != config.owner {
                 // Remove from old owner
                 let mut list: Vec<u64> = self
                     .owner_entries_db
-                    .try_get(&wtxn, &old.owner)
+                    .try_get(&wtxn, &old_config.owner)
                     .map_err(|e| StoreError::Db(e.to_string()))?
                     .unwrap_or_default();
                 list.retain(|&e| e != ordinal);
                 if list.is_empty() {
                     self.owner_entries_db
-                        .delete(&mut wtxn, &old.owner)
+                        .delete(&mut wtxn, &old_config.owner)
                         .map_err(|e| StoreError::Db(format!("delete: {e}")))?;
                 } else {
                     self.owner_entries_db
-                        .put(&mut wtxn, &old.owner, &list)
+                        .put(&mut wtxn, &old_config.owner, &list)
                         .map_err(|e| StoreError::Db(e.to_string()))?;
                 }
                 // Add to new owner
@@ -429,5 +514,34 @@ impl ZoneStore for LmdbStore {
         self.packet_db
             .len(&rtxn)
             .map_err(|e| StoreError::Db(e.to_string()))
+    }
+
+    async fn total_ns(&self) -> Result<u64, StoreError> {
+        let rtxn = self
+            .env
+            .read_txn()
+            .map_err(|e| StoreError::Db(e.to_string()))?;
+        self.ns_db
+            .len(&rtxn)
+            .map_err(|e| StoreError::Db(e.to_string()))
+    }
+
+    async fn all_ns(&self) -> Result<Vec<String>, StoreError> {
+        let rtxn = self
+            .env
+            .read_txn()
+            .map_err(|e| StoreError::Db(e.to_string()))?;
+        let mut iter = self
+            .ns_db
+            .iter_keys(&rtxn)
+            .map_err(|e| StoreError::Db(e.to_string()))?;
+        let mut result = Vec::new();
+        while let Some(ns) = iter
+            .next()
+            .map_err(|e| StoreError::Db(e.to_string()))?
+        {
+            result.push(ns);
+        }
+        Ok(result)
     }
 }
