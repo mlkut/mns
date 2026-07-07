@@ -657,7 +657,11 @@ fn particles_script() -> String {
 
 fn wallet_script(chain_id: u64, rpc_url: &str) -> String {
     let chain_id_hex = format!("0x{:x}", chain_id);
-    let chain_name = if chain_id == 30 { "Rootstock Mainnet" } else { "Rootstock Testnet" };
+    let chain_name = if chain_id == 30 {
+        "Rootstock Mainnet"
+    } else {
+        "Rootstock Testnet"
+    };
     let currency = if chain_id == 30 { "RBTC" } else { "tRBTC" };
     format!(
         r#"<script>
@@ -1016,11 +1020,13 @@ pub fn render_html(
 
     let owner_row = if let Some(owner) = owner {
         let owner_hex = hex::encode(owner);
+        let full = format!("0x{owner_hex}");
+        let truncated = truncate_addr(&full);
         format!(
             r#"<div class="meta-row inline">
       <dt class="meta-label">Owner</dt>
       <dd class="meta-value dim">
-        <a class="owner-link" href="/owner/0x{owner_hex}">0x{owner_hex}</a>
+        <a class="owner-link" href="/owner/0x{owner_hex}" title="{full}">{truncated}</a>
       </dd>
     </div>"#,
         )
@@ -1119,11 +1125,13 @@ pub fn render_not_found_page(
 
     let owner_row = if let Some(owner) = owner {
         let owner_hex = hex::encode(owner);
+        let full = format!("0x{owner_hex}");
+        let truncated = truncate_addr(&full);
         format!(
             r#"<div class="meta-row inline">
       <dt class="meta-label">Owner</dt>
       <dd class="meta-value dim">
-        <a class="owner-link" href="/owner/0x{owner_hex}">0x{owner_hex}</a>
+        <a class="owner-link" href="/owner/0x{owner_hex}" title="{full}">{truncated}</a>
       </dd>
     </div>"#,
         )
@@ -1166,7 +1174,7 @@ pub fn render_not_found_page(
     let nav_html = navbar_html(nav);
     let history_script = if owner.is_some() {
         format!(
-            r#"<script>try{{var h=JSON.parse(localStorage.getItem('mns-history')||'[]');h=h.filter(function(n){{return n!=='{name_str}'}});h.unshift('{name_str}');if(h.length>5)h.length=5;localStorage.setItem('mns-history',JSON.stringify(h))}}catch(e){{}}</script>"#,
+            r#"<script>try{{var h=JSON.parse(localStorage.getItem('mns-history')||'[]');h=h.filter(function(n){{return n!=='{name_str}'}});h.unshift('{name_str}');if(h.length>4)h.length=4;localStorage.setItem('mns-history',JSON.stringify(h))}}catch(e){{}}</script>"#,
         )
     } else {
         String::new()
@@ -1237,7 +1245,7 @@ pub fn render_home_page(nav: &Navbar) -> String {
     display: flex;
     gap: 1.25rem;
     margin-top: 1.5rem;
-    align-items: flex-start;
+    align-items: stretch;
   }}
 
   .stats-card {{
@@ -1288,6 +1296,20 @@ pub fn render_home_page(nav: &Navbar) -> String {
   #history {{
     flex: 1;
     min-width: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }}
+  #history:empty::before {{
+    content: 'No recently viewed names';
+    margin: auto;
+    padding: 0.5rem;
+    color: var(--fg-muted);
+    font-size: 0.78rem;
+    opacity: 0.4;
   }}
 
   @media (max-width: 640px) {{
@@ -1388,9 +1410,6 @@ pub fn render_home_page(nav: &Navbar) -> String {
   </form>
 
   <div class="content-grid">
-
-    <section id="history" aria-label="Recently viewed names"></section>
-
     <ul class="stats-card" id="stats" aria-label="Registry statistics">
       <li class="stat-row">
         <a href="/owners" title="Unique addresses that own one or more names">
@@ -1424,6 +1443,7 @@ pub fn render_home_page(nav: &Navbar) -> String {
       </li>
     </ul>
 
+    <section id="history" aria-label="Recently viewed names"></section>
   </div>
 
   <nav class="home-links" aria-label="External resources">
@@ -1453,7 +1473,8 @@ pub fn render_home_page(nav: &Navbar) -> String {
   try {{ list = JSON.parse(localStorage.getItem('mns-history') || '[]'); }} catch(e) {{ list = []; }}
   if (list.length === 0) return;
   var html = '<ul class="history-list">';
-  for (var i = 0; i < list.length; i++) {{
+  var max = Math.min(list.length, 4);
+  for (var i = 0; i < max; i++) {{
     var name = list[i];
     html += '<li><a class="history-item" href="/' + encodeURIComponent(name) + '">' +
       '<span class="history-avatar" data-name="' + encodeURIComponent(name) + '"></span>' +
@@ -1475,6 +1496,14 @@ pub fn render_home_page(nav: &Navbar) -> String {
     )
 }
 
+fn truncate_addr(addr: &str) -> String {
+    if addr.len() > 14 {
+        format!("{}…{}", &addr[..10], &addr[addr.len() - 4..])
+    } else {
+        addr.to_string()
+    }
+}
+
 pub struct OwnerItemSimple {
     pub name_or_addr: String,
 }
@@ -1484,12 +1513,42 @@ pub fn render_owner_page(address: &str, names: &[Name], nav: &Navbar) -> String 
         r##"{main_style}
 
   .owner-address {{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
     font-family: var(--mono);
     font-size: 0.82rem;
     color: var(--accent-text);
     word-break: break-all;
     text-align: center;
     margin-bottom: 1.5rem;
+  }}
+
+  .copy-btn {{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    cursor: pointer;
+    color: var(--fg-muted);
+    padding: 2px 4px;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    white-space: nowrap;
+  }}
+  .copy-btn:hover {{
+    color: var(--fg);
+    border-color: var(--fg-muted);
+    background: var(--surface-hover);
+  }}
+  .copy-btn.copied {{
+    color: var(--accent);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
   }}
 
   .owner-grid {{
@@ -1589,7 +1648,16 @@ pub fn render_owner_page(address: &str, names: &[Name], nav: &Navbar) -> String 
   <header class="header">
     <h1>Owner</h1>
   </header>
-  <p class="owner-address">{address}</p>
+  <p class="owner-address">
+    <span title="{address}">{truncated}</span>
+    <button class="copy-btn" id="copy-addr" data-addr="{address}" aria-label="Copy address">
+      <svg class="copy-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+      </svg>
+      <span class="copy-label">Copy</span>
+    </button>
+  </p>
 
   <div class="divider" role="separator"></div>
 
@@ -1605,9 +1673,24 @@ pub fn render_owner_page(address: &str, names: &[Name], nav: &Navbar) -> String 
 
 {particles}
 {wallet_script}
+<script>
+document.getElementById('copy-addr')?.addEventListener('click', function() {{
+  var addr = this.getAttribute('data-addr');
+  navigator.clipboard.writeText(addr).then(function() {{
+    this.classList.add('copied');
+    var orig = this.innerHTML;
+    this.innerHTML =
+      '<svg class="copy-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+      '<span class="copy-label">Copied!</span>';
+    var that = this;
+    setTimeout(function() {{ that.innerHTML = orig; that.classList.remove('copied'); }}, 1500);
+  }}.bind(this)).catch(function() {{}});
+}});
+</script>
 </body>
 </html>"#,
         address = address,
+        truncated = truncate_addr(address),
     )
 }
 
@@ -1625,6 +1708,7 @@ pub fn render_owners_page(items: &[OwnerItemSimple], nav: &Navbar) -> String {
   .owner-row {{
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.6rem;
     padding: 0.5rem 0.75rem;
     border-radius: var(--radius-sm);
@@ -1660,8 +1744,9 @@ pub fn render_owners_page(items: &[OwnerItemSimple], nav: &Navbar) -> String {
             .iter()
             .map(|item| {
                 format!(
-                    r#"<li><a class="owner-row" href="/owner/{addr}">{addr}</a></li>"#,
-                    addr = item.name_or_addr
+                    r#"<li><a class="owner-row" href="/owner/{addr}" title="{addr}">{truncated}</a></li>"#,
+                    addr = item.name_or_addr,
+                    truncated = truncate_addr(&item.name_or_addr)
                 )
             })
             .collect::<Vec<_>>()
