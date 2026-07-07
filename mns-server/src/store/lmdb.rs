@@ -71,8 +71,8 @@ impl LmdbStore {
             .map_err(|e| StoreError::Db(e.to_string()))?;
         let owner_entries_db = OwnerEntriesDb::create(&env, &mut wtxn, "owner-entries")
             .map_err(|e| StoreError::Db(e.to_string()))?;
-        let ns_db = NsDb::create(&env, &mut wtxn, "ns")
-            .map_err(|e| StoreError::Db(e.to_string()))?;
+        let ns_db =
+            NsDb::create(&env, &mut wtxn, "ns").map_err(|e| StoreError::Db(e.to_string()))?;
 
         wtxn.commit().map_err(|e| StoreError::Db(e.to_string()))?;
 
@@ -536,10 +536,7 @@ impl ZoneStore for LmdbStore {
             .iter_keys(&rtxn)
             .map_err(|e| StoreError::Db(e.to_string()))?;
         let mut result = Vec::new();
-        while let Some(ns) = iter
-            .next()
-            .map_err(|e| StoreError::Db(e.to_string()))?
-        {
+        while let Some(ns) = iter.next().map_err(|e| StoreError::Db(e.to_string()))? {
             result.push(ns);
         }
         Ok(result)
