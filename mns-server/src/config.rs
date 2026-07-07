@@ -9,6 +9,8 @@ pub struct Config {
     pub db_path: PathBuf,
     pub poll_interval_secs: u64,
     pub max_block_range: u64,
+    pub public_rpc_url: String,
+    pub chain_id: u64,
 }
 
 impl Default for Config {
@@ -21,6 +23,8 @@ impl Default for Config {
             db_path: PathBuf::from(".mns-server/db"),
             poll_interval_secs: 15,
             max_block_range: 2000,
+            public_rpc_url: "https://public-node.testnet.rsk.co".into(),
+            chain_id: 31,
         }
     }
 }

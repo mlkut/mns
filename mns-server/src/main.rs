@@ -98,6 +98,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         db_path: cli.db_path.into(),
         poll_interval_secs: cli.poll_interval,
         max_block_range: cli.max_block_range,
+        public_rpc_url: network_info.rpc_url.to_string(),
+        chain_id: network_info.chain_id,
     };
 
     info!("opening database at {}", cfg.db_path.display());
@@ -128,6 +130,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &cli.network,
         network_info.explorer_url,
         network_info.contract_address,
+        cfg.chain_id,
+        &cfg.public_rpc_url,
     );
     let listener = tokio::net::TcpListener::bind(&cfg.listen).await?;
     info!("listening on {}", cfg.listen);

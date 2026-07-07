@@ -29,6 +29,8 @@ pub struct AppState<S: ZoneStore> {
     pub network: String,
     pub explorer_url: String,
     pub contract_address: String,
+    pub chain_id: u64,
+    pub rpc_url: String,
 }
 
 pub fn build_router<S: ZoneStore + 'static>(
@@ -36,12 +38,16 @@ pub fn build_router<S: ZoneStore + 'static>(
     network: &str,
     explorer_url: &str,
     contract_address: &str,
+    chain_id: u64,
+    rpc_url: &str,
 ) -> Router {
     let state = Arc::new(AppState {
         store,
         network: network.to_string(),
         explorer_url: explorer_url.to_string(),
         contract_address: contract_address.to_string(),
+        chain_id,
+        rpc_url: rpc_url.to_string(),
     });
 
     Router::new()
@@ -68,6 +74,8 @@ async fn nav_info<S: ZoneStore>(state: &AppState<S>) -> html::Navbar {
         network: state.network.clone(),
         explorer_url: state.explorer_url.clone(),
         contract_address: state.contract_address.clone(),
+        chain_id: state.chain_id,
+        rpc_url: state.rpc_url.clone(),
     }
 }
 

@@ -3,6 +3,8 @@ pub struct NetworkInfo {
     pub deployment_block: u64,
     pub deployment_block_hash: &'static str,
     pub explorer_url: &'static str,
+    pub chain_id: u64,
+    pub rpc_url: &'static str,
 }
 
 pub const TESTNET: NetworkInfo = NetworkInfo {
@@ -10,6 +12,8 @@ pub const TESTNET: NetworkInfo = NetworkInfo {
     deployment_block: 7797344,
     deployment_block_hash: "0x63ad5c63d3eb642f3d4a58ede0986fec63cda4b1b0c3ecebf32260eb320fe4fc",
     explorer_url: "https://explorer.testnet.rootstock.io",
+    chain_id: 31,
+    rpc_url: "https://public-node.testnet.rsk.co",
 };
 
 pub fn resolve(name: &str) -> Option<&'static NetworkInfo> {
