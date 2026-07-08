@@ -6,6 +6,7 @@ const ACCENT: &str = "#800000";
 
 pub struct Navbar {
     pub sync_block: u64,
+    pub sync_time: u64,
     pub network: String,
     pub explorer_url: String,
     pub contract_address: String,
@@ -18,8 +19,8 @@ pub struct OwnerItemSimple {
 }
 
 pub fn truncate_addr(addr: &str) -> String {
-    if addr.len() > 14 {
-        format!("{}…{}", &addr[..10], &addr[addr.len() - 4..])
+    if addr.len() > 18 {
+        format!("{}…{}", &addr[..10], &addr[addr.len() - 8..])
     } else {
         addr.to_string()
     }
@@ -35,13 +36,13 @@ pub fn format_timestamp(ts: u64) -> String {
         .unwrap_or_else(|_| ts.to_string())
 }
 
-mod style;
-mod script;
-mod layout;
+mod error;
 mod home;
+mod layout;
 mod name;
 mod owner;
-mod error;
+mod script;
+mod style;
 mod wallet;
 
 pub use error::render_error;

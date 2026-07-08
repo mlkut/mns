@@ -64,14 +64,13 @@ pub fn build_router<S: ZoneStore + 'static>(
 }
 
 async fn nav_info<S: ZoneStore>(state: &AppState<S>) -> html::Navbar {
-    let sync_block = state
-        .store
-        .get_last_sync_block_number()
-        .await
-        .unwrap_or(None)
-        .unwrap_or(0);
+    let (sync_block, sync_time) = tokio::join!(
+        state.store.get_last_sync_block_number(),
+        state.store.get_last_sync_block_time(),
+    );
     html::Navbar {
-        sync_block,
+        sync_block: sync_block.unwrap_or(None).unwrap_or(0),
+        sync_time: sync_time.unwrap_or(None).unwrap_or(0),
         network: state.network.clone(),
         explorer_url: state.explorer_url.clone(),
         contract_address: state.contract_address.clone(),
@@ -88,12 +87,22 @@ struct StatsResponse {
     total_ns: u64,
     total_zsks: u64,
     last_block: u64,
+    last_block_time: u64,
 }
 
 async fn stats_handler<S: ZoneStore>(
     state: axum::extract::State<Arc<AppState<S>>>,
 ) -> Result<Json<StatsResponse>, (StatusCode, String)> {
-    let (total_owners, total_batches, total_entries, total_packets, total_ns, total_zsks, last_block) = tokio::join!(
+    let (
+        total_owners,
+        total_batches,
+        total_entries,
+        total_packets,
+        total_ns,
+        total_zsks,
+        last_block,
+        last_block_time,
+    ) = tokio::join!(
         state.store.total_owners(),
         state.store.total_batches(),
         state.store.total_entries(),
@@ -101,6 +110,7 @@ async fn stats_handler<S: ZoneStore>(
         state.store.total_ns(),
         state.store.total_zsks(),
         state.store.get_last_sync_block_number(),
+        state.store.get_last_sync_block_time(),
     );
     let total_owners = total_owners.map_err(|e| {
         (
@@ -144,6 +154,12 @@ async fn stats_handler<S: ZoneStore>(
             format!("store error: {e}"),
         )
     })?;
+    let last_block_time = last_block_time.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("store error: {e}"),
+        )
+    })?;
     Ok(Json(StatsResponse {
         total_owners,
         total_names: total_batches * 256 + total_entries,
@@ -151,6 +167,7 @@ async fn stats_handler<S: ZoneStore>(
         total_ns,
         total_zsks,
         last_block: last_block.unwrap_or(0),
+        last_block_time: last_block_time.unwrap_or(0),
     }))
 }
 

@@ -1,4 +1,4 @@
-use super::{FAVICON, Navbar};
+use super::{Navbar, FAVICON};
 
 pub fn page_head(title: &str, style: &str) -> String {
     format!(
@@ -42,12 +42,13 @@ pub fn navbar_html(nav: &Navbar) -> String {
     <img src="/static/mlkut.png" alt="MNS">
   </a>
   <div class="navbar-right">
-    <a class="navbar-network" href="{contract_url}" target="_blank" rel="noopener noreferrer" title="View contract on explorer">{network}</a>
-    <a class="navbar-block" href="{block_url}" target="_blank" rel="noopener noreferrer" title="view latest indexed block {block} on explorer">
+    <a class="navbar-btn" href="{contract_url}" target="_blank" rel="noopener noreferrer" title="View contract on explorer">{network}</a>
+    <a class="navbar-btn" href="{block_url}" target="_blank" rel="noopener noreferrer" title="view latest indexed block {block} on explorer">
       <span class="liveness-dot" aria-hidden="true"></span>
       <span class="block-number">{block}</span>
+      <span class="block-ago" data-ago="{sync_time}"></span>
     </a>
-    <a class="navbar-network" href="/wallet" title="Your MNS wallet">Wallet</a>
+    <a class="navbar-btn" href="/wallet" id="nav-wallet" title="Your MNS wallet">Wallet</a>
     <button type="button" class="theme-toggle" onclick="_toggleTheme()" aria-label="Switch theme">
       <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="12" cy="12" r="5"/>
@@ -58,9 +59,19 @@ pub fn navbar_html(nav: &Navbar) -> String {
       </svg>
     </button>
   </div>
-</nav>"#,
+</nav>
+<script>
+(function(){{
+window._ago=function(t){{if(!t)return'';var s=Math.floor((Date.now()/1e3-t));if(s<60)return s+'s';if(s<3600)return Math.floor(s/60)+'m';if(s<86400)return Math.floor(s/3600)+'h';return Math.floor(s/86400)+'d'}}
+function tick(){{document.querySelectorAll('[data-ago]').forEach(function(el){{var t=el.textContent=window._ago(Number(el.getAttribute('data-ago')));if(t)el.style.display='inline'}})}}
+tick();setInterval(tick,3e4);
+var addr=localStorage.getItem('mns-wallet-addr');
+if(addr){{var el=document.getElementById('nav-wallet');el.textContent=addr.slice(0,6)+'…'+addr.slice(-4);el.title=addr}}
+}})()
+</script>"#,
         network = nav.network,
         block = nav.sync_block,
+        sync_time = nav.sync_time,
         block_url = block_url,
         contract_url = contract_url,
     )

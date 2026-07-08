@@ -133,6 +133,10 @@ pub fn render_wallet_page(nav: &Navbar) -> String {
   .wc-copy:hover {{ color: var(--fg); border-color: var(--accent); }}
   .wc-copy.done {{ color: var(--accent); border-color: var(--accent); }}
 
+  .wc-seed-hidden {{ filter: blur(4px); cursor: pointer; transition: filter 0.25s; }}
+  .wc-seed-hidden:hover {{ filter: blur(3px); }}
+  .wc-seed-hidden.revealed {{ filter: none; }}
+
   .wc-note {{
     font-size: 0.72rem;
     color: var(--fg-muted);
@@ -232,6 +236,13 @@ pub fn render_wallet_page(nav: &Navbar) -> String {
 
     <div class="wc-key-row">
       <div class="wc-key-label">
+        <span>RBTC balance</span>
+      </div>
+      <div class="wc-key-value" id="out-balance">—</div>
+    </div>
+
+    <div class="wc-key-row">
+      <div class="wc-key-label">
         <span>ZSK public key</span>
         <button class="wc-copy" data-copy="zsk">copy</button>
       </div>
@@ -275,7 +286,7 @@ const USERNAME = 'mns-wallet';
 const CHAIN_ID = {chain_id};
 const RPC_URL = '{rpc_url}';
 
-// in-memory session keys (never persisted here)
+// in-memory session keys (also persisted to localStorage for page-reload)
 let session = null;
 let autoUnlockDone = false;
 
@@ -288,6 +299,7 @@ const els = {{
   statusText: document.getElementById('wc-status-text'),
   outMnemonic: document.getElementById('out-mnemonic'),
   outAddress: document.getElementById('out-address'),
+  outBalance: document.getElementById('out-balance'),
   outZsk: document.getElementById('out-zsk'),
   backupWarn: document.getElementById('wc-backup-warn'),
   faucetNote: document.getElementById('wc-faucet-note'),
@@ -327,6 +339,15 @@ async function deriveFromMnemonic(mnemonic) {{
   }};
 }}
 
+async function fetchBalance(address) {{
+  try {{
+    var r=await fetch(RPC_URL,{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{jsonrpc:'2.0',method:'eth_getBalance',params:[address,'latest'],id:1}})}})
+    var d=await r.json()
+    if(d.result){{var w=BigInt(d.result);return(Number(w)/1e18).toFixed(6)+' RBTC'}}
+    return '—'
+  }}catch(e){{return '—'}}
+}}
+
 function showUnlocked(data, isNew) {{
   session = data;
   els.form.classList.add('hide');
@@ -335,6 +356,7 @@ function showUnlocked(data, isNew) {{
   els.status.classList.add('unlocked');
   els.statusText.textContent = 'Unlocked';
   els.outMnemonic.textContent = data.mnemonic;
+  els.outMnemonic.classList.add('wc-seed-hidden');
   els.outAddress.textContent = data.address;
   els.outZsk.textContent = data.zskPub;
   els.backupWarn.style.display = isNew ? 'block' : 'none';
@@ -342,6 +364,9 @@ function showUnlocked(data, isNew) {{
   if (faucet) {{
     els.faucetNote.innerHTML = 'Fund this address with test tRBTC from the <a href="' + faucet + '" target="_blank" rel="noopener">faucet</a> to register names.';
   }}
+  localStorage.setItem('mns-wallet-addr', data.address);
+  localStorage.setItem('mns-wallet-mnemonic', data.mnemonic);
+  fetchBalance(data.address).then(function(b){{els.outBalance.textContent=b}})
 }}
 
 function showLocked() {{
@@ -354,6 +379,9 @@ function showLocked() {{
   els.statusText.textContent = 'Locked';
   els.mnemonic.value = '';
   els.msg.textContent = '';
+  els.outBalance.textContent = '—';
+  localStorage.removeItem('mns-wallet-addr');
+  localStorage.removeItem('mns-wallet-mnemonic');
 }}
 
 // Save to browser credential store if supported (Chromium). Otherwise the
@@ -405,6 +433,10 @@ async function getSavedCredential(mediation) {{
 //  3. Safari: only fills after the user's first interaction (Touch/Face ID),
 //     so also re-check on the first click.
 async function attemptAutoUnlock() {{
+  // 0. Restore from localStorage (persistent across page loads).
+  var saved = localStorage.getItem('mns-wallet-mnemonic');
+  if (saved && await unlock(saved, false)) return;
+
   // 1. Silent Credential Management API (Chromium, only if already granted).
   const cred = await getSavedCredential('silent');
   if (cred && cred.password && await unlock(cred.password, false)) return;
@@ -470,12 +502,28 @@ document.querySelectorAll('.wc-copy').forEach(function(btn) {{
     const val = key === 'mnemonic' ? session.mnemonic
       : key === 'address' ? session.address
       : session.zskPub;
+    if (key === 'mnemonic') {{
+      els.outMnemonic.classList.remove('wc-seed-hidden');
+      els.outMnemonic.classList.add('revealed');
+      setTimeout(function(){{els.outMnemonic.classList.remove('revealed');els.outMnemonic.classList.add('wc-seed-hidden')}}, 3000);
+    }}
     navigator.clipboard.writeText(val).then(function() {{
       btn.classList.add('done');
       btn.textContent = 'copied';
       setTimeout(function() {{ btn.classList.remove('done'); btn.textContent = 'copy'; }}, 1200);
     }}).catch(function() {{}});
   }});
+}});
+
+els.outMnemonic.addEventListener('click', function() {{
+  if (this.classList.contains('revealed')) {{
+    this.classList.remove('revealed');
+    this.classList.add('wc-seed-hidden');
+  }} else {{
+    this.classList.remove('wc-seed-hidden');
+    this.classList.add('revealed');
+    setTimeout(function(el){{el.classList.remove('revealed');el.classList.add('wc-seed-hidden')}}, 5000, this);
+  }}
 }});
 
 attemptAutoUnlock();
@@ -500,6 +548,7 @@ mod tests {
     fn nav() -> Navbar {
         Navbar {
             sync_block: 123,
+            sync_time: 0,
             network: "testnet".into(),
             explorer_url: "https://explorer.testnet.rootstock.io".into(),
             contract_address: "0xabc".into(),

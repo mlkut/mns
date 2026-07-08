@@ -38,6 +38,9 @@ pub trait ZoneStore: Send + Sync {
     /// Event sync block (meta).
     async fn get_last_sync_block_number(&self) -> Result<Option<u64>, StoreError>;
     async fn set_last_sync_block_number(&self, block: u64) -> Result<(), StoreError>;
+    /// Unix timestamp of the last successful sync.
+    async fn get_last_sync_block_time(&self) -> Result<Option<u64>, StoreError>;
+    async fn set_last_sync_block_time(&self, ts: u64) -> Result<(), StoreError>;
 
     /// Batch-start ordinals owned by this address.
     async fn get_owner_batches(&self, owner: &[u8; 20]) -> Result<Vec<u64>, StoreError>;

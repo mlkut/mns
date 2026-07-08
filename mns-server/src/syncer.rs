@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use mns::Name;
 use tracing::{error, info};
@@ -101,6 +101,13 @@ impl<R: RegistryReader, S: ZoneStore> Syncer<R, S> {
 
                     if let Err(e) = self.store.set_last_sync_block_number(safe_block).await {
                         error!("failed to store last sync block: {e}");
+                    }
+                    let now = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs();
+                    if let Err(e) = self.store.set_last_sync_block_time(now).await {
+                        error!("failed to store last sync time: {e}");
                     }
                 }
                 Err(e) => {

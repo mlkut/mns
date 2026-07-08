@@ -16,6 +16,7 @@ use super::{StoreError, StoredConfig, ZoneStore};
 const BATCH_SIZE: u64 = 256;
 
 const LAST_SYNC_BLOCK_NUMBER_KEY: &str = "last-sync-block-number";
+const LAST_SYNC_BLOCK_TIME_KEY: &str = "last-sync-block-time";
 const OWNER_NEXT_ID_KEY: &str = "owner-next-id";
 const ZSK_NEXT_ID_KEY: &str = "zsk-next-id";
 
@@ -163,11 +164,7 @@ impl LmdbStore {
             .map_err(|e| StoreError::Db(e.to_string()))
     }
 
-    fn owner_id_get_or_alloc(
-        &self,
-        wtxn: &mut RwTxn,
-        owner: &[u8; 20],
-    ) -> Result<u64, StoreError> {
+    fn owner_id_get_or_alloc(&self, wtxn: &mut RwTxn, owner: &[u8; 20]) -> Result<u64, StoreError> {
         if let Some(id) = self.owner_id_lookup(wtxn, owner)? {
             return Ok(id);
         }
@@ -179,11 +176,7 @@ impl LmdbStore {
         Ok(id)
     }
 
-    fn zsk_id_lookup(
-        &self,
-        wtxn: &RwTxn,
-        zsk: &[u8; ZSK_LEN],
-    ) -> Result<Option<u64>, StoreError> {
+    fn zsk_id_lookup(&self, wtxn: &RwTxn, zsk: &[u8; ZSK_LEN]) -> Result<Option<u64>, StoreError> {
         self.zsk_index_db
             .try_get(wtxn, zsk)
             .map_err(|e| StoreError::Db(e.to_string()))
@@ -540,6 +533,44 @@ impl ZoneStore for LmdbStore {
             .map_err(|e| StoreError::Db(e.to_string()))?;
         let key = LAST_SYNC_BLOCK_NUMBER_KEY.to_string();
         let bytes = block.to_be_bytes().to_vec();
+        self.meta_db
+            .put(&mut wtxn, &key, &bytes)
+            .map_err(|e| StoreError::Db(e.to_string()))?;
+        wtxn.commit().map_err(|e| StoreError::Db(e.to_string()))?;
+        Ok(())
+    }
+
+    // ── Last sync block time ──
+
+    async fn get_last_sync_block_time(&self) -> Result<Option<u64>, StoreError> {
+        let rtxn = self
+            .env
+            .read_txn()
+            .map_err(|e| StoreError::Db(e.to_string()))?;
+        let key = LAST_SYNC_BLOCK_TIME_KEY.to_string();
+        let result: Option<Vec<u8>> = self
+            .meta_db
+            .try_get(&rtxn, &key)
+            .map_err(|e| StoreError::Db(e.to_string()))?;
+        match result {
+            Some(bytes) => {
+                let arr: [u8; 8] = bytes[..8].try_into().map_err(|_| {
+                    StoreError::Serialization("invalid LAST_SYNC_BLOCK_TIME_KEY".into())
+                })?;
+                Ok(Some(u64::from_be_bytes(arr)))
+            }
+            None => Ok(None),
+        }
+    }
+
+    async fn set_last_sync_block_time(&self, ts: u64) -> Result<(), StoreError> {
+        let _lock = self.write_lock.lock().await;
+        let mut wtxn = self
+            .env
+            .write_txn()
+            .map_err(|e| StoreError::Db(e.to_string()))?;
+        let key = LAST_SYNC_BLOCK_TIME_KEY.to_string();
+        let bytes = ts.to_be_bytes().to_vec();
         self.meta_db
             .put(&mut wtxn, &key, &bytes)
             .map_err(|e| StoreError::Db(e.to_string()))?;

@@ -641,7 +641,8 @@ fn navbar_style() -> String {
     gap: 0.75rem;
   }
 
-  .navbar-network {
+  .navbar-btn {
+    display: flex;
     font-family: var(--mono);
     font-size: 0.7rem;
     text-transform: uppercase;
@@ -652,28 +653,16 @@ fn navbar_style() -> String {
     border-radius: 4px;
     text-decoration: none;
     transition: color 0.2s, border-color 0.2s;
+    align-items: center;
+    gap: 0.4rem;
   }
-  .navbar-network:hover {
+  .navbar-btn:hover {
     color: var(--fg);
     border-color: var(--accent);
   }
 
-  .navbar-block {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-family: var(--mono);
-    font-size: 0.75rem;
+  #nav-wallet {
     color: var(--fg);
-    text-decoration: none;
-    padding: 2px 8px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    transition: border-color 0.2s, background 0.2s;
-  }
-  .navbar-block:hover {
-    border-color: var(--accent);
-    background: var(--surface-hover);
   }
 
   .liveness-dot {

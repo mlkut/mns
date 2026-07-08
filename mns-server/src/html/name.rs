@@ -1,6 +1,6 @@
 use super::{
     footer_html, format_timestamp, main_style, navbar_html, page_head, particles_script,
-    truncate_addr, Navbar, Name, ResourceRecord, ZSK_LEN,
+    truncate_addr, Name, Navbar, ResourceRecord, ZSK_LEN,
 };
 
 pub fn render_html(

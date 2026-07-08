@@ -192,7 +192,7 @@ pub fn render_home_page(nav: &Navbar) -> String {
       <li class="stat-row">
         <div class="stat-row-content" title="Most recently synced Rootstock block">
           <span class="stat-label">Block</span>
-          <span class="stat-value" id="stat-block">—</span>
+          <span class="stat-value"><span id="stat-block">—</span></span>
         </div>
       </li>
       <li class="stat-row">
