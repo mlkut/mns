@@ -170,6 +170,7 @@ pub fn render_wallet_page(nav: &Navbar) -> String {
     let nav_html = navbar_html(nav);
     let chain_id = nav.chain_id;
     let rpc_url = &nav.rpc_url;
+    let contract_address = &nav.contract_address;
     let faucet = if chain_id == 31 {
         "https://faucet.rootstock.io/"
     } else {
@@ -249,6 +250,17 @@ pub fn render_wallet_page(nav: &Navbar) -> String {
       <div class="wc-key-value" id="out-zsk"></div>
     </div>
 
+    <div class="divider" role="separator" style="margin:0.25rem 0 0.75rem"></div>
+
+    <div class="wc-field">
+      <label for="wc-ns">Name server (NS) for new batch</label>
+      <div class="wc-actions">
+        <input type="text" class="wc-input" id="wc-ns" placeholder="ns1.example.com" spellcheck="false" style="flex:1;min-width:0">
+        <button type="button" class="wc-btn-primary" id="wc-register">Register</button>
+      </div>
+    </div>
+    <p class="wc-register-msg" id="wc-register-msg" style="font-size:0.72rem;text-align:center;color:var(--accent-text);min-height:1rem"></p>
+
     <p class="wc-note" id="wc-faucet-note"></p>
 
     <div class="wc-actions">
@@ -282,6 +294,7 @@ import {{ bytesToHex, concatBytes, utf8ToBytes }} from 'https://esm.sh/@noble/ha
 
 const CHAIN_ID = {chain_id};
 const RPC_URL = '{rpc_url}';
+const CONTRACT = '{contract_address}';
 const RSK_COIN = CHAIN_ID === 31 ? 37310 : 137;
 const RSK_PATH = `m/44'/${{RSK_COIN}}'/0'/0/0`;
 const ZSK_DOMAIN = 'mns-zsk';
@@ -347,6 +360,53 @@ async function fetchBalance(address) {{
     if(d.result){{var w=BigInt(d.result);return(Number(w)/1e18).toFixed(6)+' RBTC'}}
     return '—'
   }}catch(e){{return '—'}}
+}}
+
+// ── ZSK commitment (SHA256(0x00 || pubkey)) ──
+function zskCommitment(pubKey) {{
+  var input = new Uint8Array(1 + pubKey.length);
+  input[0] = 0x00;
+  input.set(pubKey, 1);
+  return sha256(input);
+}}
+
+function parseHex(h){{h=h.startsWith('0x')?h.slice(2):h;if(h.length%2)h='0'+h;var b=new Uint8Array(h.length/2);for(var i=0;i<b.length;i++)b[i]=parseInt(h.substr(i*2,2),16);return b}}
+
+// ── Register a new batch via server-side tx preparation ──
+async function doRegister(ns, data) {{
+  var msgEl=document.getElementById('wc-register-msg');
+  msgEl.textContent='Preparing…';
+  try{{
+    // 1. Compute ZSK commitment: SHA256(0x00 || ed25519PubKey)
+    var zskCommit=zskCommitment(parseHex(data.zskPub.slice(2)));
+    // 2. Ask server to build the unsigned transaction and return the hash
+    var prepResp=await fetch('/tx/prepare-register',{{
+      method:'POST',
+      headers:{{'Content-Type':'application/json'}},
+      body:JSON.stringify({{ns:ns, zsk_commitment:'0x'+bytesToHex(zskCommit), sender:data.address}})
+    }});
+    if(!prepResp.ok){{msgEl.textContent='Prepare failed: '+(await prepResp.text());return}}
+    var prep=await prepResp.json();
+    // 3. Sign the keccak256 hash with the wallet's secp256k1 key
+    var hashBytes=parseHex(prep.tx_hash);
+    var sig=secp256k1.sign(hashBytes,data.rskPrivKey);
+    var raw64=sig.toCompactRawBytes();
+    var rBytes=raw64.slice(0,32),sBytes=raw64.slice(32);
+    var v=sig.recovery+35+prep.chain_id*2;
+    // 4. Send signature + tx fields to server; server broadcasts
+    var sendResp=await fetch('/tx/send-register',{{
+      method:'POST',
+      headers:{{'Content-Type':'application/json'}},
+      body:JSON.stringify({{
+        nonce:prep.nonce, gas_price:prep.gas_price, gas_limit:prep.gas_limit,
+        to:prep.to, data:prep.data,
+        v:'0x'+v.toString(16), r:'0x'+bytesToHex(rBytes), s:'0x'+bytesToHex(sBytes)
+      }})
+    }});
+    if(!sendResp.ok){{msgEl.textContent='Broadcast failed: '+(await sendResp.text());return}}
+    var sendResult=await sendResp.json();
+    msgEl.innerHTML='Tx sent: <a href="'+('https://explorer.testnet.rootstock.io/tx/'+sendResult.tx_hash)+'" target="_blank" rel="noopener">'+sendResult.tx_hash.slice(0,14)+'…</a>';
+  }}catch(e){{msgEl.textContent='Error: '+e.message}}
 }}
 
 function showUnlocked(data, isNew) {{
@@ -495,6 +555,13 @@ els.generate.addEventListener('click', async function() {{
 }});
 
 els.lock.addEventListener('click', showLocked);
+
+document.getElementById('wc-register').addEventListener('click', function() {{
+  if (!session) return;
+  var ns=document.getElementById('wc-ns').value.trim();
+  if(!ns){{document.getElementById('wc-register-msg').textContent='Enter a name server';return}}
+  doRegister(ns, session);
+}});
 
 document.querySelectorAll('.wc-copy').forEach(function(btn) {{
   btn.addEventListener('click', function() {{
