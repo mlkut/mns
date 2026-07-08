@@ -86,18 +86,20 @@ struct StatsResponse {
     total_names: u64,
     total_packets: u64,
     total_ns: u64,
+    total_zsks: u64,
     last_block: u64,
 }
 
 async fn stats_handler<S: ZoneStore>(
     state: axum::extract::State<Arc<AppState<S>>>,
 ) -> Result<Json<StatsResponse>, (StatusCode, String)> {
-    let (total_owners, total_batches, total_entries, total_packets, total_ns, last_block) = tokio::join!(
+    let (total_owners, total_batches, total_entries, total_packets, total_ns, total_zsks, last_block) = tokio::join!(
         state.store.total_owners(),
         state.store.total_batches(),
         state.store.total_entries(),
         state.store.total_packets(),
         state.store.total_ns(),
+        state.store.total_zsks(),
         state.store.get_last_sync_block_number(),
     );
     let total_owners = total_owners.map_err(|e| {
@@ -130,6 +132,12 @@ async fn stats_handler<S: ZoneStore>(
             format!("store error: {e}"),
         )
     })?;
+    let total_zsks = total_zsks.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("store error: {e}"),
+        )
+    })?;
     let last_block = last_block.map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -141,6 +149,7 @@ async fn stats_handler<S: ZoneStore>(
         total_names: total_batches * 256 + total_entries,
         total_packets,
         total_ns,
+        total_zsks,
         last_block: last_block.unwrap_or(0),
     }))
 }

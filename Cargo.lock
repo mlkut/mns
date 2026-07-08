@@ -3311,6 +3311,7 @@ dependencies = [
  "serde",
  "simple-dns",
  "sneed",
+ "tempfile",
  "thiserror 2.0.18",
  "time",
  "tokio",

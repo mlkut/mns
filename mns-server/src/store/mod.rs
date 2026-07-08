@@ -51,9 +51,9 @@ pub trait ZoneStore: Send + Sync {
     /// Convenience: resolve owner for a name — checks entries, then falls back to batches.
     async fn get_name_owner(&self, name: &Name) -> Result<Option<[u8; 20]>, StoreError>;
 
-    /// All unique owners (union of keys from owner-batches + owner-entries).
+    /// All unique owners (registry keys — O(number of owners), no dedup scan).
     async fn all_owners(&self) -> Result<Vec<[u8; 20]>, StoreError>;
-    /// Total unique owner count.
+    /// Total unique owner count (O(1)).
     async fn total_owners(&self) -> Result<u64, StoreError>;
 
     /// Total number of batch registrations.
@@ -67,4 +67,11 @@ pub trait ZoneStore: Send + Sync {
     async fn total_ns(&self) -> Result<u64, StoreError>;
     /// All unique name server strings.
     async fn all_ns(&self) -> Result<Vec<String>, StoreError>;
+
+    /// Total unique ZSKs across all batches and entries (O(1)).
+    async fn total_zsks(&self) -> Result<u64, StoreError>;
+    /// Batch-start ordinals whose config uses this ZSK.
+    async fn get_zsk_batches(&self, zsk: &[u8; ZSK_LEN]) -> Result<Vec<u64>, StoreError>;
+    /// Entry ordinals whose config uses this ZSK.
+    async fn get_zsk_entries(&self, zsk: &[u8; ZSK_LEN]) -> Result<Vec<u64>, StoreError>;
 }

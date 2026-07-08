@@ -187,10 +187,10 @@ pub fn render_home_page(nav: &Navbar) -> String {
   <div class="content-grid">
     <ul class="stats-card" id="stats" aria-label="Registry statistics">
       <li class="stat-row">
-        <a href="/owners" title="Unique addresses that own one or more names">
-          <span class="stat-label">Owners</span>
-          <span class="stat-value" id="stat-owners">—</span>
-        </a>
+        <div class="stat-row-content" title="Most recently synced Rootstock block">
+          <span class="stat-label">Block</span>
+          <span class="stat-value" id="stat-block">—</span>
+        </div>
       </li>
       <li class="stat-row">
         <div class="stat-row-content" title="Total registered name slots (batch × 256 + entries)">
@@ -199,9 +199,15 @@ pub fn render_home_page(nav: &Navbar) -> String {
         </div>
       </li>
       <li class="stat-row">
-        <div class="stat-row-content" title="Signed DNS packets published off-chain on this server">
-          <span class="stat-label">Packets</span>
-          <span class="stat-value" id="stat-packets">—</span>
+        <a href="/owners" title="Unique addresses that own one or more names">
+          <span class="stat-label">Owners</span>
+          <span class="stat-value" id="stat-owners">—</span>
+        </a>
+      </li>
+      <li class="stat-row">
+        <div class="stat-row-content" title="Unique zone-signing keys across all registered batches and entries">
+          <span class="stat-label">ZSKs</span>
+          <span class="stat-value" id="stat-zsks">—</span>
         </div>
       </li>
       <li class="stat-row">
@@ -211,9 +217,9 @@ pub fn render_home_page(nav: &Navbar) -> String {
         </div>
       </li>
       <li class="stat-row">
-        <div class="stat-row-content" title="Most recently synced Rootstock block">
-          <span class="stat-label">Block</span>
-          <span class="stat-value" id="stat-block">—</span>
+        <div class="stat-row-content" title="Signed DNS packets published off-chain on this server">
+          <span class="stat-label">Packets</span>
+          <span class="stat-value" id="stat-packets">—</span>
         </div>
       </li>
     </ul>
@@ -240,6 +246,7 @@ pub fn render_home_page(nav: &Navbar) -> String {
     document.getElementById('stat-names').textContent=d.total_names;
     document.getElementById('stat-packets').textContent=d.total_packets;
     document.getElementById('stat-ns').textContent=d.total_ns;
+    document.getElementById('stat-zsks').textContent=d.total_zsks;
     document.getElementById('stat-block').textContent=d.last_block;
   }}).catch(function(){{}});
 
