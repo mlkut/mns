@@ -1,6 +1,6 @@
 use super::{
-    footer_html, main_style, navbar_html, page_head, particles_script, truncate_addr,
-    wallet_script, Name, Navbar, OwnerItemSimple,
+    footer_html, main_style, navbar_html, page_head, particles_script, truncate_addr, Name, Navbar,
+    OwnerItemSimple,
 };
 
 pub fn render_owner_page(address: &str, names: &[Name], nav: &Navbar) -> String {
@@ -104,7 +104,6 @@ pub fn render_owner_page(address: &str, names: &[Name], nav: &Navbar) -> String 
     );
     let head = page_head("Owner — MNS", &style);
     let particles = particles_script();
-    let wallet_script = wallet_script(nav.chain_id, &nav.rpc_url);
     let footer = footer_html();
     let nav_html = navbar_html(nav);
     let rows: String = if names.is_empty() {
@@ -167,7 +166,6 @@ pub fn render_owner_page(address: &str, names: &[Name], nav: &Navbar) -> String 
 {footer}
 
 {particles}
-{wallet_script}
 <script>
 document.getElementById('copy-addr')?.addEventListener('click', function() {{
   var addr = this.getAttribute('data-addr');
@@ -229,7 +227,6 @@ pub fn render_owners_page(items: &[OwnerItemSimple], nav: &Navbar) -> String {
     );
     let head = page_head("Owners — MNS", &style);
     let particles = particles_script();
-    let wallet_script = wallet_script(nav.chain_id, &nav.rpc_url);
     let footer = footer_html();
     let nav_html = navbar_html(nav);
     let rows: String = if items.is_empty() {
@@ -277,7 +274,6 @@ pub fn render_owners_page(items: &[OwnerItemSimple], nav: &Navbar) -> String {
 {footer}
 
 {particles}
-{wallet_script}
 </body>
 </html>"#,
     )

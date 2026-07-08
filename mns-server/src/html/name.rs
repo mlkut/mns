@@ -1,6 +1,6 @@
 use super::{
     footer_html, format_timestamp, main_style, navbar_html, page_head, particles_script,
-    truncate_addr, wallet_script, Navbar, Name, ResourceRecord, ZSK_LEN,
+    truncate_addr, Navbar, Name, ResourceRecord, ZSK_LEN,
 };
 
 pub fn render_html(
@@ -69,7 +69,6 @@ pub fn render_html(
     let style = main_style();
     let head = page_head(&name_str, &style);
     let particles = particles_script();
-    let wallet_script = wallet_script(nav.chain_id, &nav.rpc_url);
     let footer = footer_html();
     let nav_html = navbar_html(nav);
 
@@ -124,7 +123,6 @@ pub fn render_html(
 {footer}
 
 {particles}
-{wallet_script}
 </body>
 </html>"#,
     )
@@ -187,7 +185,6 @@ pub fn render_not_found_page(
     let style = main_style();
     let head = page_head(&name_str, &style);
     let particles = particles_script();
-    let wallet_script = wallet_script(nav.chain_id, &nav.rpc_url);
     let footer = footer_html();
     let nav_html = navbar_html(nav);
     let history_script = if owner.is_some() {
@@ -235,7 +232,6 @@ pub fn render_not_found_page(
 {footer}
 
 {particles}
-{wallet_script}
 {history_script}
 </body>
 </html>"#,

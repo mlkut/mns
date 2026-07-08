@@ -52,6 +52,7 @@ pub fn build_router<S: ZoneStore + 'static>(
 
     Router::new()
         .route("/", get(root_handler))
+        .route("/wallet", get(wallet_handler))
         .route("/static/{file}", get(static_handler))
         .route("/avatar/{name}", get(avatar_handler::<S>))
         .route("/stats", get(stats_handler::<S>))
@@ -252,6 +253,17 @@ async fn root_handler(
         axum::http::StatusCode::OK,
         [("content-type", "text/html")],
         html::render_home_page(&nav),
+    )
+}
+
+async fn wallet_handler(
+    state: axum::extract::State<Arc<AppState<impl ZoneStore>>>,
+) -> impl axum::response::IntoResponse {
+    let nav = nav_info(&state).await;
+    (
+        axum::http::StatusCode::OK,
+        [("content-type", "text/html")],
+        html::render_wallet_page(&nav),
     )
 }
 

@@ -47,7 +47,7 @@ pub fn navbar_html(nav: &Navbar) -> String {
       <span class="liveness-dot" aria-hidden="true"></span>
       <span class="block-number">{block}</span>
     </a>
-    <div class="wallet-connect" id="wallet-connect"></div>
+    <a class="navbar-network" href="/wallet" title="Your MNS wallet">Wallet</a>
     <button type="button" class="theme-toggle" onclick="_toggleTheme()" aria-label="Switch theme">
       <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="12" cy="12" r="5"/>

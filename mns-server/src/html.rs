@@ -42,11 +42,13 @@ mod home;
 mod name;
 mod owner;
 mod error;
+mod wallet;
 
 pub use error::render_error;
 pub use home::render_home_page;
 pub use layout::{footer_html, navbar_html, page_head};
 pub use name::{render_html, render_not_found_page};
 pub use owner::{render_owner_page, render_owners_page};
-pub use script::{particles_script, wallet_script};
+pub use script::particles_script;
 pub use style::{error_style, main_style};
+pub use wallet::render_wallet_page;

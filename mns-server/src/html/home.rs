@@ -1,6 +1,4 @@
-use super::{
-    footer_html, main_style, navbar_html, page_head, particles_script, wallet_script, Navbar,
-};
+use super::{footer_html, main_style, navbar_html, page_head, particles_script, Navbar};
 
 pub fn render_home_page(nav: &Navbar) -> String {
     let style = format!(
@@ -151,7 +149,6 @@ pub fn render_home_page(nav: &Navbar) -> String {
     );
     let head = page_head("Mlkut Name System", &style);
     let particles = particles_script();
-    let wallet_script = wallet_script(nav.chain_id, &nav.rpc_url);
     let footer = footer_html();
     let nav_html = navbar_html(nav);
 
@@ -235,7 +232,6 @@ pub fn render_home_page(nav: &Navbar) -> String {
 {footer}
 
 {particles}
-{wallet_script}
 
 <script>
 (function() {{

@@ -693,67 +693,6 @@ fn navbar_style() -> String {
     font-variant-numeric: tabular-nums;
   }
 
-  .wallet-connect {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
-  .wallet-connect .wc-btn {
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    cursor: pointer;
-    padding: 4px 10px;
-    color: var(--fg-muted);
-    transition: color 0.2s, border-color 0.2s, background 0.2s;
-    white-space: nowrap;
-  }
-  .wallet-connect .wc-btn:hover:not(:disabled) {
-    color: var(--fg);
-    border-color: var(--accent);
-    background: var(--surface-hover);
-  }
-  .wallet-connect .wc-btn:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-  .wallet-connect .wc-addr {
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    color: var(--fg);
-    text-decoration: none;
-    padding: 4px 8px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    transition: border-color 0.2s, background 0.2s;
-    white-space: nowrap;
-  }
-  .wallet-connect .wc-addr:hover {
-    border-color: var(--accent);
-    background: var(--surface-hover);
-  }
-  .wallet-connect .wc-disc {
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    cursor: pointer;
-    padding: 5px;
-    line-height: 0;
-    color: var(--fg-muted);
-    transition: color 0.2s, border-color 0.2s;
-  }
-  .wallet-connect .wc-disc:hover {
-    color: var(--fg);
-    border-color: var(--accent);
-  }
-  .wallet-connect .wc-disc svg {
-    width: 13px;
-    height: 13px;
-    display: block;
-  }
-
   .theme-toggle {
     background: none;
     border: 1px solid var(--border);
