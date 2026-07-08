@@ -280,11 +280,12 @@ import {{ keccak_256 }} from 'https://esm.sh/@noble/hashes@1.4.0/sha3';
 import {{ sha256 }} from 'https://esm.sh/@noble/hashes@1.4.0/sha256';
 import {{ bytesToHex, concatBytes, utf8ToBytes }} from 'https://esm.sh/@noble/hashes@1.4.0/utils';
 
-const RSK_PATH = "m/44'/137'/0'/0/0";
-const ZSK_DOMAIN = 'mns-zsk';
-const USERNAME = 'mns-wallet';
 const CHAIN_ID = {chain_id};
 const RPC_URL = '{rpc_url}';
+const RSK_COIN = CHAIN_ID === 31 ? 37310 : 137;
+const RSK_PATH = `m/44'/${{RSK_COIN}}'/0'/0/0`;
+const ZSK_DOMAIN = 'mns-zsk';
+const USERNAME = 'mns-wallet';
 
 // in-memory session keys (also persisted to localStorage for page-reload)
 let session = null;
@@ -561,7 +562,7 @@ mod tests {
     fn renders_without_stray_placeholders() {
         let html = render_wallet_page(&nav());
         assert!(html.contains("Your Wallet"));
-        assert!(html.contains("m/44'/137'/0'/0/0"));
+        assert!(html.contains("37310")); // testnet coin type (chain_id=31 in nav)
         assert!(html.contains("mns-zsk"));
         // no unresolved format placeholders left behind
         assert!(!html.contains("{main_style}"));
