@@ -38,6 +38,7 @@ pub fn navbar_html(nav: &Navbar) -> String {
     );
     format!(
         r#"<nav class="navbar" aria-label="Primary">
+  <div style="text-align: center;/* height: 1rem; */background-color: #ffca00;width: 100vw;min-width: 100vw;left: 0;position: absolute;top: 48px;color: black;font-size: 0.85rem;line-height: 1.3rem;"> This is a WIP, there will be breaking changes, I just want it to be publicly accessible for some reason!</div>
   <a href="/" class="navbar-logo" aria-label="MNS home">
     <img src="/static/mlkut.png" alt="MNS">
   </a>
