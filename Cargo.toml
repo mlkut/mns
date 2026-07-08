@@ -2,7 +2,6 @@
 members = [
   "mns",
   "bindings",
-  "mns-cli",
   "mns-server",
 ]
 

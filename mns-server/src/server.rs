@@ -328,11 +328,19 @@ async fn prepare_register_handler<S: ZoneStore>(
     State(state): State<Arc<AppState<S>>>,
     Json(req): Json<PrepareRegisterReq>,
 ) -> Result<Json<PrepareRegisterRes>, (StatusCode, String)> {
-    let zsk_hex = req.zsk_commitment.strip_prefix("0x").unwrap_or(&req.zsk_commitment);
+    let zsk_hex = req
+        .zsk_commitment
+        .strip_prefix("0x")
+        .unwrap_or(&req.zsk_commitment);
     let zsk_bytes: [u8; 32] = hex::decode(zsk_hex)
         .map_err(|_| (StatusCode::BAD_REQUEST, "invalid zsk commitment hex".into()))?
         .try_into()
-        .map_err(|_| (StatusCode::BAD_REQUEST, "zsk commitment must be 32 bytes".into()))?;
+        .map_err(|_| {
+            (
+                StatusCode::BAD_REQUEST,
+                "zsk commitment must be 32 bytes".into(),
+            )
+        })?;
     let zsk = FixedBytes::from(zsk_bytes);
 
     let sender: Address = req
@@ -340,12 +348,17 @@ async fn prepare_register_handler<S: ZoneStore>(
         .parse()
         .map_err(|_| (StatusCode::BAD_REQUEST, "invalid sender address".into()))?;
 
-    let to_addr: Address = state
-        .contract_address
-        .parse()
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "invalid contract address".into()))?;
+    let to_addr: Address = state.contract_address.parse().map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "invalid contract address".into(),
+        )
+    })?;
 
-    let call = registerCall { zsk, ns: req.ns.clone() };
+    let call = registerCall {
+        zsk,
+        ns: req.ns.clone(),
+    };
     let calldata = call.abi_encode();
 
     let url = Url::parse(&state.rpc_url)
@@ -357,10 +370,12 @@ async fn prepare_register_handler<S: ZoneStore>(
         .await
         .map_err(|e| (StatusCode::BAD_GATEWAY, format!("rpc error (nonce): {e}")))?;
 
-    let gas_price: u128 = provider
-        .get_gas_price()
-        .await
-        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("rpc error (gas price): {e}")))?;
+    let gas_price: u128 = provider.get_gas_price().await.map_err(|e| {
+        (
+            StatusCode::BAD_GATEWAY,
+            format!("rpc error (gas price): {e}"),
+        )
+    })?;
 
     let gas_limit: u64 = 300_000;
 
@@ -417,9 +432,15 @@ async fn send_register_handler<S: ZoneStore>(
     s_arr.copy_from_slice(&s_vec);
 
     let signed_rlp = build_signed_tx(
-        nonce, gas_price, gas_limit,
-        &to_bytes, &[], &data,
-        v, &r_arr, &s_arr,
+        nonce,
+        gas_price,
+        gas_limit,
+        &to_bytes,
+        &[],
+        &data,
+        v,
+        &r_arr,
+        &s_arr,
     );
 
     let url = Url::parse(&state.rpc_url)
