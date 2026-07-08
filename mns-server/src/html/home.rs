@@ -107,15 +107,18 @@ pub fn render_home_page(nav: &Navbar) -> String {
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    padding: 0.5rem 0.75rem;
+    padding: 0.4rem 0.75rem;
     border-radius: 0;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background 0.2s, opacity 0.2s;
     text-decoration: none;
     color: var(--fg);
+    opacity: 0.5;
   }}
-  .history-item:hover {{
+  .history-item:hover,
+  .history-item:focus {{
     background: var(--surface-hover);
+    opacity: 1;
   }}
   .history-avatar {{
     width: 28px;
@@ -254,7 +257,7 @@ pub fn render_home_page(nav: &Navbar) -> String {
   try {{ list = JSON.parse(localStorage.getItem('mns-history') || '[]'); }} catch(e) {{ list = []; }}
   if (list.length === 0) return;
   var html = '<ul class="history-list">';
-  var max = Math.min(list.length, 4);
+  var max = Math.min(list.length, 5);
   for (var i = 0; i < max; i++) {{
     var name = list[i];
     html += '<li><a class="history-item" href="/' + encodeURIComponent(name) + '">' +

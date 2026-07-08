@@ -187,13 +187,9 @@ pub fn render_not_found_page(
     let particles = particles_script();
     let footer = footer_html();
     let nav_html = navbar_html(nav);
-    let history_script = if owner.is_some() {
-        format!(
-            r#"<script>try{{var h=JSON.parse(localStorage.getItem('mns-history')||'[]');h=h.filter(function(n){{return n!=='{name_str}'}});h.unshift('{name_str}');if(h.length>4)h.length=4;localStorage.setItem('mns-history',JSON.stringify(h))}}catch(e){{}}</script>"#,
-        )
-    } else {
-        String::new()
-    };
+    let history_script = format!(
+        r#"<script>try{{var h=JSON.parse(localStorage.getItem('mns-history')||'[]');h=h.filter(function(n){{return n!=='{name_str}'}});h.unshift('{name_str}');if(h.length>5)h.length=5;localStorage.setItem('mns-history',JSON.stringify(h))}}catch(e){{}}</script>"#,
+    );
 
     format!(
         r#"{head}
