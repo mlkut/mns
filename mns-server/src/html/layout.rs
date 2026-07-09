@@ -37,8 +37,8 @@ pub fn navbar_html(nav: &Navbar) -> String {
         nav.contract_address
     );
     format!(
-        r#"<nav class="navbar" aria-label="Primary">
-  <div style="text-align: center;/* height: 1rem; */background-color: #ffca00;width: 100vw;min-width: 100vw;left: 0;position: absolute;top: 48px;color: black;font-size: 0.85rem;line-height: 1.3rem;"> This is a WIP, there will be breaking changes, I just want it to be publicly accessible for some reason!</div>
+        r#"<div style="text-align: center;background-color: #ffca00;width: 100%;position: fixed;top: 0;z-index: 101;color: black;font-size: 0.85rem;line-height: 1.3rem;"> WIP — breaking changes expected!</div>
+<nav class="navbar" aria-label="Primary">
   <a href="/" class="navbar-logo" aria-label="MNS home">
     <img src="/static/mlkut.png" alt="MNS">
   </a>

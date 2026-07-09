@@ -611,7 +611,7 @@ fn navbar_style() -> String {
     r##"
   .navbar {
     position: fixed;
-    top: 0;
+    top: 1.3rem;
     left: 0;
     right: 0;
     height: 48px;
