@@ -394,7 +394,6 @@ pub fn main_style() -> String {
   }}
 
   @media (max-width: 480px) {{
-    body {{ padding: 2rem 1rem 1.5rem; }}
     .card {{ padding: 2rem 1.5rem 1.5rem; }}
     h1 {{ font-size: 1.35rem; }}
     .avatar {{ width: 96px; height: 96px; padding: 8px; }}
