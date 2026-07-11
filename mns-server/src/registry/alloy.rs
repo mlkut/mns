@@ -202,6 +202,16 @@ impl RegistryReader for AlloyRegistry {
 
         Ok((events, to_block))
     }
+
+    async fn get_latest_zsk(&self, ordinal: u64) -> Result<[u8; 32], RegistryError> {
+        let result = self
+            .contract
+            .getZoneConfig(ordinal)
+            .call()
+            .await
+            .map_err(|e| RegistryError::Rpc(e.to_string()))?;
+        Ok(Self::bytes32_to_zsk(result.zsk))
+    }
 }
 
 fn is_range_too_large(msg: &str) -> bool {

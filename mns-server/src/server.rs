@@ -23,7 +23,9 @@ use url::Url;
 
 use crate::content_type;
 use crate::html;
+use crate::registry::RegistryReader;
 use crate::resolver;
+use crate::staging::PacketStaging;
 use crate::store::ZoneStore;
 
 #[derive(Deserialize)]
@@ -142,6 +144,8 @@ fn parse_hex_bytes(s: &str) -> Result<Vec<u8>, (StatusCode, String)> {
 
 pub struct AppState<S: ZoneStore> {
     pub store: Arc<S>,
+    pub staging: Arc<PacketStaging>,
+    pub registry: Arc<dyn RegistryReader>,
     pub network: String,
     pub explorer_url: String,
     pub contract_address: String,
@@ -151,6 +155,8 @@ pub struct AppState<S: ZoneStore> {
 
 pub fn build_router<S: ZoneStore + 'static>(
     store: Arc<S>,
+    staging: Arc<PacketStaging>,
+    registry: Arc<dyn RegistryReader>,
     network: &str,
     explorer_url: &str,
     contract_address: &str,
@@ -159,6 +165,8 @@ pub fn build_router<S: ZoneStore + 'static>(
 ) -> Router {
     let state = Arc::new(AppState {
         store,
+        staging,
+        registry,
         network: network.to_string(),
         explorer_url: explorer_url.to_string(),
         contract_address: contract_address.to_string(),
@@ -811,12 +819,52 @@ async fn put_handler<S: ZoneStore>(
             html::render_error("name not registered on-chain", &nav_info(&state).await),
         )
             .into_response(),
-        Err(resolver::ResolveError::ZskMismatch) => (
-            StatusCode::FORBIDDEN,
-            [("content-type", "text/html")],
-            html::render_error("key not authorized for this name", &nav_info(&state).await),
-        )
-            .into_response(),
+        Err(resolver::ResolveError::ZskMismatch) => {
+            // Packet is cryptographically valid but the ZSK doesn't match the
+            // on-chain registry. Check the latest block directly — the ZSK may
+            // have been rotated in a recent unconfirmed block.
+            match mns::SignedPacket::verify(&body) {
+                Ok(packet) => {
+                    let packet_zsk = packet.zsk();
+                    let ordinal = name.to_ordinal();
+                    match state.registry.get_latest_zsk(ordinal).await {
+                        Ok(latest_zsk) if latest_zsk == packet_zsk => {
+                            if state.staging.stage(name, packet_zsk, body.to_vec()) {
+                                (StatusCode::ACCEPTED,).into_response()
+                            } else {
+                                (
+                                    StatusCode::SERVICE_UNAVAILABLE,
+                                    [("content-type", "text/html")],
+                                    html::render_error(
+                                        "staging buffer full, retry later after new zsk is in a SAFE block",
+                                        &nav_info(&state).await,
+                                    ),
+                                )
+                                    .into_response()
+                            }
+                        }
+                        _ => (
+                            StatusCode::FORBIDDEN,
+                            [("content-type", "text/html")],
+                            html::render_error(
+                                "key not authorized for this name",
+                                &nav_info(&state).await,
+                            ),
+                        )
+                            .into_response(),
+                    }
+                }
+                Err(_) => (
+                    StatusCode::BAD_REQUEST,
+                    [("content-type", "text/html")],
+                    html::render_error(
+                        "invalid signature or malformed packet",
+                        &nav_info(&state).await,
+                    ),
+                )
+                    .into_response(),
+            }
+        }
         Err(e) => {
             tracing::error!("put error: {e}");
             (

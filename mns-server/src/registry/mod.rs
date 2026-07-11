@@ -90,4 +90,8 @@ pub trait RegistryReader: Send + Sync {
         &self,
         from_block: u64,
     ) -> Result<(Vec<RegistryEvent>, u64), RegistryError>;
+
+    /// Read the on-chain ZoneConfig for an ordinal at the latest block (no
+    /// confirmation depth). Returns the current ZSK.
+    async fn get_latest_zsk(&self, ordinal: u64) -> Result<[u8; 32], RegistryError>;
 }

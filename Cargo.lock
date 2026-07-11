@@ -2887,6 +2887,7 @@ dependencies = [
  "dotenvy",
  "fallible-iterator",
  "hex",
+ "lru",
  "mns",
  "serde",
  "simple-dns",

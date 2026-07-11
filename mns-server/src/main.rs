@@ -4,6 +4,7 @@ mod html;
 mod registry;
 mod resolver;
 mod server;
+mod staging;
 mod store;
 mod syncer;
 
@@ -105,6 +106,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("opening database at {}", cfg.db_path.display());
     let store = Arc::new(LmdbStore::open(&cfg.db_path)?);
 
+    let staging = Arc::new(crate::staging::PacketStaging::new());
+
     info!("connecting to Rootstock RPC: {}", &cli.rpc_url);
     let registry = Arc::new(crate::registry::alloy::AlloyRegistry::new(
         &cfg.rpc_url,
@@ -115,6 +118,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let syncer = crate::syncer::Syncer::new(
         registry.clone(),
         store.clone(),
+        staging.clone(),
         Duration::from_secs(cfg.poll_interval_secs),
         cfg.deployment_block,
     );
@@ -127,6 +131,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Build HTTP server
     let app = crate::server::build_router(
         store,
+        staging.clone(),
+        registry.clone() as Arc<dyn crate::registry::RegistryReader>,
         &cli.network,
         network_info.explorer_url,
         network_info.contract_address,

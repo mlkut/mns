@@ -5,11 +5,13 @@ use mns::Name;
 use tracing::{error, info};
 
 use crate::registry::RegistryReader;
+use crate::staging::PacketStaging;
 use crate::store::{StoredConfig, ZoneStore};
 
 pub struct Syncer<R: RegistryReader, S: ZoneStore> {
     registry: Arc<R>,
     store: Arc<S>,
+    staging: Arc<PacketStaging>,
     poll_interval: Duration,
     deployment_block: u64,
 }
@@ -18,12 +20,14 @@ impl<R: RegistryReader, S: ZoneStore> Syncer<R, S> {
     pub fn new(
         registry: Arc<R>,
         store: Arc<S>,
+        staging: Arc<PacketStaging>,
         poll_interval: Duration,
         deployment_block: u64,
     ) -> Self {
         Self {
             registry,
             store,
+            staging,
             poll_interval,
             deployment_block,
         }
@@ -77,6 +81,20 @@ impl<R: RegistryReader, S: ZoneStore> Syncer<R, S> {
                                         "failed to store batch config for ordinal {ordinal}: {e}"
                                     );
                                 }
+                                // Try to promote any staged packets for names in this batch.
+                                let batch_start = ordinal - (ordinal % 256);
+                                for i in 0..256u64 {
+                                    let name = Name::from_ordinal(batch_start + i);
+                                    if let Some(packet) = self.staging.promote(&name, &zsk) {
+                                        if let Err(e) =
+                                            self.store.set_signed_packet(&name, &packet).await
+                                        {
+                                            error!("failed to promote staged packet for ordinal {}: {e}", batch_start + i);
+                                        } else {
+                                            info!("promoted staged packet for {}", name);
+                                        }
+                                    }
+                                }
                             }
                             crate::registry::RegistryEvent::EntryCreated { .. }
                             | crate::registry::RegistryEvent::EntryUpdated { .. } => {
@@ -86,10 +104,21 @@ impl<R: RegistryReader, S: ZoneStore> Syncer<R, S> {
                                         "failed to store entry config for ordinal {ordinal}: {e}"
                                     );
                                 }
-                                // Evict any cached signed packet
                                 let name = Name::from_ordinal(ordinal);
-                                if let Err(e) = self.store.set_signed_packet(&name, &[]).await {
-                                    error!("failed to evict packet for ordinal {ordinal}: {e}");
+                                // Try to promote a staged packet first.
+                                if let Some(packet) = self.staging.promote(&name, &zsk) {
+                                    if let Err(e) =
+                                        self.store.set_signed_packet(&name, &packet).await
+                                    {
+                                        error!("failed to promote staged packet for ordinal {ordinal}: {e}");
+                                    } else {
+                                        info!("promoted staged packet for {name}");
+                                    }
+                                } else {
+                                    // No staged packet — evict any stale cached packet.
+                                    if let Err(e) = self.store.set_signed_packet(&name, &[]).await {
+                                        error!("failed to evict packet for ordinal {ordinal}: {e}");
+                                    }
                                 }
                             }
                         }
