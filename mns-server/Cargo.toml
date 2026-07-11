@@ -8,7 +8,7 @@ mns = { path = "../mns" }
 bindings = { path = "../bindings" }
 axum = "0.8"
 tokio = { version = "1", features = ["full"] }
-tower-http = { version = "0.6", features = ["cors"] }
+tower-http = { version = "0.6", features = ["cors", "fs"] }
 sneed = { version = "0.0.22", features = ["serde-wincode"] }
 fallible-iterator = "0.3"
 serde = { version = "1", features = ["derive"] }
