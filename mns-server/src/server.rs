@@ -721,7 +721,7 @@ async fn get_handler<S: ZoneStore>(
             err @ (resolver::ResolveError::ZskMismatch | resolver::ResolveError::InvalidSignature),
         ) => {
             tracing::debug!(%name, error = %err, "GET evicting packet and returning 404");
-            let _ = state.store.set_signed_packet(&name, &[]).await;
+            let _ = state.store.remove_signed_packet(&name).await;
             let nav = nav_info(&state).await;
             let zsk = state.store.get_zsk(&name).await.unwrap_or(None);
             let ns = state.store.get_ns(&name).await.unwrap_or(None);

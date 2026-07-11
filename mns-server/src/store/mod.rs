@@ -34,6 +34,7 @@ pub trait ZoneStore: Send + Sync {
     /// Cached signed packet per name.
     async fn get_signed_packet(&self, name: &Name) -> Result<Option<Vec<u8>>, StoreError>;
     async fn set_signed_packet(&self, name: &Name, packet: &[u8]) -> Result<(), StoreError>;
+    async fn remove_signed_packet(&self, name: &Name) -> Result<(), StoreError>;
 
     /// Event sync block (meta).
     async fn get_last_sync_block_number(&self) -> Result<Option<u64>, StoreError>;

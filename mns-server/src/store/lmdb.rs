@@ -502,6 +502,19 @@ impl ZoneStore for LmdbStore {
         Ok(())
     }
 
+    async fn remove_signed_packet(&self, name: &Name) -> Result<(), StoreError> {
+        let _lock = self.write_lock.lock().await;
+        let mut wtxn = self
+            .env
+            .write_txn()
+            .map_err(|e| StoreError::Db(e.to_string()))?;
+        self.packet_db
+            .delete(&mut wtxn, &name_key(name))
+            .map_err(|e| StoreError::Db(e.to_string()))?;
+        wtxn.commit().map_err(|e| StoreError::Db(e.to_string()))?;
+        Ok(())
+    }
+
     // ── Last sync block number ──
 
     async fn get_last_sync_block_number(&self) -> Result<Option<u64>, StoreError> {
