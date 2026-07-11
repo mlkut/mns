@@ -1,9 +1,32 @@
+use std::cell::RefCell;
+
 use alloy::primitives::{Address, FixedBytes};
-use alloy::sol_types::SolCall;
 use wasm_bindgen::prelude::*;
 
 use mns::client::MnsClient;
 use mns::wallet;
+
+thread_local! {
+    static CLIENT: RefCell<Option<MnsClient>> = const { RefCell::new(None) };
+}
+
+fn take_client() -> Result<MnsClient, JsError> {
+    CLIENT.with(|c| c.borrow().clone().ok_or_else(|| JsError::new("call init_client() first")))
+}
+
+// ── Init ──
+
+const REGISTRY: &str = "e916A48dE922E8964542F4c4c66Ec4837bBE3445";
+
+#[wasm_bindgen]
+pub fn init_client(rpc_url: &str) -> Result<(), JsError> {
+    let registry = parse_address(REGISTRY)?;
+    let client = MnsClient::new(rpc_url, registry);
+    CLIENT.with(|c| *c.borrow_mut() = Some(client));
+    Ok(())
+}
+
+// ── Wallet ──
 
 #[wasm_bindgen]
 pub struct JsWalletInfo {
@@ -32,8 +55,6 @@ impl JsWalletInfo {
         self.zsk_commitment_hex.clone()
     }
 }
-
-// ── Wallet ──
 
 #[wasm_bindgen]
 pub fn generate_mnemonic() -> String {
@@ -64,60 +85,25 @@ pub fn render_avatar_svg(name: &str) -> Result<String, JsError> {
     Ok(name.render_avatar_svg())
 }
 
-// ── ABI Encoding ──
-
-#[wasm_bindgen]
-pub fn encode_register(zsk_hex: &str, ns: &str) -> Result<String, JsError> {
-    let zsk = parse_fixed_32(zsk_hex, "zsk")?;
-    let call = bindings::mns_registry::MNSRegistry::registerCall {
-        zsk,
-        ns: ns.to_string(),
-    };
-    Ok(format!("0x{}", hex::encode(call.abi_encode())))
-}
-
-#[wasm_bindgen]
-pub fn encode_update_batch(
-    ordinal: u64,
-    owner_hex: &str,
-    zsk_hex: &str,
-    ns: &str,
-) -> Result<String, JsError> {
-    let owner = parse_address(owner_hex)?;
-    let zsk = parse_fixed_32(zsk_hex, "zsk")?;
-    let call = bindings::mns_registry::MNSRegistry::updateBatchCall {
-        ordinal,
-        newOwner: owner,
-        zsk,
-        ns: ns.to_string(),
-    };
-    Ok(format!("0x{}", hex::encode(call.abi_encode())))
-}
-
 // ── RPC ──
 
 #[wasm_bindgen]
-pub async fn register(
-    rpc_url: &str,
-    private_key_hex: &str,
-    zsk_hex: &str,
-    ns: &str,
-) -> Result<String, JsError> {
+pub async fn get_balance(address_hex: &str) -> Result<String, JsError> {
+    let address = parse_address(address_hex)?;
+    let client = take_client()?;
+    client.get_balance(address).await.map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen]
+pub async fn register(private_key_hex: &str, zsk_hex: &str, ns: &str) -> Result<String, JsError> {
     let pk = parse_fixed_32(private_key_hex, "private key")?;
     let zsk = parse_fixed_32(zsk_hex, "zsk")?;
-    let registry = parse_address("e916A48dE922E8964542F4c4c66Ec4837bBE3445")?;
-
-    let client = MnsClient::connect(rpc_url, &pk, registry)
-        .map_err(|e| JsError::new(&e.to_string()))?;
-    client
-        .register(zsk, ns.to_string())
-        .await
-        .map_err(|e| JsError::new(&e.to_string()))
+    let client = take_client()?;
+    client.register(&pk, zsk, ns.to_string()).await.map_err(|e| JsError::new(&e.to_string()))
 }
 
 #[wasm_bindgen]
 pub async fn update_batch(
-    rpc_url: &str,
     private_key_hex: &str,
     ordinal: u64,
     owner_hex: &str,
@@ -127,12 +113,9 @@ pub async fn update_batch(
     let pk = parse_fixed_32(private_key_hex, "private key")?;
     let owner = parse_address(owner_hex)?;
     let zsk = parse_fixed_32(zsk_hex, "zsk")?;
-    let registry = parse_address("e916A48dE922E8964542F4c4c66Ec4837bBE3445")?;
-
-    let client = MnsClient::connect(rpc_url, &pk, registry)
-        .map_err(|e| JsError::new(&e.to_string()))?;
+    let client = take_client()?;
     client
-        .update_batch(ordinal, owner, zsk, ns.to_string())
+        .update_batch(&pk, ordinal, owner, zsk, ns.to_string())
         .await
         .map_err(|e| JsError::new(&e.to_string()))
 }

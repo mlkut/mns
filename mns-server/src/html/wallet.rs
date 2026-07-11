@@ -354,12 +354,11 @@ pub fn render_wallet_page(nav: &Navbar) -> String {
 {particles}
 
 <script type="module">
-import init, {{ generate_mnemonic, validate_mnemonic, derive_keys, register as wasm_register, update_batch as wasm_update_batch }} from '/static/mns-wasm/mns_wasm.js';
+import init, {{ init_client, generate_mnemonic, validate_mnemonic, derive_keys, get_balance, register as wasm_register, update_batch as wasm_update_batch }} from '/static/mns-wasm/mns_wasm.js';
 await init();
+init_client('{rpc_url}');
 
 const CHAIN_ID = {chain_id};
-const RPC_URL = '{rpc_url}';
-const CONTRACT = '{contract_address}';
 const USERNAME = 'mns-wallet';
 
 let session = null;
@@ -383,19 +382,7 @@ const els = {{
 }};
 
 async function fetchBalance(address) {{
-  try {{
-    var r=await fetch(RPC_URL,{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{jsonrpc:'2.0',method:'eth_getBalance',params:[address,'latest'],id:1}})}})
-    var d=await r.json()
-    if(d.result){{var w=BigInt(d.result);return(Number(w)/1e18).toFixed(6)+' RBTC'}}
-    return '—'
-  }}catch(e){{return '—'}}
-}}
-
-async function rpcCall(method,params) {{
-  var r=await fetch(RPC_URL,{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{jsonrpc:'2.0',method,params,id:1}})}});
-  var d=await r.json();
-  if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
-  return d.result;
+  try {{ return await get_balance(address); }} catch(e) {{ return '—'; }}
 }}
 
 async function fetchBatches(address) {{
@@ -438,7 +425,7 @@ async function doRegister(ns, data) {{
   var msgEl=document.getElementById('wc-register-msg');
   msgEl.textContent='Preparing…';
   try{{
-    var txHash=await wasm_register(RPC_URL,data.private_key_hex,data.zsk_commitment_hex,ns);
+    var txHash=await wasm_register(data.private_key_hex,data.zsk_commitment_hex,ns);
     msgEl.innerHTML='Tx sent: <a href="'+('https://explorer.testnet.rootstock.io/tx/'+txHash)+'" target="_blank" rel="noopener">'+txHash.slice(0,14)+'…</a>';
     setTimeout(function(){{fetchBatches(data.address)}},15000);
   }}catch(e){{msgEl.textContent='Error: '+e.message}}
@@ -448,7 +435,7 @@ async function doUpdateBatch(ordinal, currentNs, data) {{
   var msgEl=document.getElementById('wc-batch-msg-'+ordinal);
   msgEl.textContent='Preparing…';
   try{{
-    var txHash=await wasm_update_batch(RPC_URL,data.private_key_hex,ordinal,data.address,data.zsk_commitment_hex,currentNs);
+    var txHash=await wasm_update_batch(data.private_key_hex,BigInt(ordinal),data.address,data.zsk_commitment_hex,currentNs);
     msgEl.innerHTML='Tx sent: <a href="'+('https://explorer.testnet.rootstock.io/tx/'+txHash)+'" target="_blank" rel="noopener">'+txHash.slice(0,14)+'…</a>';
     setTimeout(function(){{fetchBatches(data.address)}},15000);
   }}catch(e){{msgEl.textContent='Error: '+e.message}}
