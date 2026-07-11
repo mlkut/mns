@@ -2918,7 +2918,6 @@ dependencies = [
  "ntimestamp",
  "proptest",
  "rayon",
- "serde",
  "sha2 0.10.9",
  "sha2 0.11.0",
  "simple-dns",
@@ -2957,10 +2956,8 @@ name = "mns-wasm"
 version = "0.1.0"
 dependencies = [
  "alloy",
- "bindings",
  "getrandom 0.2.17",
  "hex",
- "js-sys",
  "mns",
  "wasm-bindgen",
  "wasm-bindgen-futures",

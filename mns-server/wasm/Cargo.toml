@@ -3,15 +3,16 @@ name = "mns-wasm"
 version = "0.1.0"
 edition = "2021"
 
+[package.metadata.cargo-machete]
+ignored = ["wasm-bindgen-futures", "getrandom"]
+
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
 mns = { path = "../../mns", features = ["chain"] }
-bindings = { path = "../../bindings" }
 alloy = { version = "2.1", default-features = false, features = ["sol-types", "provider-http", "network"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
-js-sys = "0.3"
 hex = "0.4"
 getrandom = { version = "0.2", features = ["js"] }
