@@ -161,6 +161,70 @@ pub fn render_wallet_page(nav: &Navbar) -> String {
     color: var(--accent-text);
     min-height: 1rem;
   }}
+
+  .wc-batches {{ display: none; flex-direction: column; gap: 0.6rem; }}
+  .wc-batches.show {{ display: flex; }}
+  .wc-batches-title {{
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-muted);
+    margin-bottom: 0.15rem;
+  }}
+  .wc-batch {{
+    padding: 0.7rem 0.9rem;
+    background: rgba(255,255,255,0.015);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: var(--radius-sm);
+  }}
+  .wc-batch-row {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }}
+  .wc-batch-ordinal {{
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    color: var(--fg);
+  }}
+  .wc-batch-ns {{
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--fg-muted);
+  }}
+  .wc-batch-zsk {{
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    color: var(--fg-dim);
+    word-break: break-all;
+    width: 100%;
+    margin-top: 0.3rem;
+  }}
+  .wc-batch-zsk .label {{ color: var(--fg-muted); }}
+  .wc-batch-actions {{ margin-top: 0.45rem; }}
+  .wc-btn-sm {{
+    padding: 0.35rem 0.7rem;
+    border-radius: var(--radius-sm);
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 0.72rem;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--fg-muted);
+    transition: color 0.15s, border-color 0.15s;
+  }}
+  .wc-btn-sm:hover {{ color: var(--fg); border-color: var(--accent); }}
+  .wc-btn-sm:disabled {{ opacity: 0.4; cursor: default; }}
+  .wc-batch-msg {{
+    font-size: 0.68rem;
+    color: var(--accent-text);
+    margin-top: 0.3rem;
+    min-height: 0.9rem;
+    word-break: break-all;
+  }}
 "##,
         main_style = main_style()
     );
@@ -260,6 +324,13 @@ pub fn render_wallet_page(nav: &Navbar) -> String {
       </div>
     </div>
     <p class="wc-register-msg" id="wc-register-msg" style="font-size:0.72rem;text-align:center;color:var(--accent-text);min-height:1rem"></p>
+
+    <div class="divider" role="separator" style="margin:0.25rem 0 0.75rem"></div>
+
+    <div class="wc-batches" id="wc-batches">
+      <div class="wc-batches-title">Your Batches</div>
+      <div id="wc-batch-list"></div>
+    </div>
 
     <p class="wc-note" id="wc-faucet-note"></p>
 
@@ -372,42 +443,169 @@ function zskCommitment(pubKey) {{
 
 function parseHex(h){{h=h.startsWith('0x')?h.slice(2):h;if(h.length%2)h='0'+h;var b=new Uint8Array(h.length/2);for(var i=0;i<b.length;i++)b[i]=parseInt(h.substr(i*2,2),16);return b}}
 
-// ── Register a new batch via server-side tx preparation ──
+// ── RLP encoding helpers ──
+function rlpEncodeBytes(bytes) {{
+  if(bytes.length===1&&bytes[0]<0x80) return bytes;
+  if(bytes.length<=55) return concatBytes(new Uint8Array([0x80+bytes.length]),bytes);
+  var lenBytes=[],v=bytes.length;
+  while(v>0){{lenBytes.unshift(v&0xff);v>>=8}}
+  return concatBytes(new Uint8Array([0xb7+lenBytes.length]),new Uint8Array(lenBytes),bytes);
+}}
+function rlpEncodeList(items) {{
+  var payload=new Uint8Array(0);
+  for(var i=0;i<items.length;i++) payload=concatBytes(payload,items[i]);
+  if(payload.length<=55) return concatBytes(new Uint8Array([0xc0+payload.length]),payload);
+  var lenBytes=[],v=payload.length;
+  while(v>0){{lenBytes.unshift(v&0xff);v>>=8}}
+  return concatBytes(new Uint8Array([0xf7+lenBytes.length]),new Uint8Array(lenBytes),payload);
+}}
+function encodeU128(val) {{
+  if(val===0) return rlpEncodeBytes(new Uint8Array(0));
+  if(typeof val==='string') val=BigInt(val);
+  else val=BigInt(val);
+  var bytes=[];
+  while(val>0n){{bytes.unshift(Number(val&0xffn));val>>=8n}}
+  return rlpEncodeBytes(new Uint8Array(bytes));
+}}
+function padLeft32(bytes) {{
+  if(bytes.length>=32) return bytes.slice(-32);
+  var padded=new Uint8Array(32);
+  padded.set(bytes,32-bytes.length);
+  return padded;
+}}
+
+// ── Fetch nonce + gas price via RPC ──
+async function rpcCall(method,params) {{
+  var r=await fetch(RPC_URL,{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{jsonrpc:'2.0',method,params,id:1}})}});
+  var d=await r.json();
+  if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
+  return d.result;
+}}
+async function fetchNonce(addr) {{
+  var hex=await rpcCall('eth_getTransactionCount',[addr,'latest']);
+  return BigInt(hex);
+}}
+async function fetchGasPrice() {{
+  var hex=await rpcCall('eth_gasPrice',[]);
+  return BigInt(hex);
+}}
+
+// ── Sign calldata, build EIP-155 tx, broadcast via RPC ──
+async function signAndBroadcast(calldata, data) {{
+  var nonce=await fetchNonce(data.address);
+  var gasPrice=await fetchGasPrice();
+  var gasLimit=300000;
+  var to=parseHex(CONTRACT.replace('0x',''));
+  var value=new Uint8Array(0);
+  var unsignedTx=rlpEncodeList([
+    encodeU128(nonce),encodeU128(gasPrice),encodeU128(gasLimit),
+    rlpEncodeBytes(to),rlpEncodeBytes(value),rlpEncodeBytes(calldata),
+    encodeU128(CHAIN_ID),rlpEncodeBytes(new Uint8Array(0)),
+    rlpEncodeBytes(new Uint8Array(0))
+  ]);
+  var txHash=keccak_256(unsignedTx);
+  var sig=secp256k1.sign(new Uint8Array(txHash),data.rskPrivKey);
+  var raw64=sig.toCompactRawBytes();
+  var rBytes=raw64.slice(0,32),sBytes=raw64.slice(32);
+  var v=sig.recovery+35+CHAIN_ID*2;
+  var signedTx=rlpEncodeList([
+    encodeU128(nonce),encodeU128(gasPrice),encodeU128(gasLimit),
+    rlpEncodeBytes(to),rlpEncodeBytes(value),rlpEncodeBytes(calldata),
+    encodeU128(v),rlpEncodeBytes(rBytes),rlpEncodeBytes(sBytes)
+  ]);
+  return await rpcCall('eth_sendRawTransaction',['0x'+bytesToHex(signedTx)]);
+}}
+
+// ── ABI encoding for register(bytes32,string) ──
+var REGISTER_SELECTOR=parseHex('cf2d31fb');
+function encodeRegister(zskHex, ns) {{
+  var zskBytes=padLeft32(parseHex(zskHex.replace('0x','')));
+  var nsOffset=padLeft32(new Uint8Array([0x60]));
+  var nsUtf8=utf8ToBytes(ns);
+  var nsLen=padLeft32(new Uint8Array([nsUtf8.length&0xff]));
+  var nsPadded=new Uint8Array(Math.ceil(nsUtf8.length/32)*32||32);
+  nsPadded.set(nsUtf8);
+  return concatBytes(REGISTER_SELECTOR,zskBytes,nsOffset,nsLen,nsPadded);
+}}
+
+// ── ABI encoding for updateBatch(uint64,address,bytes32,string) ──
+var UPDATE_BATCH_SELECTOR=parseHex('697c209b');
+function encodeUpdateBatch(ordinal, ownerHex, zskHex, ns) {{
+  var ordinalBytes=padLeft32(new Uint8Array([
+    (ordinal>>>24)&0xff,(ordinal>>>16)&0xff,(ordinal>>>8)&0xff,ordinal&0xff
+  ]));
+  var ownerBytes=padLeft32(parseHex(ownerHex.replace('0x','')));
+  var zskBytes=padLeft32(parseHex(zskHex.replace('0x','')));
+  var nsOffset=padLeft32(new Uint8Array([0x80]));
+  var nsUtf8=utf8ToBytes(ns);
+  var nsLen=padLeft32(new Uint8Array([nsUtf8.length&0xff]));
+  var nsPadded=new Uint8Array(Math.ceil(nsUtf8.length/32)*32||32);
+  nsPadded.set(nsUtf8);
+  return concatBytes(UPDATE_BATCH_SELECTOR,ordinalBytes,ownerBytes,zskBytes,nsOffset,nsLen,nsPadded);
+}}
+
+// ── Register a new batch ──
 async function doRegister(ns, data) {{
   var msgEl=document.getElementById('wc-register-msg');
   msgEl.textContent='Preparing…';
   try{{
-    // 1. Compute ZSK commitment: SHA256(0x00 || ed25519PubKey)
     var zskCommit=zskCommitment(parseHex(data.zskPub.slice(2)));
-    // 2. Ask server to build the unsigned transaction and return the hash
-    var prepResp=await fetch('/tx/prepare-register',{{
-      method:'POST',
-      headers:{{'Content-Type':'application/json'}},
-      body:JSON.stringify({{ns:ns, zsk_commitment:'0x'+bytesToHex(zskCommit), sender:data.address}})
-    }});
-    if(!prepResp.ok){{msgEl.textContent='Prepare failed: '+(await prepResp.text());return}}
-    var prep=await prepResp.json();
-    // 3. Sign the keccak256 hash with the wallet's secp256k1 key
-    var hashBytes=parseHex(prep.tx_hash);
-    var sig=secp256k1.sign(hashBytes,data.rskPrivKey);
-    var raw64=sig.toCompactRawBytes();
-    var rBytes=raw64.slice(0,32),sBytes=raw64.slice(32);
-    var v=sig.recovery+35+prep.chain_id*2;
-    // 4. Send signature + tx fields to server; server broadcasts
-    var sendResp=await fetch('/tx/send-register',{{
-      method:'POST',
-      headers:{{'Content-Type':'application/json'}},
-      body:JSON.stringify({{
-        nonce:prep.nonce, gas_price:prep.gas_price, gas_limit:prep.gas_limit,
-        to:prep.to, data:prep.data,
-        v:'0x'+v.toString(16), r:'0x'+bytesToHex(rBytes), s:'0x'+bytesToHex(sBytes)
-      }})
-    }});
-    if(!sendResp.ok){{msgEl.textContent='Broadcast failed: '+(await sendResp.text());return}}
-    var sendResult=await sendResp.json();
-    msgEl.innerHTML='Tx sent: <a href="'+('https://explorer.testnet.rootstock.io/tx/'+sendResult.tx_hash)+'" target="_blank" rel="noopener">'+sendResult.tx_hash.slice(0,14)+'…</a>';
+    var calldata=encodeRegister('0x'+bytesToHex(zskCommit),ns);
+    var txHash=await signAndBroadcast(calldata,data);
+    msgEl.innerHTML='Tx sent: <a href="'+('https://explorer.testnet.rootstock.io/tx/'+txHash)+'" target="_blank" rel="noopener">'+txHash.slice(0,14)+'…</a>';
+    setTimeout(function(){{fetchBatches(data.address)}},15000);
   }}catch(e){{msgEl.textContent='Error: '+e.message}}
 }}
+
+// ── Update batch ZSK ──
+async function doUpdateBatch(ordinal, currentNs, currentZsk, data) {{
+  var msgEl=document.getElementById('wc-batch-msg-'+ordinal);
+  msgEl.textContent='Preparing…';
+  try{{
+    var zskCommit=zskCommitment(parseHex(data.zskPub.slice(2)));
+    var calldata=encodeUpdateBatch(ordinal,data.address,'0x'+bytesToHex(zskCommit),currentNs);
+    var txHash=await signAndBroadcast(calldata,data);
+    msgEl.innerHTML='Tx sent: <a href="'+('https://explorer.testnet.rootstock.io/tx/'+txHash)+'" target="_blank" rel="noopener">'+txHash.slice(0,14)+'…</a>';
+    setTimeout(function(){{fetchBatches(data.address)}},15000);
+  }}catch(e){{msgEl.textContent='Error: '+e.message}}
+}}
+
+// ── Fetch and render batches ──
+async function fetchBatches(address) {{
+  try{{
+    var r=await fetch('/api/batches/'+address);
+    if(!r.ok)return;
+    var batches=await r.json();
+    var container=document.getElementById('wc-batches');
+    var list=document.getElementById('wc-batch-list');
+    if(!batches.length){{container.classList.remove('show');return}}
+    container.classList.add('show');
+    list.innerHTML='';
+    for(var i=0;i<batches.length;i++){{
+      var b=batches[i];
+      var div=document.createElement('div');
+      div.className='wc-batch';
+      var zskShort=b.zsk.length>18?b.zsk.slice(0,10)+'…'+b.zsk.slice(-6):b.zsk;
+      div.innerHTML=''
+        +'<div class="wc-batch-row">'
+        +'  <span class="wc-batch-ordinal">Batch #'+b.ordinal+'</span>'
+        +'  <span class="wc-batch-ns">'+b.ns+'</span>'
+        +'</div>'
+        +'<div class="wc-batch-zsk"><span class="label">ZSK:</span> '+zskShort+'</div>'
+        +'<div class="wc-batch-actions">'
+        +'  <button class="wc-btn-sm wc-batch-update" data-ordinal="'+b.ordinal+'" data-ns="'+b.ns+'" data-zsk="'+b.zsk+'">Update ZSK</button>'
+        +'</div>'
+        +'<div class="wc-batch-msg" id="wc-batch-msg-'+b.ordinal+'"></div>';
+      list.appendChild(div);
+    }}
+  }}catch(e){{}}
+}}
+document.getElementById('wc-batch-list').addEventListener('click',function(e){{
+  if(e.target.classList.contains('wc-batch-update')){{
+    if(!session)return;
+    doUpdateBatch(parseInt(e.target.dataset.ordinal),e.target.dataset.ns,e.target.dataset.zsk,session);
+  }}
+}});
 
 function showUnlocked(data, isNew) {{
   session = data;
@@ -427,7 +625,8 @@ function showUnlocked(data, isNew) {{
   }}
   localStorage.setItem('mns-wallet-addr', data.address);
   localStorage.setItem('mns-wallet-mnemonic', data.mnemonic);
-  fetchBalance(data.address).then(function(b){{els.outBalance.textContent=b}})
+  fetchBalance(data.address).then(function(b){{els.outBalance.textContent=b}});
+  fetchBatches(data.address);
 }}
 
 function showLocked() {{
