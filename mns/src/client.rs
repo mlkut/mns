@@ -1,9 +1,9 @@
 use alloy::consensus::{SignableTransaction, TxEnvelope, TxLegacy};
 use alloy::eips::Encodable2718;
-use alloy::primitives::{Address, Bytes, FixedBytes, TxHash, B256, U256};
+use alloy::primitives::{Address, B256, Bytes, FixedBytes, TxHash, U256};
 use alloy::providers::{Provider, ProviderBuilder};
-use alloy::signers::local::PrivateKeySigner;
 use alloy::signers::Signer;
+use alloy::signers::local::PrivateKeySigner;
 use alloy::sol_types::SolCall;
 use bindings::mns_registry::MNSRegistry::MNSRegistryInstance;
 
@@ -75,11 +75,10 @@ impl MnsClient {
         private_key: &[u8; 32],
         zsk: FixedBytes<32>,
         ns: String,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    ) -> Result<B256, Box<dyn std::error::Error>> {
         use bindings::mns_registry::MNSRegistry::registerCall;
         let calldata = registerCall::new((zsk, ns)).abi_encode();
-        let tx_hash = self.send_raw_tx(private_key, calldata).await?;
-        Ok(format!("0x{:x}", tx_hash))
+        self.send_raw_tx(private_key, calldata).await
     }
 
     pub async fn update_batch(
@@ -89,23 +88,17 @@ impl MnsClient {
         new_owner: Address,
         new_zsk: FixedBytes<32>,
         new_ns: String,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    ) -> Result<B256, Box<dyn std::error::Error>> {
         use bindings::mns_registry::MNSRegistry::updateBatchCall;
         let calldata = updateBatchCall::new((ordinal, new_owner, new_zsk, new_ns)).abi_encode();
-        let tx_hash = self.send_raw_tx(private_key, calldata).await?;
-        Ok(format!("0x{:x}", tx_hash))
+        self.send_raw_tx(private_key, calldata).await
     }
 
     // ── Read-only operations ──
 
-    pub async fn get_balance(
-        &self,
-        address: Address,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    pub async fn get_balance(&self, address: Address) -> Result<U256, Box<dyn std::error::Error>> {
         let provider = self.provider()?;
-        let balance = provider.get_balance(address).await?;
-        let wei = balance.to_string().parse::<f64>().unwrap_or(0.0);
-        Ok(format!("{:.6} RBTC", wei / 1e18))
+        Ok(provider.get_balance(address).await?)
     }
 
     pub async fn get_zone_config(

@@ -91,7 +91,9 @@ pub fn render_avatar_svg(name: &str) -> Result<String, JsError> {
 pub async fn get_balance(address_hex: &str) -> Result<String, JsError> {
     let address = parse_address(address_hex)?;
     let client = take_client()?;
-    client.get_balance(address).await.map_err(|e| JsError::new(&e.to_string()))
+    let balance = client.get_balance(address).await.map_err(|e| JsError::new(&e.to_string()))?;
+    let wei = balance.to_string().parse::<f64>().unwrap_or(0.0);
+    Ok(format!("{:.6} RBTC", wei / 1e18))
 }
 
 #[wasm_bindgen]
@@ -99,7 +101,8 @@ pub async fn register(private_key_hex: &str, zsk_hex: &str, ns: &str) -> Result<
     let pk = parse_fixed_32(private_key_hex, "private key")?;
     let zsk = parse_fixed_32(zsk_hex, "zsk")?;
     let client = take_client()?;
-    client.register(&pk, zsk, ns.to_string()).await.map_err(|e| JsError::new(&e.to_string()))
+    let tx_hash = client.register(&pk, zsk, ns.to_string()).await.map_err(|e| JsError::new(&e.to_string()))?;
+    Ok(format!("{tx_hash}"))
 }
 
 #[wasm_bindgen]
@@ -114,10 +117,11 @@ pub async fn update_batch(
     let owner = parse_address(owner_hex)?;
     let zsk = parse_fixed_32(zsk_hex, "zsk")?;
     let client = take_client()?;
-    client
+    let tx_hash = client
         .update_batch(&pk, ordinal, owner, zsk, ns.to_string())
         .await
-        .map_err(|e| JsError::new(&e.to_string()))
+        .map_err(|e| JsError::new(&e.to_string()))?;
+    Ok(format!("{tx_hash}"))
 }
 
 // ── Helpers ──
