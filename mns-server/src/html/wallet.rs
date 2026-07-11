@@ -354,24 +354,14 @@ pub fn render_wallet_page(nav: &Navbar) -> String {
 {particles}
 
 <script type="module">
-import {{ generateMnemonic, validateMnemonic, mnemonicToSeed }} from 'https://esm.sh/@scure/bip39@1.3.0';
-import {{ wordlist }} from 'https://esm.sh/@scure/bip39@1.3.0/wordlists/english';
-import {{ HDKey }} from 'https://esm.sh/@scure/bip32@1.4.0';
-import {{ secp256k1 }} from 'https://esm.sh/@noble/curves@1.4.0/secp256k1';
-import {{ ed25519 }} from 'https://esm.sh/@noble/curves@1.4.0/ed25519';
-import {{ keccak_256 }} from 'https://esm.sh/@noble/hashes@1.4.0/sha3';
-import {{ sha256 }} from 'https://esm.sh/@noble/hashes@1.4.0/sha256';
-import {{ bytesToHex, concatBytes, utf8ToBytes }} from 'https://esm.sh/@noble/hashes@1.4.0/utils';
+import init, {{ generate_mnemonic, validate_mnemonic, derive_keys, register as wasm_register, update_batch as wasm_update_batch }} from '/static/mns-wasm/mns_wasm.js';
+await init();
 
 const CHAIN_ID = {chain_id};
 const RPC_URL = '{rpc_url}';
 const CONTRACT = '{contract_address}';
-const RSK_COIN = CHAIN_ID === 31 ? 37310 : 137;
-const RSK_PATH = `m/44'/${{RSK_COIN}}'/0'/0/0`;
-const ZSK_DOMAIN = 'mns-zsk';
 const USERNAME = 'mns-wallet';
 
-// in-memory session keys (also persisted to localStorage for page-reload)
 let session = null;
 let autoUnlockDone = false;
 
@@ -392,38 +382,6 @@ const els = {{
   lock: document.getElementById('wc-lock'),
 }};
 
-function toChecksumRsk(addrHex, chainId) {{
-  // RSKIP-60: checksum uses chainId prefix
-  const addr = addrHex.toLowerCase().replace('0x', '');
-  const prefix = chainId ? chainId.toString() + '0x' : '';
-  const hash = bytesToHex(keccak_256(utf8ToBytes(prefix + addr)));
-  let out = '0x';
-  for (let i = 0; i < addr.length; i++) {{
-    out += parseInt(hash[i], 16) >= 8 ? addr[i].toUpperCase() : addr[i];
-  }}
-  return out;
-}}
-
-async function deriveFromMnemonic(mnemonic) {{
-  const seed = await mnemonicToSeed(mnemonic);
-  // Rootstock (secp256k1) via BIP44
-  const hd = HDKey.fromMasterSeed(seed);
-  const child = hd.derive(RSK_PATH);
-  const pub = secp256k1.getPublicKey(child.privateKey, false); // 65 bytes uncompressed
-  const addrBytes = keccak_256(pub.slice(1)).slice(-20);
-  const address = toChecksumRsk(bytesToHex(addrBytes), CHAIN_ID);
-  // ZSK (ed25519) from seed + domain
-  const zskSeed = sha256(concatBytes(new Uint8Array(seed), utf8ToBytes(ZSK_DOMAIN)));
-  const zskPub = ed25519.getPublicKey(zskSeed);
-  return {{
-    mnemonic,
-    address,
-    rskPrivKey: child.privateKey,
-    zskSeed,
-    zskPub: '0x' + bytesToHex(zskPub),
-  }};
-}}
-
 async function fetchBalance(address) {{
   try {{
     var r=await fetch(RPC_URL,{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{jsonrpc:'2.0',method:'eth_getBalance',params:[address,'latest'],id:1}})}})
@@ -433,144 +391,13 @@ async function fetchBalance(address) {{
   }}catch(e){{return '—'}}
 }}
 
-// ── ZSK commitment (SHA256(0x00 || pubkey)) ──
-function zskCommitment(pubKey) {{
-  var input = new Uint8Array(1 + pubKey.length);
-  input[0] = 0x00;
-  input.set(pubKey, 1);
-  return sha256(input);
-}}
-
-function parseHex(h){{h=h.startsWith('0x')?h.slice(2):h;if(h.length%2)h='0'+h;var b=new Uint8Array(h.length/2);for(var i=0;i<b.length;i++)b[i]=parseInt(h.substr(i*2,2),16);return b}}
-
-// ── RLP encoding helpers ──
-function rlpEncodeBytes(bytes) {{
-  if(bytes.length===1&&bytes[0]<0x80) return bytes;
-  if(bytes.length<=55) return concatBytes(new Uint8Array([0x80+bytes.length]),bytes);
-  var lenBytes=[],v=bytes.length;
-  while(v>0){{lenBytes.unshift(v&0xff);v>>=8}}
-  return concatBytes(new Uint8Array([0xb7+lenBytes.length]),new Uint8Array(lenBytes),bytes);
-}}
-function rlpEncodeList(items) {{
-  var payload=new Uint8Array(0);
-  for(var i=0;i<items.length;i++) payload=concatBytes(payload,items[i]);
-  if(payload.length<=55) return concatBytes(new Uint8Array([0xc0+payload.length]),payload);
-  var lenBytes=[],v=payload.length;
-  while(v>0){{lenBytes.unshift(v&0xff);v>>=8}}
-  return concatBytes(new Uint8Array([0xf7+lenBytes.length]),new Uint8Array(lenBytes),payload);
-}}
-function encodeU128(val) {{
-  if(val===0) return rlpEncodeBytes(new Uint8Array(0));
-  if(typeof val==='string') val=BigInt(val);
-  else val=BigInt(val);
-  var bytes=[];
-  while(val>0n){{bytes.unshift(Number(val&0xffn));val>>=8n}}
-  return rlpEncodeBytes(new Uint8Array(bytes));
-}}
-function padLeft32(bytes) {{
-  if(bytes.length>=32) return bytes.slice(-32);
-  var padded=new Uint8Array(32);
-  padded.set(bytes,32-bytes.length);
-  return padded;
-}}
-
-// ── Fetch nonce + gas price via RPC ──
 async function rpcCall(method,params) {{
   var r=await fetch(RPC_URL,{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{jsonrpc:'2.0',method,params,id:1}})}});
   var d=await r.json();
   if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
   return d.result;
 }}
-async function fetchNonce(addr) {{
-  var hex=await rpcCall('eth_getTransactionCount',[addr,'latest']);
-  return BigInt(hex);
-}}
-async function fetchGasPrice() {{
-  var hex=await rpcCall('eth_gasPrice',[]);
-  return BigInt(hex);
-}}
 
-// ── Sign calldata, build EIP-155 tx, broadcast via RPC ──
-async function signAndBroadcast(calldata, data) {{
-  var nonce=await fetchNonce(data.address);
-  var gasPrice=await fetchGasPrice();
-  var gasLimit=300000;
-  var to=parseHex(CONTRACT.replace('0x',''));
-  var value=new Uint8Array(0);
-  var unsignedTx=rlpEncodeList([
-    encodeU128(nonce),encodeU128(gasPrice),encodeU128(gasLimit),
-    rlpEncodeBytes(to),rlpEncodeBytes(value),rlpEncodeBytes(calldata),
-    encodeU128(CHAIN_ID),rlpEncodeBytes(new Uint8Array(0)),
-    rlpEncodeBytes(new Uint8Array(0))
-  ]);
-  var txHash=keccak_256(unsignedTx);
-  var sig=secp256k1.sign(new Uint8Array(txHash),data.rskPrivKey);
-  var raw64=sig.toCompactRawBytes();
-  var rBytes=raw64.slice(0,32),sBytes=raw64.slice(32);
-  var v=sig.recovery+35+CHAIN_ID*2;
-  var signedTx=rlpEncodeList([
-    encodeU128(nonce),encodeU128(gasPrice),encodeU128(gasLimit),
-    rlpEncodeBytes(to),rlpEncodeBytes(value),rlpEncodeBytes(calldata),
-    encodeU128(v),rlpEncodeBytes(rBytes),rlpEncodeBytes(sBytes)
-  ]);
-  return await rpcCall('eth_sendRawTransaction',['0x'+bytesToHex(signedTx)]);
-}}
-
-// ── ABI encoding for register(bytes32,string) ──
-var REGISTER_SELECTOR=parseHex('cf2d31fb');
-function encodeRegister(zskHex, ns) {{
-  var zskBytes=padLeft32(parseHex(zskHex.replace('0x','')));
-  var nsOffset=padLeft32(new Uint8Array([0x60]));
-  var nsUtf8=utf8ToBytes(ns);
-  var nsLen=padLeft32(new Uint8Array([nsUtf8.length&0xff]));
-  var nsPadded=new Uint8Array(Math.ceil(nsUtf8.length/32)*32||32);
-  nsPadded.set(nsUtf8);
-  return concatBytes(REGISTER_SELECTOR,zskBytes,nsOffset,nsLen,nsPadded);
-}}
-
-// ── ABI encoding for updateBatch(uint64,address,bytes32,string) ──
-var UPDATE_BATCH_SELECTOR=parseHex('697c209b');
-function encodeUpdateBatch(ordinal, ownerHex, zskHex, ns) {{
-  var ordinalBytes=padLeft32(new Uint8Array([
-    (ordinal>>>24)&0xff,(ordinal>>>16)&0xff,(ordinal>>>8)&0xff,ordinal&0xff
-  ]));
-  var ownerBytes=padLeft32(parseHex(ownerHex.replace('0x','')));
-  var zskBytes=padLeft32(parseHex(zskHex.replace('0x','')));
-  var nsOffset=padLeft32(new Uint8Array([0x80]));
-  var nsUtf8=utf8ToBytes(ns);
-  var nsLen=padLeft32(new Uint8Array([nsUtf8.length&0xff]));
-  var nsPadded=new Uint8Array(Math.ceil(nsUtf8.length/32)*32||32);
-  nsPadded.set(nsUtf8);
-  return concatBytes(UPDATE_BATCH_SELECTOR,ordinalBytes,ownerBytes,zskBytes,nsOffset,nsLen,nsPadded);
-}}
-
-// ── Register a new batch ──
-async function doRegister(ns, data) {{
-  var msgEl=document.getElementById('wc-register-msg');
-  msgEl.textContent='Preparing…';
-  try{{
-    var zskCommit=zskCommitment(parseHex(data.zskPub.slice(2)));
-    var calldata=encodeRegister('0x'+bytesToHex(zskCommit),ns);
-    var txHash=await signAndBroadcast(calldata,data);
-    msgEl.innerHTML='Tx sent: <a href="'+('https://explorer.testnet.rootstock.io/tx/'+txHash)+'" target="_blank" rel="noopener">'+txHash.slice(0,14)+'…</a>';
-    setTimeout(function(){{fetchBatches(data.address)}},15000);
-  }}catch(e){{msgEl.textContent='Error: '+e.message}}
-}}
-
-// ── Update batch ZSK ──
-async function doUpdateBatch(ordinal, currentNs, currentZsk, data) {{
-  var msgEl=document.getElementById('wc-batch-msg-'+ordinal);
-  msgEl.textContent='Preparing…';
-  try{{
-    var zskCommit=zskCommitment(parseHex(data.zskPub.slice(2)));
-    var calldata=encodeUpdateBatch(ordinal,data.address,'0x'+bytesToHex(zskCommit),currentNs);
-    var txHash=await signAndBroadcast(calldata,data);
-    msgEl.innerHTML='Tx sent: <a href="'+('https://explorer.testnet.rootstock.io/tx/'+txHash)+'" target="_blank" rel="noopener">'+txHash.slice(0,14)+'…</a>';
-    setTimeout(function(){{fetchBatches(data.address)}},15000);
-  }}catch(e){{msgEl.textContent='Error: '+e.message}}
-}}
-
-// ── Fetch and render batches ──
 async function fetchBatches(address) {{
   try{{
     var r=await fetch('/api/batches/'+address);
@@ -603,9 +430,29 @@ async function fetchBatches(address) {{
 document.getElementById('wc-batch-list').addEventListener('click',function(e){{
   if(e.target.classList.contains('wc-batch-update')){{
     if(!session)return;
-    doUpdateBatch(parseInt(e.target.dataset.ordinal),e.target.dataset.ns,e.target.dataset.zsk,session);
+    doUpdateBatch(parseInt(e.target.dataset.ordinal),e.target.dataset.ns,session);
   }}
 }});
+
+async function doRegister(ns, data) {{
+  var msgEl=document.getElementById('wc-register-msg');
+  msgEl.textContent='Preparing…';
+  try{{
+    var txHash=await wasm_register(RPC_URL,data.private_key_hex,data.zsk_commitment_hex,ns);
+    msgEl.innerHTML='Tx sent: <a href="'+('https://explorer.testnet.rootstock.io/tx/'+txHash)+'" target="_blank" rel="noopener">'+txHash.slice(0,14)+'…</a>';
+    setTimeout(function(){{fetchBatches(data.address)}},15000);
+  }}catch(e){{msgEl.textContent='Error: '+e.message}}
+}}
+
+async function doUpdateBatch(ordinal, currentNs, data) {{
+  var msgEl=document.getElementById('wc-batch-msg-'+ordinal);
+  msgEl.textContent='Preparing…';
+  try{{
+    var txHash=await wasm_update_batch(RPC_URL,data.private_key_hex,ordinal,data.address,data.zsk_commitment_hex,currentNs);
+    msgEl.innerHTML='Tx sent: <a href="'+('https://explorer.testnet.rootstock.io/tx/'+txHash)+'" target="_blank" rel="noopener">'+txHash.slice(0,14)+'…</a>';
+    setTimeout(function(){{fetchBatches(data.address)}},15000);
+  }}catch(e){{msgEl.textContent='Error: '+e.message}}
+}}
 
 function showUnlocked(data, isNew) {{
   session = data;
@@ -617,7 +464,7 @@ function showUnlocked(data, isNew) {{
   els.outMnemonic.textContent = data.mnemonic;
   els.outMnemonic.classList.add('wc-seed-hidden');
   els.outAddress.textContent = data.address;
-  els.outZsk.textContent = data.zskPub;
+  els.outZsk.textContent = '0x' + data.zsk_pub;
   els.backupWarn.style.display = isNew ? 'block' : 'none';
   const faucet = {faucet_js};
   if (faucet) {{
@@ -631,7 +478,7 @@ function showUnlocked(data, isNew) {{
 
 function showLocked() {{
   session = null;
-  autoUnlockDone = true; // explicit lock: don't let autofill silently re-unlock
+  autoUnlockDone = true;
   els.form.classList.remove('hide');
   els.identity.classList.remove('show');
   els.status.classList.remove('unlocked');
@@ -644,8 +491,6 @@ function showLocked() {{
   localStorage.removeItem('mns-wallet-mnemonic');
 }}
 
-// Save to browser credential store if supported (Chromium). Otherwise the
-// <form> submit lets the native password manager offer to save.
 async function saveCredential(mnemonic) {{
   if (!('PasswordCredential' in window)) return false;
   try {{
@@ -661,20 +506,22 @@ async function saveCredential(mnemonic) {{
   }}
 }}
 
-// Shared unlock path used by manual submit, credential API, and autofill.
 async function unlock(rawMnemonic, isNew) {{
   if (autoUnlockDone) return false;
-  const mnemonic = (rawMnemonic || '').trim().replace(/\s+/g, ' ');
-  if (!mnemonic || !validateMnemonic(mnemonic, wordlist)) return false;
+  const mnemonic = (rawMnemonic || '').trim().replace(/\\s+/g, ' ');
+  if (!mnemonic || !validate_mnemonic(mnemonic)) return false;
   autoUnlockDone = true;
-  const data = await deriveFromMnemonic(mnemonic);
-  showUnlocked(data, isNew === true);
+  const keys = derive_keys(mnemonic);
+  showUnlocked({{
+    mnemonic,
+    address: keys.address,
+    private_key_hex: keys.private_key,
+    zsk_pub: keys.zsk_pub,
+    zsk_commitment_hex: keys.zsk_commitment,
+  }}, isNew === true);
   return true;
 }}
 
-// Retrieve a saved credential from the Credential Management API (Chromium).
-// `mediation` = 'silent' returns a credential only if the user previously
-// granted access (no UI); 'optional' shows the account chooser once.
 async function getSavedCredential(mediation) {{
   if (!navigator.credentials || !('PasswordCredential' in window)) return null;
   try {{
@@ -684,55 +531,40 @@ async function getSavedCredential(mediation) {{
   }}
 }}
 
-// Auto-unlock strategy that works across all browsers:
-//  1. Chromium: silent PasswordCredential retrieval (instant, no user gesture).
-//     Returns null until the user has picked the credential once — in that
-//     case we fall through to native autofill rather than nagging with a chooser.
-//  2. Chrome/Firefox: browser autofills the <textarea autocomplete> at load —
-//     poll briefly until a value appears.
-//  3. Safari: only fills after the user's first interaction (Touch/Face ID),
-//     so also re-check on the first click.
 async function attemptAutoUnlock() {{
-  // 0. Restore from localStorage (persistent across page loads).
   var saved = localStorage.getItem('mns-wallet-mnemonic');
   if (saved && await unlock(saved, false)) return;
 
-  // 1. Silent Credential Management API (Chromium, only if already granted).
   const cred = await getSavedCredential('silent');
   if (cred && cred.password && await unlock(cred.password, false)) return;
 
-  // 2. Poll for browser form autofill (Chrome/Firefox fill on DOM ready).
   const started = Date.now();
   const poll = setInterval(function() {{
     if (autoUnlockDone || Date.now() - started > 3000) {{ clearInterval(poll); return; }}
     if (els.mnemonic.value.trim()) {{ clearInterval(poll); unlock(els.mnemonic.value, false); }}
   }}, 120);
 
-  // 3. Safari fills on first user interaction — re-check then.
   document.addEventListener('click', function onFirstClick() {{
     document.removeEventListener('click', onFirstClick);
     if (!autoUnlockDone && els.mnemonic.value.trim()) unlock(els.mnemonic.value, false);
   }}, {{ once: true }});
 }}
 
-
 els.form.addEventListener('submit', async function(e) {{
   e.preventDefault();
-  let raw = els.mnemonic.value.trim().replace(/\s+/g, ' ');
-  // Empty field + user gesture: offer the saved-credential chooser (Chromium).
-  // After the user picks once, future silent auto-unlocks will succeed.
+  let raw = els.mnemonic.value.trim().replace(/\\s+/g, ' ');
   if (!raw) {{
     const cred = await getSavedCredential('optional');
     if (cred && cred.password) {{
-      raw = cred.password.trim().replace(/\s+/g, ' ');
+      raw = cred.password.trim().replace(/\\s+/g, ' ');
       els.mnemonic.value = raw;
     }}
   }}
   if (!raw) {{ els.msg.textContent = 'Enter a seed phrase or generate one.'; return; }}
-  if (!validateMnemonic(raw, wordlist)) {{ els.msg.textContent = 'Invalid seed phrase.'; return; }}
+  if (!validate_mnemonic(raw)) {{ els.msg.textContent = 'Invalid seed phrase.'; return; }}
   els.msg.textContent = 'Deriving…';
   try {{
-    autoUnlockDone = false; // allow manual submit to take over
+    autoUnlockDone = false;
     await unlock(raw, false);
     await saveCredential(raw);
   }} catch (err) {{
@@ -741,7 +573,7 @@ els.form.addEventListener('submit', async function(e) {{
 }});
 
 els.generate.addEventListener('click', async function() {{
-  const mnemonic = generateMnemonic(wordlist, 128); // 12 words
+  const mnemonic = generate_mnemonic();
   els.mnemonic.value = mnemonic;
   els.msg.textContent = 'Deriving…';
   try {{
@@ -768,7 +600,7 @@ document.querySelectorAll('.wc-copy').forEach(function(btn) {{
     const key = btn.getAttribute('data-copy');
     const val = key === 'mnemonic' ? session.mnemonic
       : key === 'address' ? session.address
-      : session.zskPub;
+      : '0x' + session.zsk_pub;
     if (key === 'mnemonic') {{
       els.outMnemonic.classList.remove('wc-seed-hidden');
       els.outMnemonic.classList.add('revealed');
@@ -828,8 +660,7 @@ mod tests {
     fn renders_without_stray_placeholders() {
         let html = render_wallet_page(&nav());
         assert!(html.contains("Your Wallet"));
-        assert!(html.contains("37310")); // testnet coin type (chain_id=31 in nav)
-        assert!(html.contains("mns-zsk"));
+        assert!(html.contains("mns_wasm.js"));
         // no unresolved format placeholders left behind
         assert!(!html.contains("{main_style}"));
         assert!(!html.contains("{faucet_js}"));
