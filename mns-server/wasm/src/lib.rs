@@ -12,7 +12,11 @@ thread_local! {
 }
 
 fn take_client() -> Result<MnsClient, JsError> {
-    CLIENT.with(|c| c.borrow().clone().ok_or_else(|| JsError::new("call init_client() first")))
+    CLIENT.with(|c| {
+        c.borrow()
+            .clone()
+            .ok_or_else(|| JsError::new("call init_client() first"))
+    })
 }
 
 // ── Init ──
@@ -105,8 +109,7 @@ fn derive_from_hex_keys(
     zsk_key: &[u8],
 ) -> Result<(String, String), JsError> {
     // secp256k1 → Rootstock address
-    let sk = k256::SecretKey::from_slice(rsk_key)
-        .map_err(|e| JsError::new(&e.to_string()))?;
+    let sk = k256::SecretKey::from_slice(rsk_key).map_err(|e| JsError::new(&e.to_string()))?;
     let pubkey = sk.public_key().to_encoded_point(false);
     let mut hasher = tiny_keccak::Keccak::v256();
     let mut hash = [0u8; 32];
@@ -133,8 +136,8 @@ fn derive_from_hex_keys(
 #[wasm_bindgen]
 pub fn key_to_mnemonic(hex_key: &str) -> Result<String, JsError> {
     let bytes = parse_fixed_32(hex_key, "key")?;
-    let mnemonic =
-        bip39::Mnemonic::from_entropy(bytes.as_slice()).map_err(|e| JsError::new(&e.to_string()))?;
+    let mnemonic = bip39::Mnemonic::from_entropy(bytes.as_slice())
+        .map_err(|e| JsError::new(&e.to_string()))?;
     Ok(mnemonic.to_string())
 }
 
@@ -193,10 +196,10 @@ pub fn migrate_from_mnemonic(phrase: &str) -> Result<Vec<String>, JsError> {
         let result = mac.finalize().into_bytes();
 
         let il_bytes: [u8; 32] = result[..32].try_into().unwrap();
-        let il_scalar =
-            k256::Scalar::from_repr_vartime(il_bytes.into()).ok_or_else(|| JsError::new("invalid scalar"))?;
-        let parent_scalar =
-            k256::Scalar::from_repr_vartime(key.into()).ok_or_else(|| JsError::new("invalid scalar"))?;
+        let il_scalar = k256::Scalar::from_repr_vartime(il_bytes.into())
+            .ok_or_else(|| JsError::new("invalid scalar"))?;
+        let parent_scalar = k256::Scalar::from_repr_vartime(key.into())
+            .ok_or_else(|| JsError::new("invalid scalar"))?;
         let child_scalar = il_scalar + parent_scalar;
         key = child_scalar.to_bytes().into();
         chain_code.copy_from_slice(&result[32..]);
@@ -287,11 +290,7 @@ pub async fn get_balance(address_hex: &str) -> Result<String, JsError> {
 }
 
 #[wasm_bindgen]
-pub async fn register(
-    private_key_hex: &str,
-    zsk_hex: &str,
-    ns: &str,
-) -> Result<String, JsError> {
+pub async fn register(private_key_hex: &str, zsk_hex: &str, ns: &str) -> Result<String, JsError> {
     use zeroize::Zeroize;
     let mut pk = parse_fixed_32(private_key_hex, "private key")?;
     let zsk = parse_fixed_32(zsk_hex, "zsk")?;
@@ -353,7 +352,7 @@ pub fn create_signed_packet(
 ) -> Result<String, JsError> {
     use base64::Engine;
     use ntimestamp::Timestamp;
-    use simple_dns::rdata::{RData, SOA, SRV, MX, HTTPS, SVCB};
+    use simple_dns::rdata::{RData, HTTPS, MX, SOA, SRV, SVCB};
     use simple_dns::{CharacterString, Name as DnsName, ResourceRecord, CLASS};
     use zeroize::Zeroize;
 
@@ -393,15 +392,17 @@ pub fn create_signed_packet(
                 let target = rec["target"]
                     .as_str()
                     .ok_or_else(|| JsError::new("NS record: missing target"))?;
-                RData::NS(simple_dns::rdata::NS(DnsName::new(target)
-                    .map_err(|e| JsError::new(&format!("NS record: invalid name: {e}")))?))
+                RData::NS(simple_dns::rdata::NS(DnsName::new(target).map_err(
+                    |e| JsError::new(&format!("NS record: invalid name: {e}")),
+                )?))
             }
             "CNAME" => {
                 let target = rec["target"]
                     .as_str()
                     .ok_or_else(|| JsError::new("CNAME record: missing target"))?;
-                RData::CNAME(simple_dns::rdata::CNAME(DnsName::new(target)
-                    .map_err(|e| JsError::new(&format!("CNAME record: invalid name: {e}")))?))
+                RData::CNAME(simple_dns::rdata::CNAME(DnsName::new(target).map_err(
+                    |e| JsError::new(&format!("CNAME record: invalid name: {e}")),
+                )?))
             }
             "MX" => {
                 let pref = rec["preference"].as_u64().unwrap_or(10) as u16;
@@ -418,7 +419,8 @@ pub fn create_signed_packet(
                 let txt_str = rec["txt"]
                     .as_str()
                     .ok_or_else(|| JsError::new("TXT record: missing txt"))?;
-                let txt: simple_dns::rdata::TXT = txt_str.try_into()
+                let txt: simple_dns::rdata::TXT = txt_str
+                    .try_into()
                     .map_err(|e| JsError::new(&format!("TXT record: {e}")))?;
                 RData::TXT(txt)
             }
@@ -453,7 +455,9 @@ pub fn create_signed_packet(
                             .filter(|s| !s.is_empty())
                             .map(|s| CharacterString::try_from(s))
                             .collect::<Result<Vec<_>, _>>()
-                            .map_err(|e| JsError::new(&format!("{rtype} record: invalid ALPN: {e}")))?;
+                            .map_err(|e| {
+                                JsError::new(&format!("{rtype} record: invalid ALPN: {e}"))
+                            })?;
                         svcb.set_alpn(&alpn_ids);
                     }
                 }
@@ -489,8 +493,9 @@ pub fn create_signed_packet(
                 let target = rec["target"]
                     .as_str()
                     .ok_or_else(|| JsError::new("PTR record: missing target"))?;
-                RData::PTR(simple_dns::rdata::PTR(DnsName::new(target)
-                    .map_err(|e| JsError::new(&format!("PTR record: invalid name: {e}")))?))
+                RData::PTR(simple_dns::rdata::PTR(DnsName::new(target).map_err(
+                    |e| JsError::new(&format!("PTR record: invalid name: {e}")),
+                )?))
             }
             other => {
                 return Err(JsError::new(&format!("unsupported record type: {other}")));
@@ -500,8 +505,7 @@ pub fn create_signed_packet(
         let rr_name = if record_name.is_empty() {
             DnsName::new_unchecked("")
         } else {
-            DnsName::new(record_name)
-                .map_err(|e| JsError::new(&format!("record name: {e}")))?
+            DnsName::new(record_name).map_err(|e| JsError::new(&format!("record name: {e}")))?
         };
 
         resource_records.push(ResourceRecord::new(rr_name, CLASS::IN, ttl, rdata));
@@ -509,7 +513,8 @@ pub fn create_signed_packet(
 
     let keypair = match key_type {
         mns::KeyType::Ed25519 => {
-            let key_arr: [u8; 32] = key_bytes[..].try_into()
+            let key_arr: [u8; 32] = key_bytes[..]
+                .try_into()
                 .map_err(|_| JsError::new("Ed25519 key must be 32 bytes"))?;
             let signing_key = ed25519_dalek::SigningKey::from_bytes(&key_arr);
             mns::Keypair::from_ed25519(signing_key)
@@ -537,13 +542,17 @@ fn parse_fixed_len(hex_str: &str, label: &str, expected_len: usize) -> Result<Ve
     let bytes = hex::decode(hex_str.strip_prefix("0x").unwrap_or(hex_str))
         .map_err(|e| JsError::new(&format!("{label}: bad hex: {e}")))?;
     if bytes.len() != expected_len {
-        return Err(JsError::new(&format!("{label} must be {expected_len} bytes, got {}", bytes.len())));
+        return Err(JsError::new(&format!(
+            "{label} must be {expected_len} bytes, got {}",
+            bytes.len()
+        )));
     }
     Ok(bytes)
 }
 
 fn parse_address(hex_str: &str) -> Result<Address, JsError> {
     let hex_str = hex_str.strip_prefix("0x").unwrap_or(hex_str);
-    let bytes = hex::decode(hex_str).map_err(|e| JsError::new(&format!("address: bad hex: {e}")))?;
+    let bytes =
+        hex::decode(hex_str).map_err(|e| JsError::new(&format!("address: bad hex: {e}")))?;
     Address::try_from(bytes.as_slice()).map_err(|_| JsError::new("address must be 20 bytes"))
 }

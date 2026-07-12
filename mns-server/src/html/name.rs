@@ -1,3 +1,5 @@
+use core::net::{Ipv4Addr, Ipv6Addr};
+
 use super::{
     footer_html, format_timestamp, main_style, navbar_html, page_head, particles_script,
     truncate_addr, Name, Navbar, ResourceRecord, ZSK_LEN,
@@ -125,13 +127,37 @@ pub fn render_html(
     let mut rows = String::new();
     for r in records {
         let rtype = format!("{:?}", r.rdata.type_code());
-        let rdata_str = format!("{:?}", r.rdata);
+        let name_s = r.name.to_string();
+        let display_name = if name_s == canonical {
+            "@".to_string()
+        } else if let Some(rel) = name_s.strip_suffix(&format!(".{canonical}")) {
+            rel.to_string()
+        } else {
+            name_s
+        };
+        let rdata_str = match &r.rdata {
+            simple_dns::rdata::RData::A(a) => Ipv4Addr::from(a.address).to_string(),
+            simple_dns::rdata::RData::AAAA(aaaa) => Ipv6Addr::from(aaaa.address).to_string(),
+            simple_dns::rdata::RData::NS(ns) => ns.0.to_string(),
+            simple_dns::rdata::RData::CNAME(cname) => cname.0.to_string(),
+            simple_dns::rdata::RData::MX(mx) => format!("{} {}", mx.preference, mx.exchange),
+            simple_dns::rdata::RData::TXT(txt) => txt
+                .iter_raw()
+                .filter_map(|(raw, _)| std::str::from_utf8(raw).ok())
+                .collect::<Vec<_>>()
+                .join(" "),
+            simple_dns::rdata::RData::SRV(srv) => {
+                format!(
+                    "{} {} {} {}",
+                    srv.priority, srv.weight, srv.port, srv.target
+                )
+            }
+            simple_dns::rdata::RData::PTR(ptr) => ptr.0.to_string(),
+            _ => format!("{:?}", r.rdata),
+        };
         rows.push_str(&format!(
             r#"<tr><td class="name">{}</td><td class="type">{}</td><td class="ttl">{}</td><td class="rdata">{}</td></tr>"#,
-            r.name,
-            rtype,
-            r.ttl,
-            rdata_str
+            display_name, rtype, r.ttl, rdata_str
         ));
     }
 

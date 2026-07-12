@@ -25,7 +25,6 @@ pub struct FormatQuery {
     format: Option<String>,
 }
 
-
 pub struct AppState<S: ZoneStore> {
     pub store: Arc<S>,
     pub network: String,
@@ -60,7 +59,10 @@ pub fn build_router<S: ZoneStore + 'static>(
         .route("/owner/{address}", get(owner_handler::<S>))
         .route("/api/batches/{address}", get(batches_handler::<S>))
         .route("/{*name}", get(get_handler::<S>).put(put_handler::<S>))
-        .nest_service("/static", ServeDir::new(concat!(env!("CARGO_MANIFEST_DIR"), "/static")))
+        .nest_service(
+            "/static",
+            ServeDir::new(concat!(env!("CARGO_MANIFEST_DIR"), "/static")),
+        )
         .layer(CorsLayer::permissive())
         .with_state(state)
 }
