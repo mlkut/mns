@@ -98,7 +98,6 @@ pub fn render_wallet_page(nav: &Navbar) -> String {
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
-    padding: 0.75rem 0.9rem;
     background: rgba(255,255,255,0.015);
     border: 1px solid rgba(255,255,255,0.05);
     border-radius: var(--radius-sm);
