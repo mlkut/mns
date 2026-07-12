@@ -308,6 +308,196 @@ pub async fn update_batch(
     Ok(format!("{tx_hash}"))
 }
 
+// ── Signed Packet ──
+
+/// Create a signed packet from an Ed25519 private key, MNS name, and records JSON.
+///
+/// records_json is an array of objects:
+///   { "type": "A", "ttl": 300, "address": "1.2.3.4" }
+///   { "type": "AAAA", "ttl": 300, "address": "::1" }
+///   { "type": "NS", "ttl": 3600, "target": "ns1.example.com" }
+///   { "type": "CNAME", "ttl": 300, "target": "example.com" }
+///   { "type": "MX", "ttl": 300, "preference": 10, "exchange": "mail.example.com" }
+///   { "type": "TXT", "ttl": 300, "txt": "v=spf1 ..." }
+///   { "type": "HTTPS", "ttl": 300, "priority": 1, "target": ".", "alpn": "h2,h3", "port": 443 }
+///   { "type": "SVCB", "ttl": 300, "priority": 1, "target": "example.com", "alpn": "h2", "port": 443 }
+///   { "type": "SRV", "ttl": 300, "priority": 10, "weight": 0, "port": 443, "target": "example.com" }
+///   { "type": "SOA", "ttl": 300, "mname": "ns1.example.com", "rname": "admin.example.com",
+///     "serial": 2024010101, "refresh": 3600, "retry": 600, "expire": 604800, "minimum": 86400 }
+///   { "type": "PTR", "ttl": 300, "target": "example.com" }
+///
+/// Returns base64-encoded signed packet bytes.
+#[wasm_bindgen]
+pub fn create_signed_packet(
+    ed_privkey_hex: &str,
+    name_str: &str,
+    records_json: &str,
+) -> Result<String, JsError> {
+    use base64::Engine;
+    use ntimestamp::Timestamp;
+    use simple_dns::rdata::{RData, SOA, SRV, MX, HTTPS, SVCB};
+    use simple_dns::{CharacterString, Name as DnsName, ResourceRecord, CLASS};
+    use zeroize::Zeroize;
+
+    let mut ed_bytes_mut = parse_fixed_32(ed_privkey_hex, "ed25519 private key")?;
+    let name: mns::Name = name_str.parse().map_err(|e: &str| JsError::new(e))?;
+
+    let records: Vec<serde_json::Value> = serde_json::from_str(records_json)
+        .map_err(|e| JsError::new(&format!("invalid records JSON: {e}")))?;
+
+    let mut resource_records = Vec::new();
+
+    for rec in &records {
+        let rtype = rec["type"].as_str().unwrap_or("A");
+        let ttl = rec["ttl"].as_u64().unwrap_or(300) as u32;
+        let record_name = rec["name"].as_str().unwrap_or("");
+
+        let rdata = match rtype {
+            "A" => {
+                let addr: std::net::Ipv4Addr = rec["address"]
+                    .as_str()
+                    .ok_or_else(|| JsError::new("A record: missing address"))?
+                    .parse()
+                    .map_err(|e| JsError::new(&format!("A record: invalid address: {e}")))?;
+                RData::A(addr.into())
+            }
+            "AAAA" => {
+                let addr: std::net::Ipv6Addr = rec["address"]
+                    .as_str()
+                    .ok_or_else(|| JsError::new("AAAA record: missing address"))?
+                    .parse()
+                    .map_err(|e| JsError::new(&format!("AAAA record: invalid address: {e}")))?;
+                RData::AAAA(addr.into())
+            }
+            "NS" => {
+                let target = rec["target"]
+                    .as_str()
+                    .ok_or_else(|| JsError::new("NS record: missing target"))?;
+                RData::NS(simple_dns::rdata::NS(DnsName::new(target)
+                    .map_err(|e| JsError::new(&format!("NS record: invalid name: {e}")))?))
+            }
+            "CNAME" => {
+                let target = rec["target"]
+                    .as_str()
+                    .ok_or_else(|| JsError::new("CNAME record: missing target"))?;
+                RData::CNAME(simple_dns::rdata::CNAME(DnsName::new(target)
+                    .map_err(|e| JsError::new(&format!("CNAME record: invalid name: {e}")))?))
+            }
+            "MX" => {
+                let pref = rec["preference"].as_u64().unwrap_or(10) as u16;
+                let exchange = rec["exchange"]
+                    .as_str()
+                    .ok_or_else(|| JsError::new("MX record: missing exchange"))?;
+                RData::MX(MX {
+                    preference: pref,
+                    exchange: DnsName::new(exchange)
+                        .map_err(|e| JsError::new(&format!("MX record: invalid name: {e}")))?,
+                })
+            }
+            "TXT" => {
+                let txt_str = rec["txt"]
+                    .as_str()
+                    .ok_or_else(|| JsError::new("TXT record: missing txt"))?;
+                let txt: simple_dns::rdata::TXT = txt_str.try_into()
+                    .map_err(|e| JsError::new(&format!("TXT record: {e}")))?;
+                RData::TXT(txt)
+            }
+            "SRV" => {
+                let priority = rec["priority"].as_u64().unwrap_or(10) as u16;
+                let weight = rec["weight"].as_u64().unwrap_or(0) as u16;
+                let port = rec["port"].as_u64().unwrap_or(443) as u16;
+                let target = rec["target"]
+                    .as_str()
+                    .ok_or_else(|| JsError::new("SRV record: missing target"))?;
+                RData::SRV(SRV {
+                    priority,
+                    weight,
+                    port,
+                    target: DnsName::new(target)
+                        .map_err(|e| JsError::new(&format!("SRV record: invalid name: {e}")))?,
+                })
+            }
+            "HTTPS" | "SVCB" => {
+                let priority = rec["priority"].as_u64().unwrap_or(1) as u16;
+                let target_str = rec["target"].as_str().unwrap_or(".");
+                let target = DnsName::new(target_str)
+                    .map_err(|e| JsError::new(&format!("{rtype} record: invalid target: {e}")))?;
+
+                let mut svcb = SVCB::new(priority, target);
+
+                if let Some(alpn_str) = rec["alpn"].as_str() {
+                    if !alpn_str.is_empty() {
+                        let alpn_ids: Vec<CharacterString> = alpn_str
+                            .split(',')
+                            .map(|s| s.trim())
+                            .filter(|s| !s.is_empty())
+                            .map(|s| CharacterString::try_from(s))
+                            .collect::<Result<Vec<_>, _>>()
+                            .map_err(|e| JsError::new(&format!("{rtype} record: invalid ALPN: {e}")))?;
+                        svcb.set_alpn(&alpn_ids);
+                    }
+                }
+                if let Some(port) = rec["port"].as_u64() {
+                    svcb.set_port(port as u16);
+                }
+
+                match rtype {
+                    "HTTPS" => RData::HTTPS(HTTPS(svcb)),
+                    _ => RData::SVCB(svcb),
+                }
+            }
+            "SOA" => {
+                let mname = rec["mname"]
+                    .as_str()
+                    .ok_or_else(|| JsError::new("SOA record: missing mname"))?;
+                let rname = rec["rname"]
+                    .as_str()
+                    .ok_or_else(|| JsError::new("SOA record: missing rname"))?;
+                RData::SOA(SOA {
+                    mname: DnsName::new(mname)
+                        .map_err(|e| JsError::new(&format!("SOA record: invalid mname: {e}")))?,
+                    rname: DnsName::new(rname)
+                        .map_err(|e| JsError::new(&format!("SOA record: invalid rname: {e}")))?,
+                    serial: rec["serial"].as_u64().unwrap_or(2024010101) as u32,
+                    refresh: rec["refresh"].as_i64().unwrap_or(3600) as i32,
+                    retry: rec["retry"].as_i64().unwrap_or(600) as i32,
+                    expire: rec["expire"].as_i64().unwrap_or(604800) as i32,
+                    minimum: rec["minimum"].as_u64().unwrap_or(86400) as u32,
+                })
+            }
+            "PTR" => {
+                let target = rec["target"]
+                    .as_str()
+                    .ok_or_else(|| JsError::new("PTR record: missing target"))?;
+                RData::PTR(simple_dns::rdata::PTR(DnsName::new(target)
+                    .map_err(|e| JsError::new(&format!("PTR record: invalid name: {e}")))?))
+            }
+            other => {
+                return Err(JsError::new(&format!("unsupported record type: {other}")));
+            }
+        };
+
+        let rr_name = if record_name.is_empty() {
+            DnsName::new_unchecked("")
+        } else {
+            DnsName::new(record_name)
+                .map_err(|e| JsError::new(&format!("record name: {e}")))?
+        };
+
+        resource_records.push(ResourceRecord::new(rr_name, CLASS::IN, ttl, rdata));
+    }
+
+    let signing_key = ed25519_dalek::SigningKey::from_bytes(ed_bytes_mut.as_ref());
+    let keypair = mns::Keypair::from_ed25519(signing_key);
+
+    let packet = mns::SignedPacket::new(&keypair, name, &resource_records, Timestamp::now())
+        .map_err(|e| JsError::new(&format!("failed to create signed packet: {e}")))?;
+
+    let b64 = base64::engine::general_purpose::STANDARD.encode(packet.as_bytes());
+    ed_bytes_mut.0.zeroize();
+    Ok(b64)
+}
+
 // ── Helpers ──
 
 fn parse_fixed_32(hex_str: &str, label: &str) -> Result<FixedBytes<32>, JsError> {

@@ -46,6 +46,25 @@ pub fn render_owner_page(address: &str, names: &[Name], nav: &Navbar) -> String 
     background: color-mix(in srgb, var(--accent) 10%, transparent);
   }}
 
+  .you-badge {{
+    display: none;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    color: var(--accent-text);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin: 0 auto 0.5rem;
+    width: fit-content;
+  }}
+  .you-badge.show {{
+    display: flex;
+  }}
+
   .owner-grid {{
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
@@ -152,6 +171,7 @@ pub fn render_owner_page(address: &str, names: &[Name], nav: &Navbar) -> String 
       <span class="copy-label">Copy</span>
     </button>
   </p>
+  <div class="you-badge" id="you-badge">This is you</div>
 
   <div class="divider" role="separator"></div>
 
@@ -179,6 +199,12 @@ document.getElementById('copy-addr')?.addEventListener('click', function() {{
     setTimeout(function() {{ that.innerHTML = orig; that.classList.remove('copied'); }}, 1500);
   }}.bind(this)).catch(function() {{}});
 }});
+try {{
+  var walletAddr = localStorage.getItem('mns-wallet-addr');
+  if (walletAddr && walletAddr.toLowerCase() === '{address}'.toLowerCase()) {{
+    document.getElementById('you-badge').classList.add('show');
+  }}
+}} catch(e) {{}}
 </script>
 </body>
 </html>"#,
