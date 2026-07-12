@@ -151,7 +151,7 @@ pub fn main_style() -> String {
   }}
 
   .records-card {{
-    margin-top: 1rem;
+    margin-top: 0;
   }}
 
   .records-card h2 {{
@@ -243,35 +243,28 @@ pub fn main_style() -> String {
   .meta-grid {{
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-    margin-bottom: 1.75rem;
+    gap: 0.25rem;
+    margin-bottom: 1.25rem;
     animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0s both;
   }}
 
   .meta-row {{
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
-    padding: 0.85rem 1rem;
-    background: rgba(255,255,255,0.015);
-    border: 1px solid rgba(255,255,255,0.04);
-    border-radius: var(--radius-sm);
-    transition: background 0.25s ease, border-color 0.25s ease;
-  }}
-
-  .meta-row:hover {{
-    background: var(--surface-hover);
-    border-color: rgba(255,255,255,0.07);
+    gap: 0;
   }}
 
   .meta-row.inline {{
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: 5.5rem 1fr;
     align-items: center;
-    gap: 1rem;
   }}
 
   .meta-row.inline dd {{
     text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }}
 
   dt.meta-label {{
@@ -286,13 +279,12 @@ pub fn main_style() -> String {
     font-family: var(--mono);
     font-size: 0.82rem;
     color: var(--fg);
-    word-break: break-all;
     line-height: 1.5;
     opacity: 0.85;
   }}
 
   dd.meta-value.dim {{
-    color: var(--fg-dim);
+    color: var(--fg-muted);
     font-size: 0.78rem;
   }}
 
@@ -397,8 +389,8 @@ pub fn main_style() -> String {
     .card {{ padding: 2rem 1.5rem 1.5rem; }}
     h1 {{ font-size: 1.35rem; }}
     .avatar {{ width: 96px; height: 96px; padding: 8px; }}
-    .meta-row.inline {{ flex-direction: column; align-items: flex-start; gap: 0.35rem; }}
-    .meta-row.inline dd {{ text-align: left; }}
+    .meta-row.inline {{ grid-template-columns: 1fr; gap: 0.15rem; }}
+    .meta-row.inline dd {{ text-align: left; white-space: normal; }}
   }}
 
   @media (prefers-reduced-motion: reduce) {{

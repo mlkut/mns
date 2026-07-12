@@ -119,6 +119,8 @@ pub fn render_html(
     let canonical = name.canonical_domain();
     let avatar_svg = name.render_avatar_svg();
     let zsk_hex = hex::encode(zsk);
+    let zsk_full = format!("0x{zsk_hex}");
+    let zsk_display = truncate_addr(&zsk_full);
 
     let mut rows = String::new();
     for r in records {
@@ -362,7 +364,7 @@ pub fn render_html(
     {owner_row}
     <div class="meta-row inline">
       <dt class="meta-label">ZSK</dt>
-      <dd class="meta-value dim">0x{zsk_hex}</dd>
+      <dd class="meta-value dim" title="{zsk_full}">{zsk_display}</dd>
     </div>
     <div class="meta-row inline">
       <dt class="meta-label">NS</dt>
@@ -373,27 +375,29 @@ pub fn render_html(
       <dd class="meta-value dim">{ts}</dd>
     </div>
   </dl>
-</article>
 
-<section class="card records-card" id="records-card">
-  <div class="records-header">
-    <h2>Signed Packet</h2>
-    <div style="display:flex;gap:0.5rem">
-      <button class="editor-btn" id="ed-create" style="display:none">Create</button>
-      <button class="editor-btn secondary" id="ed-edit" style="display:none">Edit</button>
+  <div class="divider" role="separator"></div>
+
+  <div class="records-card" id="records-card">
+    <div class="records-header">
+      <h2>Signed Packet</h2>
+      <div style="display:flex;gap:0.5rem">
+        <button class="editor-btn" id="ed-create" style="display:none">Create</button>
+        <button class="editor-btn secondary" id="ed-edit" style="display:none">Edit</button>
+      </div>
+    </div>
+    <div id="ed-view">{records_table}</div>
+    <div class="editor-form" id="ed-form">
+      <div id="ed-records"></div>
+      <button class="editor-btn secondary" id="ed-add" style="margin-top:0.5rem">+ Add Record</button>
+      <div class="editor-actions">
+        <button class="editor-btn" id="ed-publish">Publish</button>
+        <button class="editor-btn secondary" id="ed-cancel">Cancel</button>
+      </div>
+      <div class="editor-status" id="ed-status"></div>
     </div>
   </div>
-  <div id="ed-view">{records_table}</div>
-  <div class="editor-form" id="ed-form">
-    <div id="ed-records"></div>
-    <button class="editor-btn secondary" id="ed-add" style="margin-top:0.5rem">+ Add Record</button>
-    <div class="editor-actions">
-      <button class="editor-btn" id="ed-publish">Publish</button>
-      <button class="editor-btn secondary" id="ed-cancel">Cancel</button>
-    </div>
-    <div class="editor-status" id="ed-status"></div>
-  </div>
-</section>
+</article>
 
 <nav class="back-wrap" aria-label="Breadcrumb">
   <a class="back-link" href="/">← Home</a>
@@ -799,6 +803,8 @@ pub fn render_not_found_page(
     };
 
     let zsk_hex = zsk.map(hex::encode).unwrap_or_default();
+    let zsk_full = format!("0x{zsk_hex}");
+    let zsk_display = truncate_addr(&zsk_full);
     let has_zsk = zsk.is_some();
 
     let (meta_rows, empty_text) = if let Some(zsk) = zsk {
@@ -817,7 +823,7 @@ pub fn render_not_found_page(
             format!(
                 r#"<div class="meta-row inline">
       <dt class="meta-label">ZSK</dt>
-      <dd class="meta-value dim">0x{zsk_hex}</dd>
+      <dd class="meta-value dim" title="{zsk_full}">{zsk_display}</dd>
     </div>
     {ns_row}"#,
             ),
@@ -999,7 +1005,8 @@ pub fn render_not_found_page(
     );
 
     let editor_section = if has_zsk {
-        r#"<section class="card records-card" id="records-card">
+        r#"<div class="divider" role="separator"></div>
+<div class="records-card" id="records-card">
   <div class="records-header">
     <h2>Signed Packet</h2>
     <div style="display:flex;gap:0.5rem">
@@ -1017,7 +1024,7 @@ pub fn render_not_found_page(
     </div>
     <div class="editor-status" id="ed-status"></div>
   </div>
-</section>"#
+</div>"#
     } else {
         ""
     };
@@ -1413,9 +1420,9 @@ await init();
     {owner_row}
     {meta_rows}
   </dl>
-</article>
 
-{editor_section}
+  {editor_section}
+</article>
 
 <nav class="back-wrap" aria-label="Breadcrumb">
   <a class="back-link" href="/">← Home</a>
