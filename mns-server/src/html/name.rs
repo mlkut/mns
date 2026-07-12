@@ -157,54 +157,28 @@ pub fn render_html(
 
     let records_json = records_to_json(records);
 
-    let records_section = if records.is_empty() {
+    let records_table = if records.is_empty() {
         String::new()
     } else {
         format!(
-            r#"<section class="card records-card" aria-labelledby="records-heading">
-  <h2 id="records-heading">Resource Records</h2>
-  <table>
+            r#"<table>
     <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">TTL</th><th scope="col">Data</th></tr></thead>
     <tbody>{rows}</tbody>
-  </table>
-</section>"#,
+  </table>"#,
         )
     };
 
     let style = format!(
         r#"{main_style}
 
-  .you-badge {{
-    display: none;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.3rem 0.7rem;
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
-    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-    color: var(--accent-text);
-    font-family: var(--mono);
-    font-size: 0.75rem;
-    font-weight: 600;
-    margin: 0 auto 0.5rem;
-    width: fit-content;
-  }}
-  .you-badge.show {{ display: flex; }}
-
-  .editor-card {{
-    margin-top: 1rem;
-    max-width: 560px;
-    width: 100%;
-  }}
-
-  .editor-header {{
+  .records-header {{
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 1rem;
   }}
 
-  .editor-header h2 {{
+  .records-header h2 {{
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--fg-muted);
@@ -399,24 +373,17 @@ pub fn render_html(
       <dd class="meta-value dim">{ts}</dd>
     </div>
   </dl>
-
-  <div class="you-badge" id="you-badge">You control this name</div>
-
-  <p class="empty-state">No signed packets published yet.</p>
 </article>
 
-{records_section}
-
-<section class="card editor-card" id="editor-card" style="display:none">
-  <div class="editor-header">
+<section class="card records-card" id="records-card">
+  <div class="records-header">
     <h2>Signed Packet</h2>
     <div style="display:flex;gap:0.5rem">
       <button class="editor-btn" id="ed-create" style="display:none">Create</button>
       <button class="editor-btn secondary" id="ed-edit" style="display:none">Edit</button>
-      <button class="editor-btn secondary" id="ed-discard" style="display:none">Discard draft</button>
     </div>
   </div>
-  <div id="ed-empty"></div>
+  <div id="ed-view">{records_table}</div>
   <div class="editor-form" id="ed-form">
     <div id="ed-records"></div>
     <button class="editor-btn secondary" id="ed-add" style="margin-top:0.5rem">+ Add Record</button>
@@ -448,22 +415,13 @@ await init();
   var PUB_RECORDS_JSON = '{records_json}';
   var DRAFT_KEY = 'mns-draft-' + NAME;
 
-  try {{
-    var walletZsk = localStorage.getItem('mns-wallet-zsk');
-    if (walletZsk && walletZsk === ZSK) {{
-      document.getElementById('you-badge').classList.add('show');
-    }}
-  }} catch(e) {{}}
-
   var records = [];
-  var editorCard = document.getElementById('editor-card');
-  var edEmpty = document.getElementById('ed-empty');
+  var edView = document.getElementById('ed-view');
   var edForm = document.getElementById('ed-form');
   var edRecords = document.getElementById('ed-records');
   var edStatus = document.getElementById('ed-status');
   var edEdit = document.getElementById('ed-edit');
   var edCreate = document.getElementById('ed-create');
-  var edDiscard = document.getElementById('ed-discard');
   var edAdd = document.getElementById('ed-add');
   var edPublish = document.getElementById('ed-publish');
   var edCancel = document.getElementById('ed-cancel');
@@ -498,27 +456,27 @@ await init();
     try {{ localStorage.removeItem(DRAFT_KEY); }} catch(e) {{}}
   }}
 
-  function showButtons(create, edit, discard) {{
+  function showButtons(create, edit) {{
     edCreate.style.display = create ? '' : 'none';
     edEdit.style.display = edit ? '' : 'none';
-    edDiscard.style.display = discard ? '' : 'none';
   }}
 
   function showForm() {{
     edRecords.innerHTML = '';
     records.forEach(function(r, i) {{ edRecords.appendChild(makeRow(r, i)); }});
+    edView.style.display = 'none';
     edForm.classList.add('show');
-    edEmpty.innerHTML = '';
   }}
 
   function hideForm() {{
     edForm.classList.remove('show');
+    edView.style.display = '';
   }}
 
   function startEditing(recs) {{
     records = JSON.parse(JSON.stringify(recs));
     saveDraft();
-    showButtons(false, false, true);
+    showButtons(false, false);
     showForm();
   }}
 
@@ -662,20 +620,12 @@ await init();
     startEditing(pubRecords);
   }};
 
-  edDiscard.onclick = function() {{
-    clearDraft();
-    records = [];
-    hideForm();
-    edEmpty.innerHTML = '';
-    if (PUB_TS > 0) showButtons(false, true, false);
-    else showButtons(true, false, false);
-  }};
-
   edCancel.onclick = function() {{
+    clearDraft();
     hideForm();
-    var draft = loadDraft();
-    if (PUB_TS > 0) showButtons(false, !draft, !!draft);
-    else showButtons(!draft, false, !!draft);
+    records = [];
+    if (PUB_TS > 0) showButtons(false, true);
+    else showButtons(true, false);
   }};
 
   edAdd.onclick = function() {{
@@ -803,14 +753,13 @@ await init();
     try {{
       var walletZsk = localStorage.getItem('mns-wallet-zsk');
       if (walletZsk === ZSK) {{
-        editorCard.style.display = '';
         var draft = loadDraft();
         if (draft) {{
           startEditing(draft.records);
         }} else if (PUB_TS > 0) {{
-          showButtons(false, true, false);
+          showButtons(false, true);
         }} else {{
-          showButtons(true, false, false);
+          showButtons(true, false);
         }}
       }}
     }} catch(e) {{}}
@@ -881,37 +830,14 @@ pub fn render_not_found_page(
     let style = format!(
         r#"{main_style}
 
-  .you-badge {{
-    display: none;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.3rem 0.7rem;
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
-    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-    color: var(--accent-text);
-    font-family: var(--mono);
-    font-size: 0.75rem;
-    font-weight: 600;
-    margin: 0 auto 0.5rem;
-    width: fit-content;
-  }}
-  .you-badge.show {{ display: flex; }}
-
-  .editor-card {{
-    margin-top: 1rem;
-    max-width: 560px;
-    width: 100%;
-  }}
-
-  .editor-header {{
+  .records-header {{
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 1rem;
   }}
 
-  .editor-header h2 {{
+  .records-header h2 {{
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--fg-muted);
@@ -1073,16 +999,15 @@ pub fn render_not_found_page(
     );
 
     let editor_section = if has_zsk {
-        r#"<section class="card editor-card" id="editor-card" style="display:none">
-  <div class="editor-header">
+        r#"<section class="card records-card" id="records-card">
+  <div class="records-header">
     <h2>Signed Packet</h2>
     <div style="display:flex;gap:0.5rem">
       <button class="editor-btn" id="ed-create" style="display:none">Create</button>
       <button class="editor-btn secondary" id="ed-edit" style="display:none">Edit</button>
-      <button class="editor-btn secondary" id="ed-discard" style="display:none">Discard draft</button>
     </div>
   </div>
-  <div id="ed-empty"></div>
+  <div id="ed-view"><p class="editor-empty">No signed packets published yet.</p></div>
   <div class="editor-form" id="ed-form">
     <div id="ed-records"></div>
     <button class="editor-btn secondary" id="ed-add" style="margin-top:0.5rem">+ Add Record</button>
@@ -1111,22 +1036,13 @@ await init();
   var PUB_RECORDS_JSON = '[]';
   var DRAFT_KEY = 'mns-draft-' + NAME;
 
-  try {{
-    var walletZsk = localStorage.getItem('mns-wallet-zsk');
-    if (walletZsk && walletZsk === ZSK) {{
-      document.getElementById('you-badge').classList.add('show');
-    }}
-  }} catch(e) {{}}
-
   var records = [];
-  var editorCard = document.getElementById('editor-card');
-  var edEmpty = document.getElementById('ed-empty');
+  var edView = document.getElementById('ed-view');
   var edForm = document.getElementById('ed-form');
   var edRecords = document.getElementById('ed-records');
   var edStatus = document.getElementById('ed-status');
   var edEdit = document.getElementById('ed-edit');
   var edCreate = document.getElementById('ed-create');
-  var edDiscard = document.getElementById('ed-discard');
   var edAdd = document.getElementById('ed-add');
   var edPublish = document.getElementById('ed-publish');
   var edCancel = document.getElementById('ed-cancel');
@@ -1161,27 +1077,27 @@ await init();
     try {{ localStorage.removeItem(DRAFT_KEY); }} catch(e) {{}}
   }}
 
-  function showButtons(create, edit, discard) {{
+  function showButtons(create, edit) {{
     edCreate.style.display = create ? '' : 'none';
     edEdit.style.display = edit ? '' : 'none';
-    edDiscard.style.display = discard ? '' : 'none';
   }}
 
   function showForm() {{
     edRecords.innerHTML = '';
     records.forEach(function(r, i) {{ edRecords.appendChild(makeRow(r, i)); }});
+    edView.style.display = 'none';
     edForm.classList.add('show');
-    edEmpty.innerHTML = '';
   }}
 
   function hideForm() {{
     edForm.classList.remove('show');
+    edView.style.display = '';
   }}
 
   function startEditing(recs) {{
     records = JSON.parse(JSON.stringify(recs));
     saveDraft();
-    showButtons(false, false, true);
+    showButtons(false, false);
     showForm();
   }}
 
@@ -1325,18 +1241,11 @@ await init();
     startEditing(recs);
   }};
 
-  edDiscard.onclick = function() {{
-    clearDraft();
-    records = [];
-    hideForm();
-    edEmpty.innerHTML = '';
-    showButtons(true, false, false);
-  }};
-
   edCancel.onclick = function() {{
+    clearDraft();
     hideForm();
-    var draft = loadDraft();
-    showButtons(!draft, false, !!draft);
+    records = [];
+    showButtons(true, false);
   }};
 
   edAdd.onclick = function() {{
@@ -1463,12 +1372,11 @@ await init();
     try {{
       var walletZsk = localStorage.getItem('mns-wallet-zsk');
       if (walletZsk === ZSK) {{
-        editorCard.style.display = '';
         var draft = loadDraft();
         if (draft) {{
           startEditing(draft.records);
         }} else {{
-          showButtons(true, false, false);
+          showButtons(true, false);
         }}
       }}
     }} catch(e) {{}}
@@ -1505,10 +1413,6 @@ await init();
     {owner_row}
     {meta_rows}
   </dl>
-
-  <div class="you-badge" id="you-badge">You control this name</div>
-
-  <p class="empty-state">{empty_text}</p>
 </article>
 
 {editor_section}

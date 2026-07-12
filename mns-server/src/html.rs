@@ -27,7 +27,7 @@ pub fn truncate_addr(addr: &str) -> String {
 }
 
 pub fn format_timestamp(ts: u64) -> String {
-    let secs = ts as i64;
+    let secs = (ts / 1_000_000) as i64;
     let Ok(dt) = time::OffsetDateTime::from_unix_timestamp(secs) else {
         return ts.to_string();
     };
