@@ -133,10 +133,6 @@ pub fn render_wallet_page(nav: &Navbar) -> String {
   .wc-copy:hover {{ color: var(--fg); border-color: var(--accent); }}
   .wc-copy.done {{ color: var(--accent); border-color: var(--accent); }}
 
-  .wc-seed-hidden {{ filter: blur(4px); cursor: pointer; transition: filter 0.25s; }}
-  .wc-seed-hidden:hover {{ filter: blur(3px); }}
-  .wc-seed-hidden.revealed {{ filter: none; }}
-
   .wc-note {{
     font-size: 0.72rem;
     color: var(--fg-muted);
@@ -161,6 +157,21 @@ pub fn render_wallet_page(nav: &Navbar) -> String {
     color: var(--accent-text);
     min-height: 1rem;
   }}
+
+  .wc-btn-sm {{
+    padding: 0.35rem 0.7rem;
+    border-radius: var(--radius-sm);
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 0.72rem;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--fg-muted);
+    transition: color 0.15s, border-color 0.15s;
+  }}
+  .wc-btn-sm:hover {{ color: var(--fg); border-color: var(--accent); }}
+  .wc-btn-sm:disabled {{ opacity: 0.4; cursor: default; }}
 
   .wc-batches {{ display: none; flex-direction: column; gap: 0.6rem; }}
   .wc-batches.show {{ display: flex; }}
@@ -204,20 +215,6 @@ pub fn render_wallet_page(nav: &Navbar) -> String {
   }}
   .wc-batch-zsk .label {{ color: var(--fg-muted); }}
   .wc-batch-actions {{ margin-top: 0.45rem; }}
-  .wc-btn-sm {{
-    padding: 0.35rem 0.7rem;
-    border-radius: var(--radius-sm);
-    font-family: var(--sans);
-    font-weight: 600;
-    font-size: 0.72rem;
-    cursor: pointer;
-    border: 1px solid var(--border);
-    background: none;
-    color: var(--fg-muted);
-    transition: color 0.15s, border-color 0.15s;
-  }}
-  .wc-btn-sm:hover {{ color: var(--fg); border-color: var(--accent); }}
-  .wc-btn-sm:disabled {{ opacity: 0.4; cursor: default; }}
   .wc-batch-msg {{
     font-size: 0.68rem;
     color: var(--accent-text);
@@ -234,7 +231,6 @@ pub fn render_wallet_page(nav: &Navbar) -> String {
     let nav_html = navbar_html(nav);
     let chain_id = nav.chain_id;
     let rpc_url = &nav.rpc_url;
-    let contract_address = &nav.contract_address;
     let faucet = if chain_id == 31 {
         "https://faucet.rootstock.io/"
     } else {
@@ -262,33 +258,35 @@ pub fn render_wallet_page(nav: &Navbar) -> String {
   </div>
 
   <form class="wc-form" id="wc-form" autocomplete="on">
-    <input type="text" name="username" id="wc-username" value="mns-wallet"
-           autocomplete="username" style="display:none" readonly>
-    <div class="wc-field">
-      <label for="wc-mnemonic">Seed phrase</label>
+    <div class="wc-field" id="wc-username-field" style="display:none">
+      <label for="wc-username">Account name</label>
+      <input type="text" class="wc-input" id="wc-username" value=""
+             autocomplete="off" placeholder="e.g. personal, work, testing">
+    </div>
+
+    <div class="wc-field" id="wc-mnemonic-field" style="display:none">
+      <label for="wc-mnemonic">Old seed phrase (migration)</label>
       <textarea class="wc-input" name="password" id="wc-mnemonic"
                 autocomplete="current-password"
-                placeholder="Enter your 12-word seed phrase, or generate a new wallet" spellcheck="false"></textarea>
+                placeholder="Enter your old 12-word seed phrase" spellcheck="false"></textarea>
     </div>
+
     <div class="wc-actions">
       <button type="submit" class="wc-btn-primary" id="wc-unlock">Unlock</button>
-      <button type="button" class="wc-btn-ghost" id="wc-generate">Generate New</button>
+      <button type="button" class="wc-btn-ghost" id="wc-generate">New Account</button>
     </div>
     <p class="wc-msg" id="wc-msg"></p>
   </form>
 
   <div class="wc-identity" id="wc-identity">
     <div class="wc-warn" id="wc-backup-warn" style="display:none">
-      Write down your seed phrase and save it. It is the only way to recover this wallet.
-      Your browser has been asked to save it to your password manager.
+      Your keys have been saved to your browser's password manager.
+      They will be requested when you sign a transaction.
     </div>
 
     <div class="wc-key-row">
-      <div class="wc-key-label">
-        <span>Seed phrase</span>
-        <button class="wc-copy" data-copy="mnemonic">copy</button>
-      </div>
-      <div class="wc-key-value" id="out-mnemonic"></div>
+      <div class="wc-key-label"><span>Account</span></div>
+      <div class="wc-key-value" id="out-username"></div>
     </div>
 
     <div class="wc-key-row">
@@ -300,15 +298,13 @@ pub fn render_wallet_page(nav: &Navbar) -> String {
     </div>
 
     <div class="wc-key-row">
-      <div class="wc-key-label">
-        <span>RBTC balance</span>
-      </div>
+      <div class="wc-key-label"><span>RBTC balance</span></div>
       <div class="wc-key-value" id="out-balance">—</div>
     </div>
 
     <div class="wc-key-row">
       <div class="wc-key-label">
-        <span>ZSK public key</span>
+        <span>ZSK</span>
         <button class="wc-copy" data-copy="zsk">copy</button>
       </div>
       <div class="wc-key-value" id="out-zsk"></div>
@@ -354,24 +350,25 @@ pub fn render_wallet_page(nav: &Navbar) -> String {
 {particles}
 
 <script type="module">
-import init, {{ init_client, generate_mnemonic, validate_mnemonic, derive_keys, get_balance, register as wasm_register, update_batch as wasm_update_batch }} from '/static/mns-wasm/mns_wasm.js';
+import init, {{ init_client, generate_wallet, derive_wallet_from_hex, key_to_mnemonic, migrate_from_mnemonic, get_balance, register as wasm_register, update_batch as wasm_update_batch }} from '/static/mns-wasm/mns_wasm.js';
 await init();
 init_client('{rpc_url}');
 
 const CHAIN_ID = {chain_id};
-const USERNAME = 'mns-wallet';
 
 let session = null;
-let autoUnlockDone = false;
 
 const els = {{
   form: document.getElementById('wc-form'),
   identity: document.getElementById('wc-identity'),
+  usernameField: document.getElementById('wc-username-field'),
+  username: document.getElementById('wc-username'),
   mnemonic: document.getElementById('wc-mnemonic'),
+  mnemonicField: document.getElementById('wc-mnemonic-field'),
   msg: document.getElementById('wc-msg'),
   status: document.getElementById('wc-status'),
   statusText: document.getElementById('wc-status-text'),
-  outMnemonic: document.getElementById('out-mnemonic'),
+  outUsername: document.getElementById('out-username'),
   outAddress: document.getElementById('out-address'),
   outBalance: document.getElementById('out-balance'),
   outZsk: document.getElementById('out-zsk'),
@@ -381,218 +378,286 @@ const els = {{
   lock: document.getElementById('wc-lock'),
 }};
 
+// ── localStorage helpers ──
+
+function loadStored() {{
+  const username = localStorage.getItem('mns-wallet-username');
+  const addr = localStorage.getItem('mns-wallet-addr');
+  const zsk = localStorage.getItem('mns-wallet-zsk');
+  if (username && addr && zsk) return {{ username, address: addr, zsk_commitment_hex: zsk }};
+  return null;
+}}
+
+function saveStored(data) {{
+  localStorage.setItem('mns-wallet-username', data.username);
+  localStorage.setItem('mns-wallet-addr', data.address);
+  localStorage.setItem('mns-wallet-zsk', data.zsk_commitment_hex);
+}}
+
+function clearStored() {{
+  localStorage.removeItem('mns-wallet-username');
+  localStorage.removeItem('mns-wallet-addr');
+  localStorage.removeItem('mns-wallet-zsk');
+}}
+
+// ── Credential helpers ──
+
+async function storeCredential(username, rskHex, edHex) {{
+  if (!('PasswordCredential' in window)) return false;
+  try {{
+    const cred = new window.PasswordCredential({{
+      id: username,
+      password: rskHex + '\\n' + edHex,
+      name: 'MNS Wallet — ' + username,
+    }});
+    await navigator.credentials.store(cred);
+    return true;
+  }} catch {{ return false; }}
+}}
+
+async function getCredential(mediation) {{
+  if (!navigator.credentials || !('PasswordCredential' in window)) return null;
+  try {{
+    return await navigator.credentials.get({{
+      password: true,
+      mediation: mediation || 'optional',
+    }});
+  }} catch {{ return null; }}
+}}
+
+function parseCredentialPassword(password) {{
+  if (!password) return null;
+  const parts = password.split('\\n');
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
+  return {{ rskHex: parts[0], edHex: parts[1] }};
+}}
+
+// ── RPC helpers ──
+
 async function fetchBalance(address) {{
-  try {{ return await get_balance(address); }} catch(e) {{ return '—'; }}
+  try {{ return await get_balance(address); }} catch {{ return '—'; }}
 }}
 
 async function fetchBatches(address) {{
-  try{{
-    var r=await fetch('/api/batches/'+address);
-    if(!r.ok)return;
-    var batches=await r.json();
-    var container=document.getElementById('wc-batches');
-    var list=document.getElementById('wc-batch-list');
-    if(!batches.length){{container.classList.remove('show');return}}
+  try {{
+    var r = await fetch('/api/batches/' + address);
+    if (!r.ok) return;
+    var batches = await r.json();
+    var container = document.getElementById('wc-batches');
+    var list = document.getElementById('wc-batch-list');
+    if (!batches.length) {{ container.classList.remove('show'); return; }}
     container.classList.add('show');
-    list.innerHTML='';
-    for(var i=0;i<batches.length;i++){{
-      var b=batches[i];
-      var div=document.createElement('div');
-      div.className='wc-batch';
-      var zskShort=b.zsk.length>18?b.zsk.slice(0,10)+'…'+b.zsk.slice(-6):b.zsk;
-      div.innerHTML=''
-        +'<div class="wc-batch-row">'
-        +'  <span class="wc-batch-ordinal">Batch #'+b.ordinal+'</span>'
-        +'  <span class="wc-batch-ns">'+b.ns+'</span>'
-        +'</div>'
-        +'<div class="wc-batch-zsk"><span class="label">ZSK:</span> '+zskShort+'</div>'
-        +'<div class="wc-batch-actions">'
-        +'  <button class="wc-btn-sm wc-batch-update" data-ordinal="'+b.ordinal+'" data-ns="'+b.ns+'" data-zsk="'+b.zsk+'">Update ZSK</button>'
-        +'</div>'
-        +'<div class="wc-batch-msg" id="wc-batch-msg-'+b.ordinal+'"></div>';
+    list.innerHTML = '';
+    for (var i = 0; i < batches.length; i++) {{
+      var b = batches[i];
+      var div = document.createElement('div');
+      div.className = 'wc-batch';
+      var zskShort = b.zsk.length > 18 ? b.zsk.slice(0, 10) + '…' + b.zsk.slice(-6) : b.zsk;
+      div.innerHTML = ''
+        + '<div class="wc-batch-row">'
+        + '  <span class="wc-batch-ordinal">Batch #' + b.ordinal + '</span>'
+        + '  <span class="wc-batch-ns">' + b.ns + '</span>'
+        + '</div>'
+        + '<div class="wc-batch-zsk"><span class="label">ZSK:</span> ' + zskShort + '</div>'
+        + '<div class="wc-batch-actions">'
+        + '  <button class="wc-btn-sm wc-batch-update" data-ordinal="' + b.ordinal + '" data-ns="' + b.ns + '">Update ZSK</button>'
+        + '</div>'
+        + '<div class="wc-batch-msg" id="wc-batch-msg-' + b.ordinal + '"></div>';
       list.appendChild(div);
     }}
-  }}catch(e){{}}
+  }} catch {{}}
 }}
-document.getElementById('wc-batch-list').addEventListener('click',function(e){{
-  if(e.target.classList.contains('wc-batch-update')){{
-    if(!session)return;
-    doUpdateBatch(parseInt(e.target.dataset.ordinal),e.target.dataset.ns,session);
+
+document.getElementById('wc-batch-list').addEventListener('click', function(e) {{
+  if (e.target.classList.contains('wc-batch-update')) {{
+    if (!session) return;
+    doUpdateBatch(parseInt(e.target.dataset.ordinal), e.target.dataset.ns);
   }}
 }});
 
-async function doRegister(ns, data) {{
-  var msgEl=document.getElementById('wc-register-msg');
-  msgEl.textContent='Preparing…';
-  try{{
-    var txHash=await wasm_register(data.private_key_hex,data.zsk_commitment_hex,ns);
-    msgEl.innerHTML='Tx sent: <a href="'+('https://explorer.testnet.rootstock.io/tx/'+txHash)+'" target="_blank" rel="noopener">'+txHash.slice(0,14)+'…</a>';
-    setTimeout(function(){{fetchBatches(data.address)}},15000);
-  }}catch(e){{msgEl.textContent='Error: '+e.message}}
+// ── Signing (prompt for credentials on every transaction) ──
+
+async function signTx(fn) {{
+  var cred = await getCredential('optional');
+  if (!cred || !cred.password) return 'No credentials found.';
+  var keys = parseCredentialPassword(cred.password);
+  if (!keys) return 'Invalid stored credentials.';
+  try {{
+    var derived = derive_wallet_from_hex(keys.rskHex, keys.edHex);
+    if (derived[0] !== session.address) return 'Credential does not match this account.';
+    return await fn(keys.rskHex, keys.edHex);
+  }} finally {{
+    keys = null;
+  }}
 }}
 
-async function doUpdateBatch(ordinal, currentNs, data) {{
-  var msgEl=document.getElementById('wc-batch-msg-'+ordinal);
-  msgEl.textContent='Preparing…';
-  try{{
-    var txHash=await wasm_update_batch(data.private_key_hex,BigInt(ordinal),data.address,data.zsk_commitment_hex,currentNs);
-    msgEl.innerHTML='Tx sent: <a href="'+('https://explorer.testnet.rootstock.io/tx/'+txHash)+'" target="_blank" rel="noopener">'+txHash.slice(0,14)+'…</a>';
-    setTimeout(function(){{fetchBatches(data.address)}},15000);
-  }}catch(e){{msgEl.textContent='Error: '+e.message}}
+async function doRegister(ns) {{
+  var msgEl = document.getElementById('wc-register-msg');
+  msgEl.textContent = 'Preparing…';
+  try {{
+    var err = await signTx(async function(rskHex, edHex) {{
+      var txHash = await wasm_register(rskHex, session.zsk_commitment_hex, ns);
+      msgEl.innerHTML = 'Tx sent: <a href="' + ('https://explorer.testnet.rootstock.io/tx/' + txHash) + '" target="_blank" rel="noopener">' + txHash.slice(0, 14) + '…</a>';
+      setTimeout(function() {{ fetchBatches(session.address); }}, 15000);
+      return null;
+    }});
+    if (err) msgEl.textContent = err;
+  }} catch (e) {{ msgEl.textContent = 'Error: ' + e.message; }}
 }}
+
+async function doUpdateBatch(ordinal, currentNs) {{
+  var msgEl = document.getElementById('wc-batch-msg-' + ordinal);
+  msgEl.textContent = 'Preparing…';
+  try {{
+    var err = await signTx(async function(rskHex, edHex) {{
+      var txHash = await wasm_update_batch(rskHex, BigInt(ordinal), session.address, session.zsk_commitment_hex, currentNs);
+      msgEl.innerHTML = 'Tx sent: <a href="' + ('https://explorer.testnet.rootstock.io/tx/' + txHash) + '" target="_blank" rel="noopener">' + txHash.slice(0, 14) + '…</a>';
+      setTimeout(function() {{ fetchBatches(session.address); }}, 15000);
+      return null;
+    }});
+    if (err) msgEl.textContent = err;
+  }} catch (e) {{ msgEl.textContent = 'Error: ' + e.message; }}
+}}
+
+// ── UI state ──
 
 function showUnlocked(data, isNew) {{
-  session = data;
+  session = {{ username: data.username, address: data.address, zsk_commitment_hex: data.zsk_commitment_hex }};
   els.form.classList.add('hide');
   els.identity.classList.add('show');
   els.status.classList.remove('locked');
   els.status.classList.add('unlocked');
   els.statusText.textContent = 'Unlocked';
-  els.outMnemonic.textContent = data.mnemonic;
-  els.outMnemonic.classList.add('wc-seed-hidden');
+  els.outUsername.textContent = data.username;
   els.outAddress.textContent = data.address;
-  els.outZsk.textContent = '0x' + data.zsk_pub;
+  els.outZsk.textContent = data.zsk_commitment_hex;
   els.backupWarn.style.display = isNew ? 'block' : 'none';
   const faucet = {faucet_js};
   if (faucet) {{
     els.faucetNote.innerHTML = 'Fund this address with test tRBTC from the <a href="' + faucet + '" target="_blank" rel="noopener">faucet</a> to register names.';
   }}
-  localStorage.setItem('mns-wallet-addr', data.address);
-  localStorage.setItem('mns-wallet-mnemonic', data.mnemonic);
-  fetchBalance(data.address).then(function(b){{els.outBalance.textContent=b}});
+  saveStored(data);
+  fetchBalance(data.address).then(function(b) {{ els.outBalance.textContent = b; }});
   fetchBatches(data.address);
 }}
 
 function showLocked() {{
   session = null;
-  autoUnlockDone = true;
   els.form.classList.remove('hide');
   els.identity.classList.remove('show');
   els.status.classList.remove('unlocked');
   els.status.classList.add('locked');
   els.statusText.textContent = 'Locked';
-  els.mnemonic.value = '';
   els.msg.textContent = '';
   els.outBalance.textContent = '—';
-  localStorage.removeItem('mns-wallet-addr');
-  localStorage.removeItem('mns-wallet-mnemonic');
+  els.mnemonic.value = '';
+  els.mnemonicField.style.display = 'none';
+  els.username.value = '';
+  els.usernameField.style.display = 'none';
+  clearStored();
 }}
 
-async function saveCredential(mnemonic) {{
-  if (!('PasswordCredential' in window)) return false;
-  try {{
-    const cred = new window.PasswordCredential({{
-      id: USERNAME,
-      password: mnemonic,
-      name: 'MNS Wallet',
-    }});
-    await navigator.credentials.store(cred);
-    return true;
-  }} catch (e) {{
-    return false;
+// ── Unlock / Generate flows ──
+
+async function unlockWithCredential() {{
+  els.msg.textContent = 'Unlocking…';
+  var cred = await getCredential('optional');
+  if (!cred || !cred.password) {{
+    els.msg.textContent = 'No credentials found. Generate a new account instead.';
+    return;
   }}
-}}
-
-async function unlock(rawMnemonic, isNew) {{
-  if (autoUnlockDone) return false;
-  const mnemonic = (rawMnemonic || '').trim().replace(/\\s+/g, ' ');
-  if (!mnemonic || !validate_mnemonic(mnemonic)) return false;
-  autoUnlockDone = true;
-  const keys = derive_keys(mnemonic);
-  showUnlocked({{
-    mnemonic,
-    address: keys.address,
-    private_key_hex: keys.private_key,
-    zsk_pub: keys.zsk_pub,
-    zsk_commitment_hex: keys.zsk_commitment,
-  }}, isNew === true);
-  return true;
-}}
-
-async function getSavedCredential(mediation) {{
-  if (!navigator.credentials || !('PasswordCredential' in window)) return null;
+  const keys = parseCredentialPassword(cred.password);
+  if (!keys) {{ els.msg.textContent = 'Invalid stored credentials.'; return; }}
+  const username = cred.id || 'wallet';
   try {{
-    return await navigator.credentials.get({{ password: true, mediation }});
+    const result = derive_wallet_from_hex(keys.rskHex, keys.edHex);
+    showUnlocked({{
+      username: username,
+      address: result[0],
+      zsk_commitment_hex: result[1],
+    }}, false);
   }} catch (e) {{
-    return null;
+    els.msg.textContent = 'Derivation failed: ' + e.message;
   }}
-}}
-
-async function attemptAutoUnlock() {{
-  var saved = localStorage.getItem('mns-wallet-mnemonic');
-  if (saved && await unlock(saved, false)) return;
-
-  const cred = await getSavedCredential('silent');
-  if (cred && cred.password && await unlock(cred.password, false)) return;
-
-  const started = Date.now();
-  const poll = setInterval(function() {{
-    if (autoUnlockDone || Date.now() - started > 3000) {{ clearInterval(poll); return; }}
-    if (els.mnemonic.value.trim()) {{ clearInterval(poll); unlock(els.mnemonic.value, false); }}
-  }}, 120);
-
-  document.addEventListener('click', function onFirstClick() {{
-    document.removeEventListener('click', onFirstClick);
-    if (!autoUnlockDone && els.mnemonic.value.trim()) unlock(els.mnemonic.value, false);
-  }}, {{ once: true }});
 }}
 
 els.form.addEventListener('submit', async function(e) {{
   e.preventDefault();
-  let raw = els.mnemonic.value.trim().replace(/\\s+/g, ' ');
-  if (!raw) {{
-    const cred = await getSavedCredential('optional');
-    if (cred && cred.password) {{
-      raw = cred.password.trim().replace(/\\s+/g, ' ');
-      els.mnemonic.value = raw;
+
+  // Migration: mnemonic visible
+  const mnemonic = els.mnemonic.value.trim().replace(/\\s+/g, ' ');
+  if (mnemonic) {{
+    const username = els.username.value.trim();
+    if (!username) {{ els.msg.textContent = 'Enter a username for this account.'; return; }}
+    els.msg.textContent = 'Migrating…';
+    try {{
+      const result = migrate_from_mnemonic(mnemonic);
+      const rskHex = result[0];
+      const edHex = result[1];
+      await storeCredential(username, rskHex, edHex);
+      showUnlocked({{
+        username: username,
+        address: result[2],
+        zsk_commitment_hex: result[3],
+      }}, true);
+      localStorage.removeItem('mns-wallet-mnemonic');
+    }} catch (err) {{
+      els.msg.textContent = 'Migration failed: ' + err.message;
     }}
+    return;
   }}
-  if (!raw) {{ els.msg.textContent = 'Enter a seed phrase or generate one.'; return; }}
-  if (!validate_mnemonic(raw)) {{ els.msg.textContent = 'Invalid seed phrase.'; return; }}
-  els.msg.textContent = 'Deriving…';
-  try {{
-    autoUnlockDone = false;
-    await unlock(raw, false);
-    await saveCredential(raw);
-  }} catch (err) {{
-    els.msg.textContent = 'Error: ' + err.message;
+
+  // Generate: username field visible (shown by New Account button)
+  if (els.usernameField.style.display !== 'none') {{
+    const username = els.username.value.trim();
+    if (!username) {{ els.msg.textContent = 'Enter a username for this account.'; return; }}
+    els.msg.textContent = 'Generating…';
+    try {{
+      const keys = generate_wallet();
+      const rskHex = keys.rsk_privkey;
+      const edHex = keys.ed_privkey;
+      await storeCredential(username, rskHex, edHex);
+      showUnlocked({{
+        username: username,
+        address: keys.address,
+        zsk_commitment_hex: keys.zsk_commitment,
+      }}, true);
+    }} catch (err) {{
+      els.msg.textContent = 'Error: ' + err.message;
+    }}
+    return;
   }}
+
+  // Unlock: just trigger credential picker
+  await unlockWithCredential();
 }});
 
-els.generate.addEventListener('click', async function() {{
-  const mnemonic = generate_mnemonic();
-  els.mnemonic.value = mnemonic;
-  els.msg.textContent = 'Deriving…';
-  try {{
-    autoUnlockDone = false;
-    await unlock(mnemonic, true);
-    await saveCredential(mnemonic);
-  }} catch (err) {{
-    els.msg.textContent = 'Error: ' + err.message;
-  }}
+els.generate.addEventListener('click', function() {{
+  // Show username field so user can name this account, then submit to generate
+  els.usernameField.style.display = '';
+  els.username.focus();
+  els.msg.textContent = 'Enter a name for this account, then click New Account again.';
 }});
 
 els.lock.addEventListener('click', showLocked);
 
 document.getElementById('wc-register').addEventListener('click', function() {{
   if (!session) return;
-  var ns=document.getElementById('wc-ns').value.trim();
-  if(!ns){{document.getElementById('wc-register-msg').textContent='Enter a name server';return}}
-  doRegister(ns, session);
+  var ns = document.getElementById('wc-ns').value.trim();
+  if (!ns) {{ document.getElementById('wc-register-msg').textContent = 'Enter a name server'; return; }}
+  doRegister(ns);
 }});
+
+// ── Copy buttons ──
 
 document.querySelectorAll('.wc-copy').forEach(function(btn) {{
   btn.addEventListener('click', function() {{
     if (!session) return;
     const key = btn.getAttribute('data-copy');
-    const val = key === 'mnemonic' ? session.mnemonic
-      : key === 'address' ? session.address
-      : '0x' + session.zsk_pub;
-    if (key === 'mnemonic') {{
-      els.outMnemonic.classList.remove('wc-seed-hidden');
-      els.outMnemonic.classList.add('revealed');
-      setTimeout(function(){{els.outMnemonic.classList.remove('revealed');els.outMnemonic.classList.add('wc-seed-hidden')}}, 3000);
-    }}
+    const val = key === 'address' ? session.address
+      : key === 'zsk' ? session.zsk_commitment_hex
+      : '';
+    if (!val) return;
     navigator.clipboard.writeText(val).then(function() {{
       btn.classList.add('done');
       btn.textContent = 'copied';
@@ -601,18 +666,32 @@ document.querySelectorAll('.wc-copy').forEach(function(btn) {{
   }});
 }});
 
-els.outMnemonic.addEventListener('click', function() {{
-  if (this.classList.contains('revealed')) {{
-    this.classList.remove('revealed');
-    this.classList.add('wc-seed-hidden');
-  }} else {{
-    this.classList.remove('wc-seed-hidden');
-    this.classList.add('revealed');
-    setTimeout(function(el){{el.classList.remove('revealed');el.classList.add('wc-seed-hidden')}}, 5000, this);
-  }}
-}});
+// ── Auto-unlock on page load ──
 
-attemptAutoUnlock();
+(function attemptAutoUnlock() {{
+  // 1. Check for old mnemonic (migration path)
+  var oldMnemonic = localStorage.getItem('mns-wallet-mnemonic');
+  if (oldMnemonic) {{
+    els.usernameField.style.display = '';
+    els.mnemonicField.style.display = '';
+    els.mnemonic.value = oldMnemonic;
+    els.msg.textContent = 'Your old wallet was found. Enter a username to migrate.';
+    return;
+  }}
+
+  // 2. Check localStorage for existing wallet
+  var stored = loadStored();
+  if (stored) {{
+    showUnlocked({{
+      username: stored.username,
+      address: stored.address,
+      zsk_commitment_hex: stored.zsk_commitment_hex,
+    }}, false);
+    return;
+  }}
+
+  // 3. Empty state — just show the form with Unlock / New Account buttons
+}})();
 </script>
 
 </body>
@@ -648,23 +727,32 @@ mod tests {
         let html = render_wallet_page(&nav());
         assert!(html.contains("Your Wallet"));
         assert!(html.contains("mns_wasm.js"));
-        // no unresolved format placeholders left behind
         assert!(!html.contains("{main_style}"));
         assert!(!html.contains("{faucet_js}"));
         assert!(!html.contains("{chain_id}"));
     }
 
     #[test]
-    fn has_cross_browser_auto_unlock() {
+    fn has_new_wallet_lifecycle() {
         let html = render_wallet_page(&nav());
-        // Chromium credential retrieval: silent auto + optional chooser fallback
-        assert!(html.contains("getSavedCredential('silent')"));
-        assert!(html.contains("getSavedCredential('optional')"));
-        // Firefox/Chrome autofill poll
-        assert!(html.contains("setInterval"));
-        // Safari first-interaction fallback
-        assert!(html.contains("onFirstClick"));
-        // shared entry point
-        assert!(html.contains("attemptAutoUnlock()"));
+        // New WASM imports
+        assert!(html.contains("generate_wallet"));
+        assert!(html.contains("derive_wallet_from_hex"));
+        assert!(html.contains("migrate_from_mnemonic"));
+        // localStorage keys
+        assert!(html.contains("mns-wallet-username"));
+        assert!(html.contains("mns-wallet-addr"));
+        assert!(html.contains("mns-wallet-zsk"));
+        // Old mnemonic key referenced for migration
+        assert!(html.contains("mns-wallet-mnemonic"));
+        // Credential helpers
+        assert!(html.contains("storeCredential"));
+        assert!(html.contains("getCredential"));
+        // Auto-unlock
+        assert!(html.contains("attemptAutoUnlock"));
+        // No old wallet functions
+        assert!(!html.contains("generate_mnemonic"));
+        assert!(!html.contains("validate_mnemonic"));
+        assert!(!html.contains("derive_keys("));
     }
 }

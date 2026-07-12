@@ -40,6 +40,13 @@ use ed25519_dalek::{Signature, SignatureError, SigningKey, VerifyingKey};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
+/// Generate 32 cryptographically random bytes.
+pub fn generate_random_bytes() -> [u8; 32] {
+    let mut buf = [0u8; 32];
+    getrandom::getrandom(&mut buf).expect("getrandom should work");
+    buf
+}
+
 /// Byte length of a ZSK (Zone Signing Key hash) — always 32 bytes (SHA-256 output).
 ///
 /// The ZSK binds a public key to a DNS zone without assuming the key's algorithm
@@ -267,6 +274,13 @@ mod tests {
         let key_bytes = keypair.public_key().key_bytes();
         let zsk_ed25519 = compute_zsk(KeyType::Ed25519, &key_bytes);
         assert_eq!(zsk_ed25519, zsk_a);
+    }
+
+    #[test]
+    fn random_bytes_are_different() {
+        let a = generate_random_bytes();
+        let b = generate_random_bytes();
+        assert_ne!(a, b);
     }
 
     #[test]

@@ -2909,20 +2909,15 @@ version = "0.1.0"
 dependencies = [
  "alloy",
  "bindings",
- "bip39",
  "ed25519-dalek",
  "getrandom 0.2.17",
  "hex",
- "hmac",
- "k256",
  "ntimestamp",
  "proptest",
  "rayon",
- "sha2 0.10.9",
  "sha2 0.11.0",
  "simple-dns",
  "thiserror",
- "tiny-keccak",
 ]
 
 [[package]]
@@ -2956,11 +2951,19 @@ name = "mns-wasm"
 version = "0.1.0"
 dependencies = [
  "alloy",
+ "bip39",
+ "ed25519-dalek",
  "getrandom 0.2.17",
  "hex",
+ "hmac",
+ "k256",
  "mns",
+ "sha2 0.10.9",
+ "sha2 0.11.0",
+ "tiny-keccak",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "zeroize",
 ]
 
 [[package]]
