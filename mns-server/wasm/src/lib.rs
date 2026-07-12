@@ -351,7 +351,6 @@ pub fn create_signed_packet(
     records_json: &str,
 ) -> Result<String, JsError> {
     use base64::Engine;
-    use ntimestamp::Timestamp;
     use simple_dns::rdata::{RData, HTTPS, MX, SOA, SRV, SVCB};
     use simple_dns::{CharacterString, Name as DnsName, ResourceRecord, CLASS};
     use zeroize::Zeroize;
@@ -364,12 +363,18 @@ pub fn create_signed_packet(
     let records: Vec<serde_json::Value> = serde_json::from_str(records_json)
         .map_err(|e| JsError::new(&format!("invalid records JSON: {e}")))?;
 
-    let mut resource_records = Vec::new();
+    let mut builder = mns::SignedPacket::builder().name(name);
 
     for rec in &records {
         let rtype = rec["type"].as_str().unwrap_or("A");
         let ttl = rec["ttl"].as_u64().unwrap_or(300) as u32;
         let record_name = rec["name"].as_str().unwrap_or("");
+
+        let rr_name = if record_name.is_empty() || record_name == "@" {
+            DnsName::new_unchecked("@")
+        } else {
+            DnsName::new(record_name).map_err(|e| JsError::new(&format!("record name: {e}")))?
+        };
 
         let rdata = match rtype {
             "A" => {
@@ -502,13 +507,7 @@ pub fn create_signed_packet(
             }
         };
 
-        let rr_name = if record_name.is_empty() {
-            DnsName::new_unchecked("")
-        } else {
-            DnsName::new(record_name).map_err(|e| JsError::new(&format!("record name: {e}")))?
-        };
-
-        resource_records.push(ResourceRecord::new(rr_name, CLASS::IN, ttl, rdata));
+        builder = builder.record(ResourceRecord::new(rr_name, CLASS::IN, ttl, rdata));
     }
 
     let keypair = match key_type {
@@ -521,7 +520,8 @@ pub fn create_signed_packet(
         }
     };
 
-    let packet = mns::SignedPacket::new(&keypair, name, &resource_records, Timestamp::now())
+    let packet = builder
+        .sign(&keypair)
         .map_err(|e| JsError::new(&format!("failed to create signed packet: {e}")))?;
 
     let b64 = base64::engine::general_purpose::STANDARD.encode(packet.as_bytes());

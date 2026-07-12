@@ -207,6 +207,7 @@ pub fn render_html(
   }}
 
   .records-header h2 {{
+    margin: 0;
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--fg-muted);
@@ -505,6 +506,13 @@ await init();
 
   function startEditing(recs) {{
     records = JSON.parse(JSON.stringify(recs));
+    var suffix = '.' + CANONICAL;
+    records.forEach(function(r) {{
+      if (r.name && r.name !== '@') {{
+        if (r.name === CANONICAL) r.name = '';
+        else if (r.name.endsWith(suffix)) r.name = r.name.slice(0, -suffix.length);
+      }}
+    }});
     saveDraft();
     showButtons(false, false);
     showForm();
@@ -545,7 +553,7 @@ await init();
 
     var nameInput = document.createElement('input');
     nameInput.className = 'name-input';
-    nameInput.placeholder = CANONICAL;
+    nameInput.placeholder = '@';
     nameInput.value = r.name || '';
     nameInput.oninput = function() {{ r.name = this.value; saveDraft(); }};
 
@@ -869,14 +877,6 @@ pub fn render_not_found_page(
     margin-bottom: 1rem;
   }}
 
-  .records-header h2 {{
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--fg-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }}
-
   .editor-btn {{
     padding: 0.4rem 0.8rem;
     background: var(--accent);
@@ -1129,6 +1129,13 @@ await init();
 
   function startEditing(recs) {{
     records = JSON.parse(JSON.stringify(recs));
+    var suffix = '.' + CANONICAL;
+    records.forEach(function(r) {{
+      if (r.name && r.name !== '@') {{
+        if (r.name === CANONICAL) r.name = '';
+        else if (r.name.endsWith(suffix)) r.name = r.name.slice(0, -suffix.length);
+      }}
+    }});
     saveDraft();
     showButtons(false, false);
     showForm();
@@ -1169,7 +1176,7 @@ await init();
 
     var nameInput = document.createElement('input');
     nameInput.className = 'name-input';
-    nameInput.placeholder = CANONICAL;
+    nameInput.placeholder = '@';
     nameInput.value = r.name || '';
     nameInput.oninput = function() {{ r.name = this.value; saveDraft(); }};
 
