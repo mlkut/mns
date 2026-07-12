@@ -32,7 +32,8 @@ pub fn init_client(rpc_url: &str) -> Result<(), JsError> {
 #[wasm_bindgen]
 pub struct JsWalletKeys {
     rsk_privkey_hex: String,
-    ed_privkey_hex: String,
+    zsk_privkey_hex: String,
+    zsk_key_type: u8,
     address: String,
     zsk_commitment_hex: String,
 }
@@ -44,8 +45,12 @@ impl JsWalletKeys {
         self.rsk_privkey_hex.clone()
     }
     #[wasm_bindgen(getter)]
-    pub fn ed_privkey(&self) -> String {
-        self.ed_privkey_hex.clone()
+    pub fn zsk_privkey(&self) -> String {
+        self.zsk_privkey_hex.clone()
+    }
+    #[wasm_bindgen(getter)]
+    pub fn zsk_key_type(&self) -> u8 {
+        self.zsk_key_type
     }
     #[wasm_bindgen(getter)]
     pub fn address(&self) -> String {
@@ -61,38 +66,43 @@ impl JsWalletKeys {
 #[wasm_bindgen]
 pub fn generate_wallet() -> Result<JsWalletKeys, JsError> {
     use zeroize::Zeroize;
+    let key_type = mns::KeyType::Ed25519;
     let mut rsk_key = mns::generate_random_bytes();
-    let mut ed_key = mns::generate_random_bytes();
+    let mut zsk_key = mns::generate_random_bytes();
 
-    let (address, zsk_commitment_hex) = derive_from_hex_keys(&rsk_key, &ed_key)?;
+    let (address, zsk_commitment_hex) = derive_from_hex_keys(&rsk_key, key_type, &zsk_key)?;
 
     let result = Ok(JsWalletKeys {
         rsk_privkey_hex: hex::encode(&rsk_key),
-        ed_privkey_hex: hex::encode(&ed_key),
+        zsk_privkey_hex: hex::encode(&zsk_key),
+        zsk_key_type: key_type.as_byte(),
         address,
         zsk_commitment_hex,
     });
     rsk_key.zeroize();
-    ed_key.zeroize();
+    zsk_key.zeroize();
     result
 }
 
-/// Derive address + zsk_commitment from two hex private keys (for unlock).
-/// Input: (rsk_privkey_hex, ed_privkey_hex). Returns (address, zsk_commitment_hex).
+/// Derive address + zsk_commitment from a hex private key (for unlock).
+/// Input: (rsk_privkey_hex, key_type, zsk_privkey_hex). Returns [address, zsk_commitment_hex].
 #[wasm_bindgen]
 pub fn derive_wallet_from_hex(
     rsk_hex: &str,
-    ed_hex: &str,
+    key_type: u8,
+    zsk_hex: &str,
 ) -> Result<Vec<String>, JsError> {
     let rsk_bytes = parse_fixed_32(rsk_hex, "rsk private key")?;
-    let ed_bytes = parse_fixed_32(ed_hex, "ed private key")?;
-    let (address, zsk_commitment_hex) = derive_from_hex_keys(&rsk_bytes, &ed_bytes)?;
+    let key_type = mns::KeyType::from_byte(key_type)?;
+    let zsk_bytes = parse_fixed_len(zsk_hex, "zsk private key", key_type.public_key_len())?;
+    let (address, zsk_commitment_hex) = derive_from_hex_keys(&rsk_bytes, key_type, &zsk_bytes)?;
     Ok(vec![address, zsk_commitment_hex])
 }
 
 fn derive_from_hex_keys(
     rsk_key: &[u8; 32],
-    ed_key: &[u8; 32],
+    key_type: mns::KeyType,
+    zsk_key: &[u8],
 ) -> Result<(String, String), JsError> {
     // secp256k1 → Rootstock address
     let sk = k256::SecretKey::from_slice(rsk_key)
@@ -104,10 +114,17 @@ fn derive_from_hex_keys(
     hasher.finalize(&mut hash);
     let address = to_checksum_rsk(&hash[12..], 31);
 
-    // ed25519 → ZSK commitment
-    let signing_key = ed25519_dalek::SigningKey::from_bytes(ed_key);
-    let zsk_pub: [u8; 32] = signing_key.verifying_key().to_bytes().into();
-    let zsk_commitment = mns::compute_zsk(mns::KeyType::Ed25519, &zsk_pub);
+    // zsk key → ZSK commitment based on key type
+    let zsk_pub: [u8; 32] = match key_type {
+        mns::KeyType::Ed25519 => {
+            let key_arr: [u8; 32] = zsk_key
+                .try_into()
+                .map_err(|_| JsError::new("Ed25519 key must be 32 bytes"))?;
+            let signing_key = ed25519_dalek::SigningKey::from_bytes(&key_arr);
+            signing_key.verifying_key().to_bytes().into()
+        }
+    };
+    let zsk_commitment = mns::compute_zsk(key_type, &zsk_pub);
 
     Ok((address, hex::encode(zsk_commitment)))
 }
@@ -329,7 +346,8 @@ pub async fn update_batch(
 /// Returns base64-encoded signed packet bytes.
 #[wasm_bindgen]
 pub fn create_signed_packet(
-    ed_privkey_hex: &str,
+    key_type: u8,
+    privkey_hex: &str,
     name_str: &str,
     records_json: &str,
 ) -> Result<String, JsError> {
@@ -339,7 +357,9 @@ pub fn create_signed_packet(
     use simple_dns::{CharacterString, Name as DnsName, ResourceRecord, CLASS};
     use zeroize::Zeroize;
 
-    let mut ed_bytes_mut = parse_fixed_32(ed_privkey_hex, "ed25519 private key")?;
+    let key_type = mns::KeyType::from_byte(key_type)?;
+    let key_len = key_type.public_key_len();
+    let mut key_bytes = parse_fixed_len(privkey_hex, "private key", key_len)?;
     let name: mns::Name = name_str.parse().map_err(|e: &str| JsError::new(e))?;
 
     let records: Vec<serde_json::Value> = serde_json::from_str(records_json)
@@ -487,14 +507,20 @@ pub fn create_signed_packet(
         resource_records.push(ResourceRecord::new(rr_name, CLASS::IN, ttl, rdata));
     }
 
-    let signing_key = ed25519_dalek::SigningKey::from_bytes(ed_bytes_mut.as_ref());
-    let keypair = mns::Keypair::from_ed25519(signing_key);
+    let keypair = match key_type {
+        mns::KeyType::Ed25519 => {
+            let key_arr: [u8; 32] = key_bytes[..].try_into()
+                .map_err(|_| JsError::new("Ed25519 key must be 32 bytes"))?;
+            let signing_key = ed25519_dalek::SigningKey::from_bytes(&key_arr);
+            mns::Keypair::from_ed25519(signing_key)
+        }
+    };
 
     let packet = mns::SignedPacket::new(&keypair, name, &resource_records, Timestamp::now())
         .map_err(|e| JsError::new(&format!("failed to create signed packet: {e}")))?;
 
     let b64 = base64::engine::general_purpose::STANDARD.encode(packet.as_bytes());
-    ed_bytes_mut.0.zeroize();
+    key_bytes.zeroize();
     Ok(b64)
 }
 
@@ -505,6 +531,15 @@ fn parse_fixed_32(hex_str: &str, label: &str) -> Result<FixedBytes<32>, JsError>
         .map_err(|e| JsError::new(&format!("{label}: bad hex: {e}")))?;
     FixedBytes::<32>::try_from(bytes.as_slice())
         .map_err(|_| JsError::new(&format!("{label} must be 32 bytes")))
+}
+
+fn parse_fixed_len(hex_str: &str, label: &str, expected_len: usize) -> Result<Vec<u8>, JsError> {
+    let bytes = hex::decode(hex_str.strip_prefix("0x").unwrap_or(hex_str))
+        .map_err(|e| JsError::new(&format!("{label}: bad hex: {e}")))?;
+    if bytes.len() != expected_len {
+        return Err(JsError::new(&format!("{label} must be {expected_len} bytes, got {}", bytes.len())));
+    }
+    Ok(bytes)
 }
 
 fn parse_address(hex_str: &str) -> Result<Address, JsError> {

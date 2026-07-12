@@ -401,12 +401,13 @@ function clearStored() {{
 
 // ── Credential helpers ──
 
-async function storeCredential(username, rskHex, edHex) {{
+async function storeCredential(username, rskHex, keyType, keyHex) {{
   if (!('PasswordCredential' in window)) return false;
   try {{
+    var keyTypeHex = keyType.toString(16).padStart(2, '0');
     const cred = new window.PasswordCredential({{
       id: username,
-      password: rskHex + '\\n' + edHex,
+      password: rskHex + '\\n' + keyTypeHex + keyHex,
       name: 'MNS Wallet — ' + username,
     }});
     await navigator.credentials.store(cred);
@@ -428,7 +429,15 @@ function parseCredentialPassword(password) {{
   if (!password) return null;
   const parts = password.split('\\n');
   if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
-  return {{ rskHex: parts[0], edHex: parts[1] }};
+  var keyType, keyHex;
+  if (parts[1].length === 64) {{
+    keyType = 0;
+    keyHex = parts[1];
+  }} else {{
+    keyType = parseInt(parts[1].substring(0, 2), 16);
+    keyHex = parts[1].substring(2);
+  }}
+  return {{ rskHex: parts[0], keyType: keyType, keyHex: keyHex }};
 }}
 
 // ── RPC helpers ──
@@ -482,9 +491,9 @@ async function signTx(fn) {{
   var keys = parseCredentialPassword(cred.password);
   if (!keys) return 'Invalid stored credentials.';
   try {{
-    var derived = derive_wallet_from_hex(keys.rskHex, keys.edHex);
+    var derived = derive_wallet_from_hex(keys.rskHex, keys.keyType, keys.keyHex);
     if (derived[0] !== session.address) return 'Credential does not match this account.';
-    return await fn(keys.rskHex, keys.edHex);
+    return await fn(keys.rskHex, keys.keyType, keys.keyHex);
   }} finally {{
     keys = null;
   }}
@@ -494,7 +503,7 @@ async function doRegister(ns) {{
   var msgEl = document.getElementById('wc-register-msg');
   msgEl.textContent = 'Preparing…';
   try {{
-    var err = await signTx(async function(rskHex, edHex) {{
+    var err = await signTx(async function(rskHex, keyType, keyHex) {{
       var txHash = await wasm_register(rskHex, session.zsk_commitment_hex, ns);
       msgEl.innerHTML = 'Tx sent: <a href="' + ('https://explorer.testnet.rootstock.io/tx/' + txHash) + '" target="_blank" rel="noopener">' + txHash.slice(0, 14) + '…</a>';
       setTimeout(function() {{ fetchBatches(session.address); }}, 15000);
@@ -508,7 +517,7 @@ async function doUpdateBatch(ordinal, currentNs) {{
   var msgEl = document.getElementById('wc-batch-msg-' + ordinal);
   msgEl.textContent = 'Preparing…';
   try {{
-    var err = await signTx(async function(rskHex, edHex) {{
+    var err = await signTx(async function(rskHex, keyType, keyHex) {{
       var txHash = await wasm_update_batch(rskHex, BigInt(ordinal), session.address, session.zsk_commitment_hex, currentNs);
       msgEl.innerHTML = 'Tx sent: <a href="' + ('https://explorer.testnet.rootstock.io/tx/' + txHash) + '" target="_blank" rel="noopener">' + txHash.slice(0, 14) + '…</a>';
       setTimeout(function() {{ fetchBatches(session.address); }}, 15000);
@@ -569,7 +578,7 @@ async function unlockWithCredential() {{
   if (!keys) {{ els.msg.textContent = 'Invalid stored credentials.'; return; }}
   const username = cred.id || 'wallet';
   try {{
-    const result = derive_wallet_from_hex(keys.rskHex, keys.edHex);
+    const result = derive_wallet_from_hex(keys.rskHex, keys.keyType, keys.keyHex);
     showUnlocked({{
       username: username,
       address: result[0],
@@ -592,8 +601,8 @@ els.form.addEventListener('submit', async function(e) {{
     try {{
       const result = migrate_from_mnemonic(mnemonic);
       const rskHex = result[0];
-      const edHex = result[1];
-      await storeCredential(username, rskHex, edHex);
+      const keyHex = result[1];
+      await storeCredential(username, rskHex, 0, keyHex);
       showUnlocked({{
         username: username,
         address: result[2],
@@ -614,8 +623,9 @@ els.form.addEventListener('submit', async function(e) {{
     try {{
       const keys = generate_wallet();
       const rskHex = keys.rsk_privkey;
-      const edHex = keys.ed_privkey;
-      await storeCredential(username, rskHex, edHex);
+      const keyHex = keys.zsk_privkey;
+      const keyType = keys.zsk_key_type;
+      await storeCredential(username, rskHex, keyType, keyHex);
       showUnlocked({{
         username: username,
         address: keys.address,

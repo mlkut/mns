@@ -753,7 +753,17 @@ await init();
         return;
       }}
 
-      var derived = derive_wallet_from_hex(parts[0], parts[1]);
+      var rskHex = parts[0];
+      var keyType, keyHex;
+      if (parts[1].length === 64) {{
+        keyType = 0;
+        keyHex = parts[1];
+      }} else {{
+        keyType = parseInt(parts[1].substring(0, 2), 16);
+        keyHex = parts[1].substring(2);
+      }}
+
+      var derived = derive_wallet_from_hex(rskHex, keyType, keyHex);
       if (derived[1] !== ZSK) {{
         edStatus.textContent = 'Key does not match this name' + "'" + 's ZSK.';
         edStatus.className = 'editor-status error';
@@ -762,7 +772,7 @@ await init();
       }}
 
       edStatus.textContent = 'Signing...';
-      var b64 = create_signed_packet(parts[1], NAME, JSON.stringify(validRecords));
+      var b64 = create_signed_packet(keyType, keyHex, NAME, JSON.stringify(validRecords));
 
       var bytes = Uint8Array.from(atob(b64), function(c) {{ return c.charCodeAt(0); }});
       var resp = await fetch('/' + NAME, {{
@@ -1404,7 +1414,17 @@ await init();
         return;
       }}
 
-      var derived = derive_wallet_from_hex(parts[0], parts[1]);
+      var rskHex = parts[0];
+      var keyType, keyHex;
+      if (parts[1].length === 64) {{
+        keyType = 0;
+        keyHex = parts[1];
+      }} else {{
+        keyType = parseInt(parts[1].substring(0, 2), 16);
+        keyHex = parts[1].substring(2);
+      }}
+
+      var derived = derive_wallet_from_hex(rskHex, keyType, keyHex);
       if (derived[1] !== ZSK) {{
         edStatus.textContent = 'Key does not match this name' + "'" + 's ZSK.';
         edStatus.className = 'editor-status error';
@@ -1413,7 +1433,7 @@ await init();
       }}
 
       edStatus.textContent = 'Signing...';
-      var b64 = create_signed_packet(parts[1], NAME, JSON.stringify(validRecords));
+      var b64 = create_signed_packet(keyType, keyHex, NAME, JSON.stringify(validRecords));
 
       var bytes = Uint8Array.from(atob(b64), function(c) {{ return c.charCodeAt(0); }});
       var resp = await fetch('/' + NAME, {{
