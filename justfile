@@ -9,3 +9,7 @@ run:
 # Generate Rust bindings from Solidity contracts
 bind:
     ./scripts/bind.sh
+
+# Build the server
+build:
+    ./scripts/build.sh

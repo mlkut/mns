@@ -55,6 +55,12 @@ pub fn build_router<S: ZoneStore + 'static>(
         .route("/{*name}", get(get_handler::<S>).put(put_handler::<S>))
         .layer(CorsLayer::permissive());
 
+    let static_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| concat!(env!("CARGO_MANIFEST_DIR")).into())
+        .join("static");
+
     Router::new()
         .route("/", get(root_handler))
         .route("/wallet", get(wallet_handler))
@@ -63,10 +69,7 @@ pub fn build_router<S: ZoneStore + 'static>(
         .route("/owner/{address}", get(owner_handler::<S>))
         .route("/api/batches/{address}", get(batches_handler::<S>))
         .merge(name_routes)
-        .nest_service(
-            "/static",
-            ServeDir::new(concat!(env!("CARGO_MANIFEST_DIR"), "/static")),
-        )
+        .nest_service("/static", ServeDir::new(static_dir))
         .with_state(state)
 }
 

@@ -3,5 +3,5 @@
 /contracts/cache
 /contracts/lib
 .env
-# /bindings
+/bindings
 **/db
