@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/wallet.css">
+{% endblock %}
+
+{% block content %}
+<main>
+<section class="card wallet-card">
+  <header class="header">
+    <h1>Your Wallet</h1>
+  </header>
+
+  <div class="wc-status locked" id="wc-status">
+    <span class="dot"></span>
+    <span id="wc-status-text">Locked</span>
+  </div>
+
+  <form class="wc-form" id="wc-form" autocomplete="on">
+    <div class="wc-field" id="wc-username-field" style="display:none">
+      <label for="wc-username">Account name</label>
+      <input type="text" class="wc-input" id="wc-username" value=""
+             autocomplete="off" placeholder="e.g. personal, work, testing">
+    </div>
+
+    <div class="wc-field" id="wc-mnemonic-field" style="display:none">
+      <label for="wc-mnemonic">Old seed phrase (migration)</label>
+      <textarea class="wc-input" name="password" id="wc-mnemonic"
+                autocomplete="current-password"
+                placeholder="Enter your old 12-word seed phrase" spellcheck="false"></textarea>
+    </div>
+
+    <div class="wc-actions">
+      <button type="submit" class="wc-btn-primary" id="wc-unlock">Unlock</button>
+      <button type="button" class="wc-btn-ghost" id="wc-generate">New Account</button>
+    </div>
+    <p class="wc-msg" id="wc-msg"></p>
+  </form>
+
+  <div class="wc-identity" id="wc-identity">
+    <div class="wc-warn" id="wc-backup-warn" style="display:none">
+      Your keys have been saved to your browser's password manager.
+      They will be requested when you sign a transaction.
+    </div>
+
+    <div class="wc-key-row">
+      <div class="wc-key-label"><span>Account</span></div>
+      <div class="wc-key-value" id="out-username"></div>
+    </div>
+
+    <div class="wc-key-row">
+      <div class="wc-key-label">
+        <span>Rootstock address</span>
+        <button class="wc-copy" data-copy="address">copy</button>
+      </div>
+      <div class="wc-key-value" id="out-address"></div>
+    </div>
+
+    <div class="wc-key-row">
+      <div class="wc-key-label"><span>RBTC balance</span></div>
+      <div class="wc-key-value" id="out-balance">—</div>
+    </div>
+
+    <div class="wc-key-row">
+      <div class="wc-key-label">
+        <span>ZSK</span>
+        <button class="wc-copy" data-copy="zsk">copy</button>
+      </div>
+      <div class="wc-key-value" id="out-zsk"></div>
+    </div>
+
+    <div class="divider" role="separator" style="margin:0.25rem 0 0.75rem"></div>
+
+    <div class="wc-field">
+      <label for="wc-ns">Name server (NS) for new batch</label>
+      <div class="wc-actions">
+        <input type="text" class="wc-input" id="wc-ns" placeholder="ns1.example.com" spellcheck="false" style="flex:1;min-width:0">
+        <button type="button" class="wc-btn-primary" id="wc-register">Register</button>
+      </div>
+    </div>
+    <p class="wc-register-msg" id="wc-register-msg" style="font-size:0.72rem;text-align:center;color:var(--accent-text);min-height:1rem"></p>
+
+    <div class="divider" role="separator" style="margin:0.25rem 0 0.75rem"></div>
+
+    <div class="wc-batches" id="wc-batches">
+      <div class="wc-batches-title">Your Batches</div>
+      <div id="wc-batch-list"></div>
+    </div>
+
+    <p class="wc-note" id="wc-faucet-note"></p>
+
+    <div class="wc-actions">
+      <button type="button" class="wc-btn-ghost" id="wc-lock">Lock</button>
+    </div>
+  </div>
+
+  <p class="wc-note" style="margin-top:1rem">
+    Keys are derived in your browser and never sent to the server.
+  </p>
+</section>
+
+<nav class="back-wrap" aria-label="Breadcrumb">
+  <a class="back-link" href="/">← Home</a>
+</nav>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>window.MNS_WALLET = {{ wallet_config | safe }};</script>
+<script type="module" src="/static/js/wallet.js"></script>
+{% endblock %}

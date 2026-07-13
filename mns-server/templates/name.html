@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/name.css">
+{% endblock %}
+
+{% block content %}
+<main>
+<article class="card">
+  <div class="avatar-wrap">
+    <div class="avatar">{{ avatar_svg | safe }}</div>
+  </div>
+
+  <header class="header">
+    <h1>{{ name }}</h1>
+    <p class="canonical">{{ canonical }}</p>
+  </header>
+
+  <div class="divider" role="separator"></div>
+
+  <dl class="meta-grid">
+    {{ owner_row | safe }}
+    <div class="meta-row inline">
+      <dt class="meta-label">ZSK</dt>
+      <dd class="meta-value dim" title="{{ zsk_full }}">{{ zsk_display }}</dd>
+    </div>
+    <div class="meta-row inline">
+      <dt class="meta-label">NS</dt>
+      <dd class="meta-value dim">{{ ns }}</dd>
+    </div>
+    <div class="meta-row inline">
+      <dt class="meta-label">Updated</dt>
+      <dd class="meta-value dim">{{ timestamp }}</dd>
+    </div>
+  </dl>
+
+  <div class="divider" role="separator"></div>
+
+  <div class="records-card" id="records-card">
+    <div class="records-header">
+      <h2>Signed Packet</h2>
+      <div style="display:flex;gap:0.5rem">
+        <button class="editor-btn" id="ed-create" style="display:none">Create</button>
+        <button class="editor-btn secondary" id="ed-edit" style="display:none">Edit</button>
+      </div>
+    </div>
+    <div id="ed-view">{{ records_table | safe }}</div>
+    <div class="editor-form" id="ed-form">
+      <div id="ed-records"></div>
+      <button class="editor-btn secondary" id="ed-add" style="margin-top:0.5rem">+ Add Record</button>
+      <div class="editor-actions">
+        <button class="editor-btn" id="ed-publish">Publish</button>
+        <button class="editor-btn secondary" id="ed-cancel">Cancel</button>
+      </div>
+      <div class="editor-status" id="ed-status"></div>
+    </div>
+  </div>
+</article>
+
+<nav class="back-wrap" aria-label="Breadcrumb">
+  <a class="back-link" href="/">← Home</a>
+</nav>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>window.MNS_EDITOR = {{ editor_config | safe }};</script>
+<script type="module" src="/static/js/editor.js"></script>
+{% endblock %}

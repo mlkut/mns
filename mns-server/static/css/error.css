@@ -1,0 +1,28 @@
+/* Overrides for the error page layout (used alongside main.css) */
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5rem 2rem 2rem;
+}
+
+body::before {
+  animation: none;
+}
+
+main {
+  justify-content: center;
+}
+
+.card {
+  max-width: 420px;
+  padding: 2rem 2rem;
+  text-align: center;
+}
+
+.msg {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--fg);
+}

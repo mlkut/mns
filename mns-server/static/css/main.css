@@ -1,11 +1,6 @@
-use super::ACCENT;
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-pub fn main_style() -> String {
-    format!(
-        r##"
-  *, *::before, *::after {{ margin: 0; padding: 0; box-sizing: border-box; }}
-
-  :root {{
+  :root {
     --white: #e4e8ef;
 
     --bg: #08090d;
@@ -16,7 +11,7 @@ pub fn main_style() -> String {
     --fg: var(--white);
     --fg-muted: #6b7280;
     --fg-dim: #3a3f4b;
-    --accent: {accent};
+    --accent: #800000;
     --accent-dim: rgba(128,0,0,0.12);
     --accent-glow: rgba(128,0,0,0.15);
     --accent-text: #b05858;
@@ -29,9 +24,9 @@ pub fn main_style() -> String {
     --grid-color: rgba(255,255,255,0.015);
     --glow-1: rgba(128,0,0,0.06);
     --glow-2: rgba(128,0,0,0.04);
-  }}
+  }
 
-  html[data-theme="light"] {{
+  html[data-theme="light"] {
     --bg: #f5f5f7;
     --surface: #ffffff;
     --surface-hover: rgba(0,0,0,0.04);
@@ -40,7 +35,7 @@ pub fn main_style() -> String {
     --fg: #1a1a2e;
     --fg-muted: #6b7280;
     --fg-dim: #c0c4cc;
-    --accent: {accent};
+    --accent: #800000;
     --accent-dim: rgba(128,0,0,0.07);
     --accent-glow: rgba(128,0,0,0.08);
     --accent-text: #a04545;
@@ -48,9 +43,9 @@ pub fn main_style() -> String {
     --grid-color: rgba(0,0,0,0.04);
     --glow-1: rgba(128,0,0,0.03);
     --glow-2: rgba(128,0,0,0.02);
-  }}
+  }
 
-  body {{
+  body {
     font-family: var(--sans);
     background: var(--bg);
     color: var(--fg);
@@ -61,9 +56,9 @@ pub fn main_style() -> String {
     padding: 5rem 1.25rem 2rem;
     overflow-x: hidden;
     position: relative;
-  }}
+  }
 
-  body::before {{
+  body::before {
     content: '';
     position: fixed;
     top: -40%;
@@ -75,9 +70,9 @@ pub fn main_style() -> String {
     pointer-events: none;
     z-index: 0;
     animation: breathe 8s ease-in-out infinite;
-  }}
+  }
 
-  body::after {{
+  body::after {
     content: '';
     position: fixed;
     bottom: -30%;
@@ -88,14 +83,14 @@ pub fn main_style() -> String {
     pointer-events: none;
     z-index: 0;
     animation: breathe 10s ease-in-out 3s infinite reverse;
-  }}
+  }
 
-  @keyframes breathe {{
-    0%, 100% {{ opacity: 0.6; transform: translateX(-50%) scale(1); }}
-    50% {{ opacity: 1; transform: translateX(-50%) scale(1.1); }}
-  }}
+  @keyframes breathe {
+    0%, 100% { opacity: 0.6; transform: translateX(-50%) scale(1); }
+    50% { opacity: 1; transform: translateX(-50%) scale(1.1); }
+  }
 
-  .grid-bg {{
+  .grid-bg {
     position: fixed;
     inset: 0;
     background-image:
@@ -106,18 +101,18 @@ pub fn main_style() -> String {
     z-index: 0;
     mask-image: radial-gradient(ellipse 60% 50% at 50% 30%, black 20%, transparent 100%);
     -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 30%, black 20%, transparent 100%);
-  }}
+  }
 
-  main {{
+  main {
     position: relative;
     z-index: 1;
     width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
-  }}
+  }
 
-  .card {{
+  .card {
     position: relative;
     z-index: 1;
     background: var(--surface);
@@ -133,14 +128,14 @@ pub fn main_style() -> String {
       0 20px 60px -15px rgba(0,0,0,0.5),
       0 0 80px -20px var(--accent-glow);
     animation: cardIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }}
+  }
 
-  @keyframes cardIn {{
-    from {{ opacity: 0; transform: translateY(24px) scale(0.97); }}
-    to {{ opacity: 1; transform: translateY(0) scale(1); }}
-  }}
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(24px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
 
-  .card::before {{
+  .card::before {
     content: '';
     position: absolute;
     top: 0; left: 2rem; right: 2rem;
@@ -148,34 +143,34 @@ pub fn main_style() -> String {
     background: linear-gradient(90deg, transparent, var(--accent), transparent);
     opacity: 0.4;
     border-radius: 1px;
-  }}
+  }
 
-  .records-card {{
+  .records-card {
     margin-top: 0;
-  }}
+  }
 
-  .records-card h2 {{
+  .records-card h2 {
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--fg-muted);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     margin-bottom: 1rem;
-  }}
+  }
 
-  .avatar-wrap {{
+  .avatar-wrap {
     display: flex;
     justify-content: center;
     margin-bottom: 1.75rem;
     animation: avatarIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0s both;
-  }}
+  }
 
-  @keyframes avatarIn {{
-    from {{ opacity: 0; transform: scale(0.85) rotate(-3deg); }}
-    to {{ opacity: 1; transform: scale(1) rotate(0deg); }}
-  }}
+  @keyframes avatarIn {
+    from { opacity: 0; transform: scale(0.85) rotate(-3deg); }
+    to { opacity: 1; transform: scale(1) rotate(0deg); }
+  }
 
-  .avatar {{
+  .avatar {
     width: 112px;
     height: 112px;
     color: var(--accent-text);
@@ -185,45 +180,45 @@ pub fn main_style() -> String {
     padding: .25rem;
     position: relative;
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
-  }}
+  }
 
-  .avatar:hover {{
+  .avatar:hover {
     transform: scale(1.05) rotate(1deg);
     box-shadow: 0 0 30px -5px var(--accent-glow);
-  }}
+  }
 
-  .avatar .mns-avatar {{ 
+  .avatar .mns-avatar { 
     color: var(--white);
-  }}
+  }
 
-  .mns-avatar {{
+  .mns-avatar {
     width: 100%;
     height: 100%;
     display: block;
     color: var(--fg);
-  }}
+  }
 
-  .header {{
+  .header {
     text-align: center;
     margin-bottom: 2rem;
     animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0s both;
-  }}
+  }
 
-  @keyframes fadeUp {{
-    from {{ opacity: 0; transform: translateY(12px); }}
-    to {{ opacity: 1; transform: translateY(0); }}
-  }}
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 
-  h1 {{
+  h1 {
     font-size: 1.6rem;
     font-weight: 600;
     letter-spacing: -0.02em;
     line-height: 1.2;
     color: var(--fg);
     margin-bottom: 0.4rem;
-  }}
+  }
 
-  .canonical {{
+  .canonical {
     font-family: var(--mono);
     color: var(--accent-text);
     font-size: 0.8rem;
@@ -231,71 +226,71 @@ pub fn main_style() -> String {
     opacity: 0.7;
     letter-spacing: 0.01em;
     word-break: break-all;
-  }}
+  }
 
-  .divider {{
+  .divider {
     height: 1px;
     background: linear-gradient(90deg, transparent, var(--border), transparent);
     margin-bottom: 1.5rem;
     animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0s both;
-  }}
+  }
 
-  .meta-grid {{
+  .meta-grid {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
     margin-bottom: 1.25rem;
     animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0s both;
-  }}
+  }
 
-  .meta-row {{
+  .meta-row {
     display: flex;
     flex-direction: column;
     gap: 0;
-  }}
+  }
 
-  .meta-row.inline {{
+  .meta-row.inline {
     display: grid;
     grid-template-columns: 5.5rem 1fr;
     align-items: center;
-  }}
+  }
 
-  .meta-row.inline dd {{
+  .meta-row.inline dd {
     text-align: left;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }}
+  }
 
-  dt.meta-label {{
+  dt.meta-label {
     color: var(--fg-muted);
     font-size: 0.7rem;
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-  }}
+  }
 
-  dd.meta-value {{
+  dd.meta-value {
     font-family: var(--mono);
     font-size: 0.82rem;
     color: var(--fg);
     line-height: 1.5;
     opacity: 0.85;
-  }}
+  }
 
-  dd.meta-value.dim {{
+  dd.meta-value.dim {
     color: var(--fg-muted);
     font-size: 0.78rem;
-  }}
+  }
 
-  table {{
+  table {
     width: 100%;
     border-collapse: collapse;
     font-family: var(--mono);
     font-size: 0.76rem;
-  }}
+  }
 
-  th {{
+  th {
     text-align: left;
     color: var(--fg-muted);
     font-size: 0.67rem;
@@ -304,24 +299,24 @@ pub fn main_style() -> String {
     padding: 0.5rem 0.5rem 0.5rem 0;
     border-bottom: 1px solid var(--border);
     font-weight: 600;
-  }}
+  }
 
-  td {{
+  td {
     padding: 0.5rem 0.5rem 0.5rem 0;
     border-bottom: 1px solid rgba(255,255,255,0.03);
     vertical-align: top;
-  }}
+  }
 
-  tr:last-child td {{
+  tr:last-child td {
     border-bottom: none;
-  }}
+  }
 
-  td.name {{ color: var(--accent-text); }}
-  td.type {{ color: #d4a060; }}
-  td.rdata {{ color: var(--fg-muted); word-break: break-all; }}
-  td.ttl {{ color: var(--fg-dim); }}
+  td.name { color: var(--accent-text); }
+  td.type { color: #d4a060; }
+  td.rdata { color: var(--fg-muted); word-break: break-all; }
+  td.ttl { color: var(--fg-dim); }
 
-  .empty-state {{
+  .empty-state {
     text-align: center;
     padding: 1.75rem 1rem;
     color: var(--fg-muted);
@@ -329,9 +324,9 @@ pub fn main_style() -> String {
     font-weight: 400;
     line-height: 1.5;
     animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0s both;
-  }}
+  }
 
-  .footer {{
+  .footer {
     position: relative;
     z-index: 1;
     color: var(--fg-dim);
@@ -344,31 +339,31 @@ pub fn main_style() -> String {
     align-items: center;
     gap: 0.5rem;
     animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0s both;
-  }}
+  }
 
-  .footer-dot {{
+  .footer-dot {
     width: 5px;
     height: 5px;
     border-radius: 50%;
     background: var(--accent);
     opacity: 0.5;
     animation: pulse-dot 3s ease-in-out infinite;
-  }}
+  }
 
-  @keyframes pulse-dot {{
-    0%, 100% {{ opacity: 0.3; transform: scale(0.9); }}
-    50% {{ opacity: 0.7; transform: scale(1.1); }}
-  }}
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 0.3; transform: scale(0.9); }
+    50% { opacity: 0.7; transform: scale(1.1); }
+  }
 
-  .particles {{
+  .particles {
     position: fixed;
     inset: 0;
     pointer-events: none;
     z-index: 0;
     overflow: hidden;
-  }}
+  }
 
-  .particle {{
+  .particle {
     position: absolute;
     width: 2px;
     height: 2px;
@@ -376,66 +371,66 @@ pub fn main_style() -> String {
     border-radius: 50%;
     opacity: 0;
     animation: float-particle linear infinite;
-  }}
+  }
 
-  @keyframes float-particle {{
-    0% {{ opacity: 0; transform: translateY(100vh) scale(0); }}
-    10% {{ opacity: 0.4; }}
-    90% {{ opacity: 0.4; }}
-    100% {{ opacity: 0; transform: translateY(-10vh) scale(1); }}
-  }}
+  @keyframes float-particle {
+    0% { opacity: 0; transform: translateY(100vh) scale(0); }
+    10% { opacity: 0.4; }
+    90% { opacity: 0.4; }
+    100% { opacity: 0; transform: translateY(-10vh) scale(1); }
+  }
 
-  @media (max-width: 480px) {{
-    .card {{ padding: 2rem 1.5rem 1.5rem; }}
-    h1 {{ font-size: 1.35rem; }}
-    .avatar {{ width: 96px; height: 96px; padding: 8px; }}
-    .meta-row.inline {{ grid-template-columns: 1fr; gap: 0.15rem; }}
-    .meta-row.inline dd {{ text-align: left; white-space: normal; }}
-  }}
+  @media (max-width: 480px) {
+    .card { padding: 2rem 1.5rem 1.5rem; }
+    h1 { font-size: 1.35rem; }
+    .avatar { width: 96px; height: 96px; padding: 8px; }
+    .meta-row.inline { grid-template-columns: 1fr; gap: 0.15rem; }
+    .meta-row.inline dd { text-align: left; white-space: normal; }
+  }
 
-  @media (prefers-reduced-motion: reduce) {{
-    *, *::before, *::after {{
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
-    }}
-  }}
+    }
+  }
 
-  .owner-link {{
+  .owner-link {
     color: var(--accent-text);
     text-decoration: none;
-  }}
+  }
 
-  .back-wrap {{
+  .back-wrap {
     text-align: center;
     margin-top: 0.75rem;
     z-index: 1;
     position: relative;
-  }}
+  }
 
-  .back-link {{
+  .back-link {
     color: var(--fg-muted);
     font-size: 0.75rem;
     text-decoration: none;
-  }}
+  }
 
-  .card-center {{
+  .card-center {
     text-align: center;
-  }}
+  }
 
-  .home-logo {{
+  .home-logo {
     width: 128px;
     height: 128px;
     object-fit: contain;
-  }}
+  }
 
-  .home-desc {{
+  .home-desc {
     font-family: var(--sans);
     opacity: 1;
     margin-top: 1rem;
-  }}
+  }
 
-  .search-input {{
+  .search-input {
     padding: 0 1rem;
     background: var(--surface);
     border: 1px solid var(--border);
@@ -445,12 +440,12 @@ pub fn main_style() -> String {
     font-size: 0.9rem;
     outline: none;
     transition: border-color 0.25s;
-  }}
-  .search-input:focus {{
+  }
+  .search-input:focus {
     border-color: var(--accent);
-  }}
+  }
 
-  .search-btn {{
+  .search-btn {
     padding: 0.75rem 2rem;
     background: var(--accent);
     color: #fff;
@@ -461,30 +456,30 @@ pub fn main_style() -> String {
     font-size: 0.9rem;
     cursor: pointer;
     transition: opacity 0.25s;
-  }}
-  .search-btn:hover {{
+  }
+  .search-btn:hover {
     opacity: 0.85;
-  }}
+  }
 
-  .home-links {{
+  .home-links {
     margin-top: 1.5rem;
     display: flex;
     gap: 1rem;
     justify-content: center;
     font-size: 0.82rem;
-  }}
+  }
 
-  .ext-link {{
+  .ext-link {
     color: var(--accent-text);
     text-decoration: none;
     font-weight: 500;
-  }}
+  }
 
-  .sep-dot {{
+  .sep-dot {
     color: var(--fg-dim);
-  }}
+  }
 
-  .visually-hidden {{
+  .visually-hidden {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -494,112 +489,8 @@ pub fn main_style() -> String {
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border: 0;
-  }}
+  }
 
-  {navbar_style}
-"##,
-        accent = ACCENT,
-        navbar_style = navbar_style()
-    )
-}
-
-pub fn error_style() -> String {
-    format!(
-        r##"
-  *, *::before, *::after {{ margin: 0; padding: 0; box-sizing: border-box; }}
-
-  :root {{
-    --bg: #08090d;
-    --surface: rgba(255,255,255,0.03);
-    --border: rgba(255,255,255,0.06);
-    --fg: #e4e8ef;
-    --accent: {accent};
-    --accent-glow: rgba(128,0,0,0.15);
-    --sans: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
-    --radius: 16px;
-    --navbar-bg: rgba(8,9,13,0.85);
-    --glow-1: rgba(128,0,0,0.06);
-  }}
-
-  html[data-theme="light"] {{
-    --bg: #f5f5f7;
-    --surface: #ffffff;
-    --border: rgba(0,0,0,0.08);
-    --fg: #1a1a2e;
-    --accent: {accent};
-    --accent-glow: rgba(128,0,0,0.08);
-    --sans: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
-    --radius: 16px;
-    --navbar-bg: rgba(245,245,247,0.85);
-    --glow-1: rgba(128,0,0,0.03);
-  }}
-
-  body {{
-    font-family: var(--sans);
-    background: var(--bg);
-    color: var(--fg);
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 5rem 2rem 2rem;
-  }}
-
-  body::before {{
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: radial-gradient(circle at 50% 30%, var(--glow-1) 0%, transparent 60%);
-    pointer-events: none;
-  }}
-
-  main {{
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    display: flex;
-    justify-content: center;
-  }}
-
-  .card {{
-    position: relative;
-    z-index: 1;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    max-width: 420px;
-    width: 100%;
-    padding: 2rem 2rem;
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    text-align: center;
-    box-shadow: 0 0 80px -20px var(--accent-glow);
-  }}
-
-  .card::before {{
-    content: '';
-    position: absolute;
-    top: 0; left: 2rem; right: 2rem;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--accent), transparent);
-    opacity: 0.4;
-  }}
-
-  .msg {{
-    font-size: 0.95rem;
-    font-weight: 500;
-    color: var(--fg);
-  }}
-
-  {navbar_style}
-"##,
-        accent = ACCENT,
-        navbar_style = navbar_style()
-    )
-}
-
-fn navbar_style() -> String {
-    r##"
   .navbar {
     position: fixed;
     top: 1.3rem;
@@ -664,11 +555,6 @@ fn navbar_style() -> String {
     animation: pulse-dot 2s ease-in-out infinite;
   }
 
-  @keyframes pulse-dot {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-
   .block-number {
     font-variant-numeric: tabular-nums;
   }
@@ -700,6 +586,3 @@ fn navbar_style() -> String {
   html[data-theme="light"] .theme-icon-sun {
     display: none;
   }
-"##
-    .to_string()
-}

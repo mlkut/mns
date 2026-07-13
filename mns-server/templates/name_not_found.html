@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/name.css">
+{% endblock %}
+
+{% block content %}
+<main>
+<article class="card">
+  <div class="avatar-wrap">
+    <div class="avatar">{{ avatar_svg | safe }}</div>
+  </div>
+
+  <header class="header">
+    <h1>{{ name }}</h1>
+    <p class="canonical">{{ canonical }}</p>
+  </header>
+
+  <div class="divider" role="separator"></div>
+
+  <dl class="meta-grid">
+    {{ owner_row | safe }}
+    {{ meta_rows | safe }}
+  </dl>
+
+  {{ editor_section | safe }}
+</article>
+
+<nav class="back-wrap" aria-label="Breadcrumb">
+  <a class="back-link" href="/">← Home</a>
+</nav>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+{% if has_zsk %}
+<script>window.MNS_NAME = '{{ name }}';</script>
+<script src="/static/js/history.js"></script>
+<script>window.MNS_EDITOR = {{ editor_config | safe }};</script>
+<script type="module" src="/static/js/editor.js"></script>
+{% endif %}
+{% endblock %}

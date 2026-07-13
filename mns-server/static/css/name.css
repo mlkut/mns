@@ -1,0 +1,157 @@
+  .records-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
+  .records-header h2 {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .editor-btn {
+    padding: 0.4rem 0.8rem;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-xs);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .editor-btn:hover { opacity: 0.85; }
+  .editor-btn.secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--fg-muted);
+  }
+  .editor-btn.secondary:hover {
+    border-color: var(--fg-muted);
+    color: var(--fg);
+  }
+  .editor-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .editor-empty {
+    text-align: center;
+    padding: 1rem;
+    color: var(--fg-muted);
+    font-size: 0.82rem;
+  }
+
+  .editor-form { display: none; }
+  .editor-form.show { display: block; }
+
+  .record-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .record-row:last-child { border-bottom: none; }
+
+  .record-row select,
+  .record-row input,
+  .record-row textarea {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    padding: 0.35rem 0.5rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .record-row select:focus,
+  .record-row input:focus,
+  .record-row textarea:focus {
+    border-color: var(--accent);
+  }
+
+  .record-row select {
+    width: 80px;
+    flex-shrink: 0;
+  }
+
+  .record-row input.name-input {
+    width: 100px;
+    flex-shrink: 0;
+  }
+
+  .record-row input.ttl-input {
+    width: 50px;
+    flex-shrink: 0;
+  }
+
+  .record-row .record-fields {
+    display: flex;
+    gap: 0.4rem;
+    flex: 1;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .record-row .record-fields input {
+    flex: 1;
+    min-width: 80px;
+  }
+
+  .record-row .record-fields textarea {
+    width: 100%;
+    min-height: 2.5rem;
+    resize: vertical;
+  }
+
+  .record-row .rec-label {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--fg-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .record-row .rec-delete {
+    background: none;
+    border: none;
+    color: var(--fg-dim);
+    cursor: pointer;
+    padding: 0.2rem;
+    font-size: 0.9rem;
+    line-height: 1;
+    transition: color 0.2s;
+    flex-shrink: 0;
+  }
+  .record-row .rec-delete:hover { color: #ef4444; }
+
+  .editor-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .editor-status {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--fg-muted);
+    margin-top: 0.5rem;
+  }
+  .editor-status.error { color: #ef4444; }
+  .editor-status.ok { color: #22c55e; }
+
+  @media (max-width: 480px) {
+    .record-row { flex-wrap: wrap; }
+    .record-row select { width: 100%; }
+    .record-row input.name-input { width: 60px; }
+    .record-row input.ttl-input { width: 40px; }
+  }

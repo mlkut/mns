@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/error.css">
+{% endblock %}
+
+{% block background %}{% endblock %}
+
+{% block content %}
+<main>
+<section class="card" role="alert"><p class="msg">{{ message }}</p></section>
+</main>
+{% endblock %}
+
+{% block footer %}{% endblock %}
+{% block scripts %}{% endblock %}

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/home.css">
+{% endblock %}
+
+{% block content %}
+<main>
+<section class="card card-center">
+  <div class="avatar-wrap">
+    <img src="/static/mlkut.png" alt="mlkut logo" class="avatar home-logo">
+  </div>
+
+  <header class="header">
+    <h1>Mlkut Name System</h1>
+    <p class="home-desc">
+      Permissionless name registry for the next millennium.
+    </p>
+  </header>
+
+  <div class="divider" role="separator"></div>
+
+  <form id="search-form" role="search" onsubmit="event.preventDefault();var q=this.querySelector('input').value.trim();if(q){if(q.startsWith('0x')){window.location.href='/owner/'+encodeURIComponent(q);return;}window.location.href='/'+encodeURIComponent(q);}">
+    <div class="search-row">
+      <label for="search-input" class="visually-hidden">Search name or owner address</label>
+      <input type="text" id="search-input" name="q" class="search-input" placeholder="Search name or owner address...">
+      <button type="submit" class="search-btn">Search</button>
+    </div>
+  </form>
+
+  <div class="content-grid">
+    <ul class="stats-card" id="stats" aria-label="Registry statistics">
+      <li class="stat-row">
+        <div class="stat-row-content" title="Most recently synced Rootstock block">
+          <span class="stat-label">Block</span>
+          <span class="stat-value"><span id="stat-block">—</span></span>
+        </div>
+      </li>
+      <li class="stat-row">
+        <div class="stat-row-content" title="Total registered name slots (batch × 256 + entries)">
+          <span class="stat-label">Names</span>
+          <span class="stat-value" id="stat-names">—</span>
+        </div>
+      </li>
+      <li class="stat-row">
+        <a href="/owners" title="Unique addresses that own one or more names">
+          <span class="stat-label">Owners</span>
+          <span class="stat-value" id="stat-owners">—</span>
+        </a>
+      </li>
+      <li class="stat-row">
+        <div class="stat-row-content" title="Unique zone-signing keys across all registered batches and entries">
+          <span class="stat-label">ZSKs</span>
+          <span class="stat-value" id="stat-zsks">—</span>
+        </div>
+      </li>
+      <li class="stat-row">
+        <div class="stat-row-content" title="Unique name servers across all registered batches and entries">
+          <span class="stat-label">NS</span>
+          <span class="stat-value" id="stat-ns">—</span>
+        </div>
+      </li>
+      <li class="stat-row">
+        <div class="stat-row-content" title="Signed DNS packets published off-chain on this server">
+          <span class="stat-label">Packets</span>
+          <span class="stat-value" id="stat-packets">—</span>
+        </div>
+      </li>
+    </ul>
+
+    <section id="history" aria-label="Recently viewed names"></section>
+  </div>
+
+  <nav class="home-links" aria-label="External resources">
+    <a href="https://mlkut.org" class="ext-link">Read more</a>
+    <span class="sep-dot" aria-hidden="true">·</span>
+    <a href="https://mlkut.org" class="ext-link">Specs</a>
+  </nav>
+</section>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/js/home.js"></script>
+<script type="module" src="/static/js/home_avatars.js"></script>
+{% endblock %}

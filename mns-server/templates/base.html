@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ title }} — MNS</title>
+<link rel="icon" href="/static/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="/static/js/theme.js"></script>
+<link rel="stylesheet" href="/static/css/main.css">
+{% block extra_css %}{% endblock %}
+</head>
+<body>
+{% include "navbar.html" %}
+{% block background %}
+<div class="grid-bg" aria-hidden="true"></div>
+<div class="particles" id="particles" aria-hidden="true"></div>
+{% endblock %}
+
+{% block content %}{% endblock %}
+
+{% block footer %}{% include "footer.html" %}{% endblock %}
+{% block scripts %}<script src="/static/js/particles.js"></script>{% endblock %}
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

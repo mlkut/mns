@@ -1,0 +1,143 @@
+  .search-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+  .search-row input {
+    flex: 1;
+    min-width: 0;
+  }
+  .search-row button {
+    flex-shrink: 0;
+  }
+
+  .content-grid {
+    display: flex;
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+    align-items: stretch;
+  }
+
+  .stats-card {
+    flex: 0 0 200px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+    list-style: none;
+    overflow: hidden;
+  }
+
+  .stat-row {
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-row:last-child {
+    border-bottom: none;
+  }
+
+  .stat-row > a,
+  .stat-row > .stat-row-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.78rem;
+    text-decoration: none;
+    color: var(--fg);
+    transition: background 0.2s;
+  }
+  .stat-row > a:hover,
+  .stat-row > .stat-row-content:hover {
+    background: var(--surface-hover);
+  }
+  .stat-row .stat-label {
+    color: var(--fg-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.68rem;
+  }
+  .stat-row .stat-value {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 0.82rem;
+  }
+
+  #history {
+    flex: 1;
+    min-width: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  #history:empty::before {
+    content: 'No recently viewed names';
+    margin: auto;
+    padding: 0.5rem;
+    color: var(--fg-muted);
+    font-size: 0.78rem;
+    opacity: 0.4;
+  }
+
+  @media (max-width: 640px) {
+    .content-grid {
+      flex-direction: column;
+    }
+    .stats-card {
+      flex: none;
+      width: 100%;
+    }
+  }
+
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    list-style: none;
+  }
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 0;
+    cursor: pointer;
+    transition: background 0.2s, opacity 0.2s;
+    text-decoration: none;
+    color: var(--fg);
+    opacity: 0.5;
+  }
+  .history-item:hover,
+  .history-item:focus {
+    background: var(--surface-hover);
+    opacity: 1;
+  }
+  .history-avatar {
+    width: 28px;
+    height: 28px;
+    color: var(--fg);
+    flex-shrink: 0;
+    border-radius: 4px;
+    overflow: hidden;
+    display: inline-block;
+  }
+  .history-avatar svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .history-name {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 480px) {
+    .search-row {
+      flex-direction: column;
+    }
+    .search-row button {
+      width: 100%;
+    }
+  }

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/owner.css">
+{% endblock %}
+
+{% block content %}
+<main>
+<section class="card">
+  <header class="header">
+    <h1>Owners</h1>
+  </header>
+
+  <div class="divider" role="separator"></div>
+
+  {{ owners_html | safe }}
+</section>
+
+<nav class="back-wrap" aria-label="Breadcrumb">
+  <a class="back-link" href="/">← Home</a>
+</nav>
+</main>
+{% endblock %}
