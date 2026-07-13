@@ -21,6 +21,10 @@ mkdir -p "$ROOT/bindings"
 cp -r "$TMPDIR"/* "$ROOT/bindings/"
 find "$ROOT/bindings/src" -name '*.rs' -exec "${SED_I[@]}" '/#\[automatically_derived\]/d' {} +
 "${SED_I[@]}" 's/unused_imports/unused_imports, unused/' "$ROOT/bindings/src/lib.rs"
+
+echo "Pinning alloy to 2.1 in bindings/Cargo.toml..."
+"${SED_I[@]}" 's/alloy = { version = "[^"]*"/alloy = { version = "2.1"/' "$ROOT/bindings/Cargo.toml"
+
 rm -rf "$TMPDIR"
 
 echo "Verifying build..."
