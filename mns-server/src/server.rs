@@ -55,11 +55,13 @@ pub fn build_router<S: ZoneStore + 'static>(
         .route("/{*name}", get(get_handler::<S>).put(put_handler::<S>))
         .layer(CorsLayer::permissive());
 
+    let manifest_static: std::path::PathBuf = concat!(env!("CARGO_MANIFEST_DIR")).into();
     let static_dir = std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(|p| p.to_path_buf()))
-        .unwrap_or_else(|| concat!(env!("CARGO_MANIFEST_DIR")).into())
-        .join("static");
+        .map(|p| p.join("static"))
+        .filter(|p| p.is_dir())
+        .unwrap_or_else(|| manifest_static.join("static"));
 
     Router::new()
         .route("/", get(root_handler))
