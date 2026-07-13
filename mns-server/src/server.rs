@@ -51,6 +51,10 @@ pub fn build_router<S: ZoneStore + 'static>(
         rpc_url: rpc_url.to_string(),
     });
 
+    let name_routes = Router::new()
+        .route("/{*name}", get(get_handler::<S>).put(put_handler::<S>))
+        .layer(CorsLayer::permissive());
+
     Router::new()
         .route("/", get(root_handler))
         .route("/wallet", get(wallet_handler))
@@ -58,12 +62,11 @@ pub fn build_router<S: ZoneStore + 'static>(
         .route("/owners", get(owners_handler::<S>))
         .route("/owner/{address}", get(owner_handler::<S>))
         .route("/api/batches/{address}", get(batches_handler::<S>))
-        .route("/{*name}", get(get_handler::<S>).put(put_handler::<S>))
+        .merge(name_routes)
         .nest_service(
             "/static",
             ServeDir::new(concat!(env!("CARGO_MANIFEST_DIR"), "/static")),
         )
-        .layer(CorsLayer::permissive())
         .with_state(state)
 }
 
