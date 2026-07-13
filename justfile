@@ -10,6 +10,6 @@ run:
 bind:
     ./scripts/bind.sh
 
-# Build the server
-build:
-    ./scripts/build.sh
+# Build and deploy to a directory
+build dir:
+    ./scripts/build.sh {{ dir }}

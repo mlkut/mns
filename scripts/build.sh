@@ -8,7 +8,7 @@ if [ $# -lt 1 ]; then
 fi
 
 DEPLOY_DIR="$1"
-ROOT="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 mkdir -p "$DEPLOY_DIR"
 
@@ -28,14 +28,14 @@ fi
 if ! command -v forge >/dev/null 2>&1; then
   echo "==> Installing Foundry..."
   curl -L https://foundry.paradigm.xyz | bash
-  source "$HOME/.foundry/bin/foundryup"
+  export PATH="$HOME/.foundry/bin:$PATH"
   foundryup
 fi
 
 # ── Build everything ──
 
 echo "==> Installing contract dependencies..."
-(cd "$ROOT/contracts" && forge install --no-commit --no-git 2>/dev/null || true)
+(cd "$ROOT/contracts" && forge install foundry-rs/forge-std safe-global/safe-contracts safe-global/safe-tools Vectorized/solady --no-commit --no-git 2>/dev/null || true)
 
 echo "==> Generating Rust bindings..."
 "$ROOT/scripts/bind.sh"
