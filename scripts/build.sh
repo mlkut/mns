@@ -25,6 +25,30 @@ if ! command -v wasm-pack >/dev/null 2>&1; then
   cargo install wasm-pack
 fi
 
+# ── Generate bindings if missing ──
+
+if [ ! -f "$ROOT/bindings/src/lib.rs" ]; then
+  if ! command -v forge >/dev/null 2>&1; then
+    echo "==> Installing Foundry..."
+    curl -L https://foundry.paradigm.xyz | bash
+    source "$HOME/.foundry/bin/env"
+    foundryup
+  fi
+
+  if [ ! -d "$ROOT/contracts/.git" ]; then
+    (cd "$ROOT/contracts" && git init && git add -A && git commit -m "init" --allow-empty)
+  fi
+
+  echo "==> Installing contract dependencies..."
+  (cd "$ROOT/contracts" && forge install --no-git foundry-rs/forge-std 2>/dev/null || true)
+  (cd "$ROOT/contracts" && forge install --no-git safe-global/safe-contracts 2>/dev/null || true)
+  (cd "$ROOT/contracts" && forge install --no-git colinnielsen/safe-tools 2>/dev/null || true)
+  (cd "$ROOT/contracts" && forge install --no-git Vectorized/solady 2>/dev/null || true)
+
+  echo "==> Generating bindings..."
+  "$ROOT/scripts/bind.sh"
+fi
+
 # ── Build everything ──
 
 echo "==> Building WASM..."
