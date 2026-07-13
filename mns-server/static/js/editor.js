@@ -2,6 +2,7 @@ import init, {
   create_signed_packet,
   derive_wallet_from_hex,
 } from "/static/mns-wasm/mns_wasm.js";
+import { getCredential } from "/static/js/credential.js";
 await init();
 
 (function () {
@@ -14,6 +15,7 @@ await init();
   var PUB_TS = cfg.pubTs;
   var PUB_RECORDS_JSON = cfg.pubRecordsJson;
   var HAS_ZSK = cfg.hasZsk;
+  var NS = cfg.ns || "";
   var DRAFT_KEY = "mns-draft-" + NAME;
 
   var records = [];
@@ -512,15 +514,9 @@ await init();
           return;
         }
 
-        var cred = null;
-        try {
-          cred = await navigator.credentials.get({
-            password: true,
-            mediation: "optional",
-          });
-        } catch (e) {}
+        var keys = await getCredential("optional");
 
-        if (!cred || !cred.password) {
+        if (!keys) {
           edStatus.textContent =
             "No credentials found. Unlock your wallet first.";
           edStatus.className = "editor-status error";
@@ -528,25 +524,7 @@ await init();
           return;
         }
 
-        var parts = cred.password.split("\n");
-        if (parts.length !== 2) {
-          edStatus.textContent = "Invalid credentials.";
-          edStatus.className = "editor-status error";
-          edPublish.disabled = false;
-          return;
-        }
-
-        var rskHex = parts[0];
-        var keyType, keyHex;
-        if (parts[1].length === 64) {
-          keyType = 0;
-          keyHex = parts[1];
-        } else {
-          keyType = parseInt(parts[1].substring(0, 2), 16);
-          keyHex = parts[1].substring(2);
-        }
-
-        var derived = derive_wallet_from_hex(rskHex, keyType, keyHex);
+        var derived = derive_wallet_from_hex(keys.rskHex, keys.keyType, keys.keyHex);
         if (derived[1] !== ZSK) {
           edStatus.textContent = "Key does not match this name's ZSK.";
           edStatus.className = "editor-status error";
@@ -556,8 +534,8 @@ await init();
 
         edStatus.textContent = "Signing...";
         var b64 = create_signed_packet(
-          keyType,
-          keyHex,
+          keys.keyType,
+          keys.keyHex,
           NAME,
           JSON.stringify(validRecords),
         );
@@ -572,6 +550,13 @@ await init();
         });
 
         if (resp.ok) {
+          if (NS) {
+            fetch("http://" + NS + "/" + NAME, {
+              method: "PUT",
+              headers: { "Content-Type": "application/mns.mlkut.org#SignedPacket" },
+              body: bytes,
+            }).catch(function () {});
+          }
           clearDraft();
           edStatus.textContent = "Published!";
           edStatus.className = "editor-status ok";

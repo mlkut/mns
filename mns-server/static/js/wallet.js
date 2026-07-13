@@ -8,6 +8,10 @@ import init, {
   register as wasm_register,
   update_batch as wasm_update_batch,
 } from "/static/mns-wasm/mns_wasm.js";
+import {
+  storeCredential,
+  getCredential,
+} from "/static/js/credential.js";
 await init();
 
 var cfg = window.MNS_WALLET;
@@ -60,51 +64,6 @@ function clearStored() {
   localStorage.removeItem("mns-wallet-username");
   localStorage.removeItem("mns-wallet-addr");
   localStorage.removeItem("mns-wallet-zsk");
-}
-
-// ── Credential helpers ──
-
-async function storeCredential(username, rskHex, keyType, keyHex) {
-  if (!("PasswordCredential" in window)) return false;
-  try {
-    var keyTypeHex = keyType.toString(16).padStart(2, "0");
-    const cred = new window.PasswordCredential({
-      id: username,
-      password: rskHex + "\n" + keyTypeHex + keyHex,
-      name: "MNS Wallet — " + username,
-    });
-    await navigator.credentials.store(cred);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function getCredential(mediation) {
-  if (!navigator.credentials || !("PasswordCredential" in window)) return null;
-  try {
-    return await navigator.credentials.get({
-      password: true,
-      mediation: mediation || "optional",
-    });
-  } catch {
-    return null;
-  }
-}
-
-function parseCredentialPassword(password) {
-  if (!password) return null;
-  const parts = password.split("\n");
-  if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
-  var keyType, keyHex;
-  if (parts[1].length === 64) {
-    keyType = 0;
-    keyHex = parts[1];
-  } else {
-    keyType = parseInt(parts[1].substring(0, 2), 16);
-    keyHex = parts[1].substring(2);
-  }
-  return { rskHex: parts[0], keyType: keyType, keyHex: keyHex };
 }
 
 // ── RPC helpers ──
@@ -178,10 +137,8 @@ document
 // ── Signing (prompt for credentials on every transaction) ──
 
 async function signTx(fn) {
-  var cred = await getCredential("optional");
-  if (!cred || !cred.password) return "No credentials found.";
-  var keys = parseCredentialPassword(cred.password);
-  if (!keys) return "Invalid stored credentials.";
+  var keys = await getCredential("optional");
+  if (!keys) return "No credentials found.";
   try {
     var derived = derive_wallet_from_hex(
       keys.rskHex,
@@ -299,18 +256,13 @@ function showLocked() {
 
 async function unlockWithCredential() {
   els.msg.textContent = "Unlocking\u2026";
-  var cred = await getCredential("optional");
-  if (!cred || !cred.password) {
+  var keys = await getCredential("optional");
+  if (!keys) {
     els.msg.textContent =
       "No credentials found. Generate a new account instead.";
     return;
   }
-  const keys = parseCredentialPassword(cred.password);
-  if (!keys) {
-    els.msg.textContent = "Invalid stored credentials.";
-    return;
-  }
-  const username = cred.id || "wallet";
+  const username = keys.id;
   try {
     const result = derive_wallet_from_hex(
       keys.rskHex,

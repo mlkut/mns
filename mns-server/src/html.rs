@@ -35,64 +35,34 @@ pub fn format_timestamp(ts: u64) -> String {
 
 fn env() -> minijinja::Environment<'static> {
     let mut env = minijinja::Environment::new();
-    env.add_template(
-        "base.html",
-        include_str!("../templates/base.html"),
-    )
-    .unwrap();
-    env.add_template(
-        "navbar.html",
-        include_str!("../templates/navbar.html"),
-    )
-    .unwrap();
-    env.add_template(
-        "footer.html",
-        include_str!("../templates/footer.html"),
-    )
-    .unwrap();
-    env.add_template(
-        "home.html",
-        include_str!("../templates/home.html"),
-    )
-    .unwrap();
-    env.add_template(
-        "name.html",
-        include_str!("../templates/name.html"),
-    )
-    .unwrap();
+    env.add_template("base.html", include_str!("../templates/base.html"))
+        .unwrap();
+    env.add_template("navbar.html", include_str!("../templates/navbar.html"))
+        .unwrap();
+    env.add_template("footer.html", include_str!("../templates/footer.html"))
+        .unwrap();
+    env.add_template("home.html", include_str!("../templates/home.html"))
+        .unwrap();
+    env.add_template("name.html", include_str!("../templates/name.html"))
+        .unwrap();
     env.add_template(
         "name_not_found.html",
         include_str!("../templates/name_not_found.html"),
     )
     .unwrap();
-    env.add_template(
-        "owner.html",
-        include_str!("../templates/owner.html"),
-    )
-    .unwrap();
-    env.add_template(
-        "owners.html",
-        include_str!("../templates/owners.html"),
-    )
-    .unwrap();
-    env.add_template(
-        "wallet.html",
-        include_str!("../templates/wallet.html"),
-    )
-    .unwrap();
-    env.add_template(
-        "error.html",
-        include_str!("../templates/error.html"),
-    )
-    .unwrap();
+    env.add_template("owner.html", include_str!("../templates/owner.html"))
+        .unwrap();
+    env.add_template("owners.html", include_str!("../templates/owners.html"))
+        .unwrap();
+    env.add_template("wallet.html", include_str!("../templates/wallet.html"))
+        .unwrap();
+    env.add_template("error.html", include_str!("../templates/error.html"))
+        .unwrap();
     env
 }
 
 fn render(env: &minijinja::Environment, template: &str, ctx: minijinja::Value) -> String {
-    env.get_template(template)
-        .unwrap()
-        .render(ctx)
-        .unwrap()
+    env.get_template(template).unwrap().render(ctx).unwrap()
 }
 
 pub fn render_home_page(nav: &Navbar) -> String {
@@ -321,6 +291,7 @@ pub fn render_html(
         "pubTs": timestamp,
         "pubRecordsJson": records_json,
         "hasZsk": true,
+        "ns": ns,
     });
 
     let env = env();
@@ -438,6 +409,7 @@ pub fn render_not_found_page(
             "pubTs": 0,
             "pubRecordsJson": "[]",
             "hasZsk": true,
+            "ns": ns.unwrap_or(""),
         })
     } else {
         serde_json::json!({
@@ -447,6 +419,7 @@ pub fn render_not_found_page(
             "pubTs": 0,
             "pubRecordsJson": "[]",
             "hasZsk": false,
+            "ns": ns.unwrap_or(""),
         })
     };
 
@@ -626,9 +599,9 @@ mod tests {
 
     #[test]
     fn renders_owners_page() {
-        let items = vec![
-            OwnerItemSimple { name_or_addr: "0x1234567890abcdef1234567890abcdef12345678".into() },
-        ];
+        let items = vec![OwnerItemSimple {
+            name_or_addr: "0x1234567890abcdef1234567890abcdef12345678".into(),
+        }];
         let html = render_owners_page(&items, &nav());
         assert!(html.contains("Owners"));
         assert!(html.contains("0x12345678…12345678"));
