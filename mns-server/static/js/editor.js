@@ -551,7 +551,7 @@ await init();
 
         if (resp.ok) {
           if (NS) {
-            fetch("http://" + NS + "/" + NAME, {
+            fetch("https://" + NS + "/" + NAME, {
               method: "PUT",
               headers: { "Content-Type": "application/mns.mlkut.org#SignedPacket" },
               body: bytes,
