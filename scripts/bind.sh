@@ -10,11 +10,11 @@ else
 fi
 
 echo "Building contracts..."
-(cd "$ROOT/contracts" && forge build)
+(cd "$ROOT/contracts" && rm -rf out cache && forge build --skip test --skip script)
 
 echo "Generating Rust bindings..."
 TMPDIR=$(mktemp -d)
-(cd "$ROOT/contracts" && forge bind --alloy --bindings-path "$TMPDIR" --overwrite --crate-name bindings)
+(cd "$ROOT/contracts" && forge bind --alloy --bindings-path "$TMPDIR" --overwrite --crate-name bindings --skip test --skip script --skip-build)
 
 echo "Copying bindings to $ROOT/bindings/"
 mkdir -p "$ROOT/bindings"

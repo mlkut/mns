@@ -25,20 +25,7 @@ if ! command -v wasm-pack >/dev/null 2>&1; then
   cargo install wasm-pack
 fi
 
-if ! command -v forge >/dev/null 2>&1; then
-  echo "==> Installing Foundry..."
-  curl -L https://foundry.paradigm.xyz | bash
-  export PATH="$HOME/.foundry/bin:$PATH"
-  foundryup
-fi
-
 # ── Build everything ──
-
-echo "==> Installing contract dependencies..."
-(cd "$ROOT/contracts" && forge install foundry-rs/forge-std safe-global/safe-contracts safe-global/safe-tools Vectorized/solady --no-commit --no-git 2>/dev/null || true)
-
-echo "==> Generating Rust bindings..."
-"$ROOT/scripts/bind.sh"
 
 echo "==> Building WASM..."
 (cd "$ROOT/mns-server/wasm" && wasm-pack build --target web --release)

@@ -1,0 +1,12 @@
+[submodule "lib/forge-std"]
+	path = lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "lib/safe-contracts"]
+	path = lib/safe-contracts
+	url = https://github.com/safe-global/safe-contracts
+[submodule "lib/safe-tools"]
+	path = lib/safe-tools
+	url = https://github.com/colinnielsen/safe-tools
+[submodule "lib/solady"]
+	path = lib/solady
+	url = https://github.com/Vectorized/solady
