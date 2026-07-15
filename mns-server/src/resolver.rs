@@ -121,9 +121,16 @@ pub async fn put_packet<S: ZoneStore>(
     Ok(())
 }
 
-pub fn wants_payload(accept: &str, format: Option<&str>) -> bool {
-    if let Some(f) = format {
-        return f == "payload";
-    }
-    accept.contains(content_type::MNS_PAYLOAD) || accept == "application/octet-stream"
+pub async fn fetch_from_ns(name: &Name, ns: &str) -> Result<Vec<u8>, ResolveError> {
+    let url = format!("https://{ns}/{name}");
+    let bytes = reqwest::Client::new()
+        .get(&url)
+        .header("Accept", content_type::MNS_PAYLOAD)
+        .send()
+        .await
+        .map_err(|e| ResolveError::Parse(format!("NS fetch failed: {e}")))?
+        .bytes()
+        .await
+        .map_err(|e| ResolveError::Parse(format!("NS fetch body failed: {e}")))?;
+    Ok(bytes.to_vec())
 }

@@ -373,6 +373,13 @@ async fn wallet_handler(
     )
 }
 
+pub fn wants_payload(accept: &str, format: Option<&str>) -> bool {
+    if let Some(f) = format {
+        return f == "payload";
+    }
+    accept.contains(content_type::MNS_PAYLOAD) || accept == "application/octet-stream"
+}
+
 async fn get_handler<S: ZoneStore>(
     state: axum::extract::State<Arc<AppState<S>>>,
     Path(name_str): Path<String>,
@@ -404,13 +411,13 @@ async fn get_handler<S: ZoneStore>(
         Ok((packet_bytes, zsk, packet)) => {
             let format = query.format.as_deref();
 
-            if resolver::wants_payload(accept, format) {
-                (
+            if wants_payload(accept, format) {
+                return (
                     StatusCode::OK,
                     [("content-type", content_type::MNS_PAYLOAD)],
                     packet_bytes,
                 )
-                    .into_response()
+                    .into_response();
             } else {
                 let records = packet.all_resource_records();
                 let ts = packet.timestamp().as_u64();
@@ -423,77 +430,87 @@ async fn get_handler<S: ZoneStore>(
                 let nav = nav_info(&state).await;
                 let html_body =
                     html::render_html(&name, owner.as_ref(), &zsk, &ns, &records, ts, &nav);
-                (StatusCode::OK, [("content-type", "text/html")], html_body).into_response()
+                return (StatusCode::OK, [("content-type", "text/html")], html_body)
+                    .into_response();
             }
         }
-        Err(
-            err @ (resolver::ResolveError::NameNotFound | resolver::ResolveError::PacketNotFound),
-        ) => {
-            tracing::debug!(%name, error = %err, "GET returning 404");
+        Err(resolver::ResolveError::PacketNotFound) => {
+            tracing::debug!(%name, "GET packet not found locally, trying NS fallback");
 
-            let accept = headers
-                .get("accept")
-                .and_then(|v| v.to_str().ok())
-                .unwrap_or("*/*");
+            if let (Ok(Some(zsk)), Ok(Some(ns))) = (
+                state.store.get_zsk(&name).await,
+                state.store.get_ns(&name).await,
+            ) {
+                if let Ok(bytes) = resolver::fetch_from_ns(&name, &ns).await {
+                    if let Ok((packet, _)) = resolver::resolve(&bytes, &zsk) {
+                        let _ = state.store.set_signed_packet(&name, &bytes).await;
+                        let records = packet.all_resource_records();
+                        let ts = packet.timestamp().as_u64();
 
-            if accept == content_type::MNS_PAYLOAD
-                || accept == "application/octet-stream"
-                || query.format.as_deref() == Some("payload")
-            {
-                (
-                    StatusCode::NOT_FOUND,
-                    [("content-type", content_type::MNS_PAYLOAD)],
-                    Vec::<u8>::new(),
-                )
-                    .into_response()
-            } else {
-                let nav = nav_info(&state).await;
-                let zsk = state.store.get_zsk(&name).await.unwrap_or(None);
-                let ns = state.store.get_ns(&name).await.unwrap_or(None);
-                (
-                    StatusCode::NOT_FOUND,
-                    [("content-type", "text/html")],
-                    html::render_not_found_page(
-                        &name,
-                        owner.as_ref(),
-                        zsk.as_ref(),
-                        ns.as_deref(),
-                        &nav,
-                    ),
-                )
-                    .into_response()
+                        if wants_payload(accept, query.format.as_deref()) {
+                            return (
+                                StatusCode::OK,
+                                [("content-type", content_type::MNS_PAYLOAD)],
+                                bytes,
+                            )
+                                .into_response();
+                        } else {
+                            let nav = nav_info(&state).await;
+                            let html_body = html::render_html(
+                                &name,
+                                owner.as_ref(),
+                                &zsk,
+                                &ns,
+                                &records,
+                                ts,
+                                &nav,
+                            );
+                            return (StatusCode::OK, [("content-type", "text/html")], html_body)
+                                .into_response();
+                        }
+                    }
+                }
             }
+
+            tracing::debug!(%name, "GET NS fallback failed, returning 404");
+        }
+        Err(resolver::ResolveError::NameNotFound) => {
+            tracing::debug!(%name, "GET returning 404");
         }
         Err(
             err @ (resolver::ResolveError::ZskMismatch | resolver::ResolveError::InvalidSignature),
         ) => {
             tracing::debug!(%name, error = %err, "GET evicting packet and returning 404");
             let _ = state.store.remove_signed_packet(&name).await;
-            let nav = nav_info(&state).await;
-            let zsk = state.store.get_zsk(&name).await.unwrap_or(None);
-            let ns = state.store.get_ns(&name).await.unwrap_or(None);
-            (
-                StatusCode::NOT_FOUND,
-                [("content-type", "text/html")],
-                html::render_not_found_page(
-                    &name,
-                    owner.as_ref(),
-                    zsk.as_ref(),
-                    ns.as_deref(),
-                    &nav,
-                ),
-            )
-                .into_response()
         }
         Err(e) => {
             tracing::error!("resolve error: {e}");
-            (
+            return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 [("content-type", "text/html")],
                 html::render_error("internal server error", &nav_info(&state).await),
             )
-                .into_response()
+                .into_response();
         }
+    }
+
+    if wants_payload(accept, query.format.as_deref()) {
+        (
+            StatusCode::NOT_FOUND,
+            [("content-type", content_type::MNS_PAYLOAD)],
+            Vec::<u8>::new(),
+        )
+            .into_response()
+    } else {
+        let nav = nav_info(&state).await;
+        let zsk = state.store.get_zsk(&name).await.unwrap_or(None);
+        let ns = state.store.get_ns(&name).await.unwrap_or(None);
+        (
+            StatusCode::NOT_FOUND,
+            [("content-type", "text/html")],
+            html::render_not_found_page(&name, owner.as_ref(), zsk.as_ref(), ns.as_deref(), &nav),
+        )
+            .into_response()
     }
 }
 
