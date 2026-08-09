@@ -92,9 +92,6 @@
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
-    background: rgba(255,255,255,0.015);
-    border: 1px solid rgba(255,255,255,0.05);
-    border-radius: var(--radius-sm);
   }
   .wc-key-label {
     display: flex;
@@ -176,10 +173,7 @@
     margin-bottom: 0.15rem;
   }
   .wc-batch {
-    padding: 0.7rem 0.9rem;
-    background: rgba(255,255,255,0.015);
-    border: 1px solid rgba(255,255,255,0.05);
-    border-radius: var(--radius-sm);
+    padding: 0 0 0.7rem;
   }
   .wc-batch-row {
     display: flex;
