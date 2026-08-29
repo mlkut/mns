@@ -22,16 +22,32 @@ pragma solidity ^0.8.33;
 ///
 /// Rate limiting
 /// ─────────────
-/// A token bucket (BUCKET_CAPACITY / REFILL_RATE / REFILL_PERIOD) smooths the
+/// A token bucket (BUCKET_CAPACITY / refill / REFILL_PERIOD) smooths the
 /// registration rate independently of block times, which vary on Rootstock
 /// (typically 15–30s, inherited from Bitcoin merged mining).
-/// The bucket refills continuously; BUCKET_CAPACITY bounds the burst,
-/// REFILL_RATE bounds the sustained daily throughput.
+/// The bucket refills continuously; BUCKET_CAPACITY bounds the burst.
 ///
-/// At the default constants:
-///   - Sustained max: 4,096 batch registrations/day (~12 trillion ordinals/day)
-///   - Burst: 8 batch registrations before rate limiting kicks in
-///   - Refill: one batch slot every ~21 seconds (well under one RSK block)
+/// The refill rate is not static: it is proportional to the fraction of the
+/// name space that remains unclaimed,
+///
+///     rate(n) = BASE_REFILL_RATE * ((MAX_NAMES - n) / MAX_NAMES) ^ REFILL_DECAY
+///               tokens per REFILL_PERIOD,
+///
+/// where n is the number of registered ordinals. This makes the registry
+/// approach MAX_NAMES asymptotically — a Bitcoin-halving-like schedule that is
+/// fast early (to reach meaningful scale, e.g. Bluesky's ~50M accounts in ~2
+/// years, as fast as any real network did) and slows progressively as the space
+/// fills, keeping typo-close pairs of names rare so they cannot be weaponized
+/// for phishing.
+///
+/// At the default constants (BASE_REFILL_RATE = 2^16, MAX_NAMES = 2^40,
+/// REFILL_DECAY = 1):
+///   - Launch:       ~65,536 names/day (256 batch registrations/day); 50M in ~2y.
+///   - Slowdown:     the daily rate only shrinks as the space fills; at 2^32 names
+///                   (0.4% of the space) it is still ~99.6% of the launch rate.
+///   - Burst:        8 batch registrations before rate limiting kicks in.
+///   - Tail:         the rate is floored at MIN_REFILL_RATE (1 token/day) so the
+///                   tail never freezes; register() enforces the MAX_NAMES guard.
 ///
 /// NS validation
 /// ─────────────
@@ -65,11 +81,11 @@ contract MNSRegistry {
     /// @notice Number of ordinals per batch. Batches cover [ordinal, ordinal + BATCH_SIZE).
     uint64 public constant BATCH_SIZE = 256;
 
-    /// @notice Token bucket: ordinals (tokens) added per REFILL_PERIOD.
-    /// At 1,048,576 ordinals/day the bucket refills at ~12 tokens/second.
-    /// Each register() consumes BATCH_SIZE tokens.
-    /// Sustained max: REFILL_RATE / BATCH_SIZE = 4,096 batch registrations/day.
-    uint64 public constant REFILL_RATE = 2 ** 20;
+    /// @notice Base refill rate: tokens (names) added per REFILL_PERIOD at occupancy 0.
+    /// At launch this sustains 65,536 names/day ~ 256 batch registrations/day,
+    /// i.e. Bluesky-pace growth (~50M names in ~2 years). Each register()
+    /// consumes BATCH_SIZE tokens.
+    uint64 public constant BASE_REFILL_RATE = 2 ** 16;
 
     /// @notice Token bucket: maximum burst size.
     /// Burst limit: BUCKET_CAPACITY / BATCH_SIZE = 8 batch registrations before
@@ -77,8 +93,25 @@ contract MNSRegistry {
     /// sustained throughput.
     uint64 public constant BUCKET_CAPACITY = 2048;
 
-    /// @notice Period over which REFILL_RATE tokens are added to the bucket.
+    /// @notice Period over which the refill rate adds tokens to the bucket.
     uint256 public constant REFILL_PERIOD = 1 days;
+
+    /// @notice Upper bound of the name space. Registrations are paced so the
+    /// registry asymptotically approaches but never exhausts this many names.
+    uint64 public constant MAX_NAMES = 2 ** 40;
+
+    /// @notice Batch count corresponding to MAX_NAMES. register() refuses to
+    /// create batches past this many.
+    uint64 public constant MAX_BATCHES = MAX_NAMES / BATCH_SIZE;
+
+    /// @notice Exponent applied to the remaining-space fraction in the refill
+    /// rate. 1 = linear decay (rate proportional to free space). A higher value
+    /// steepens the slowdown without changing the MAX_NAMES asymptote.
+    uint256 public constant REFILL_DECAY = 1;
+
+    /// @notice Floor on the refill rate (tokens/day) so the tail of the
+    /// schedule never fully freezes while occupancy is below MAX_NAMES.
+    uint256 public constant MIN_REFILL_RATE = 1;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Data structures
@@ -214,11 +247,17 @@ contract MNSRegistry {
     // Views — rate limiter
     // ─────────────────────────────────────────────────────────────────────────
 
+    /// @notice Current sustained refill rate in tokens (names) per day.
+    /// Declines as the name space fills and is floored at MIN_REFILL_RATE.
+    function refillRate() external view returns (uint256) {
+        return _refillRate();
+    }
+
     /// @notice Seconds until a batch registration is available (0 = now).
     function estimatedWaitTime() external view returns (uint256) {
-        (uint64 current,,) = _computeBucket();
+        (uint64 current,) = _computeBucket();
         if (current >= BATCH_SIZE) return 0;
-        return _computeWait(current);
+        return _computeWait(current, _refillRate());
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -234,7 +273,7 @@ contract MNSRegistry {
     function register(bytes32 zsk, string calldata ns) external returns (Batch memory) {
         _validateNs(bytes(ns).length);
         _consumeBucketToken();
-        require(_batches.length < type(uint64).max / BATCH_SIZE, "ID space exhausted, what year is this?");
+        require(_batches.length < MAX_BATCHES, "ID space exhausted, what year is this?");
         uint64 newOrdinal = uint64(_batches.length * BATCH_SIZE);
         Batch memory batch = Batch(newOrdinal, msg.sender, ZoneConfig(zsk, ns));
         _batches.push(batch);
@@ -314,29 +353,47 @@ contract MNSRegistry {
     // Internal — rate limiter
     // ─────────────────────────────────────────────────────────────────────────
 
+    /// @dev Current sustained refill rate (tokens per day) as a function of
+    /// occupancy. rate(n) = BASE_REFILL_RATE * ((MAX_NAMES-n)/MAX_NAMES)^REFILL_DECAY,
+    /// floored at MIN_REFILL_RATE. Because occupancy only changes inside
+    /// register(), the rate is constant between registrations so token bucket
+    /// accrual stays piecewise-exact.
+    function _refillRate() private view returns (uint256) {
+        uint256 occupied = uint256(_batches.length) * BATCH_SIZE;
+        uint256 remaining = uint256(MAX_NAMES) - occupied;
+        uint256 rate = BASE_REFILL_RATE;
+        for (uint256 i = 0; i < REFILL_DECAY; i++) {
+            rate = (rate * remaining) / MAX_NAMES;
+        }
+        return rate < MIN_REFILL_RATE ? MIN_REFILL_RATE : rate;
+    }
+
     /// @dev Consumes BATCH_SIZE tokens from the bucket (one per ordinal in the batch).
     /// Reverts with RateLimit(estimatedWaitSeconds) if insufficient tokens.
     /// Advances _lastRefill by the floor of the accrual window so fractional time carries over.
     function _consumeBucketToken() private {
-        (uint64 current,, uint256 accrued) = _computeBucket();
+        (uint64 current, uint256 accrued) = _computeBucket();
+        uint256 rate = _refillRate();
         if (current < BATCH_SIZE) {
-            revert RateLimit(_computeWait(current));
+            revert RateLimit(_computeWait(current, rate));
         }
         _bucket = current - BATCH_SIZE;
-        _lastRefill += (accrued * REFILL_PERIOD) / REFILL_RATE;
+        _lastRefill += (accrued * REFILL_PERIOD) / rate;
     }
 
-    /// @dev Computes the wait time in seconds to accumulate `BATCH_SIZE - current` tokens.
-    function _computeWait(uint64 current) private pure returns (uint256) {
+    /// @dev Computes the wait time in seconds to accumulate `BATCH_SIZE - current`
+    /// tokens at the given sustained refill rate.
+    function _computeWait(uint64 current, uint256 rate) private pure returns (uint256) {
         uint256 deficit = BATCH_SIZE - current;
-        return (deficit * REFILL_PERIOD + REFILL_RATE - 1) / REFILL_RATE;
+        return (deficit * REFILL_PERIOD + rate - 1) / rate;
     }
 
     /// @dev Computes the current bucket level as of block.timestamp without
     /// writing state. Safe to call from view functions.
-    function _computeBucket() private view returns (uint64 current, uint256 elapsed, uint256 accrued) {
-        elapsed = block.timestamp - _lastRefill;
-        accrued = (elapsed * REFILL_RATE) / REFILL_PERIOD;
+    function _computeBucket() private view returns (uint64 current, uint256 accrued) {
+        uint256 rate = _refillRate();
+        uint256 elapsed = block.timestamp - _lastRefill;
+        accrued = (elapsed * rate) / REFILL_PERIOD;
         if (accrued == 0) {
             current = _bucket;
         } else {

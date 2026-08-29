@@ -396,6 +396,30 @@ contract MNSRegistryTest is Test {
     // rate limiter
     // ─────────────────────────────────────────────────────────────────────────
 
+    function test_RefillRate_InitialIsBase() public view {
+        assertEq(registry.refillRate(), 2 ** 16);
+    }
+
+    function test_RefillRate_DecaysSlowlyWithOccupancy() public {
+        // Fake occupancy: n = 2^32 names (2^24 batches). Remaining fraction is
+        // (2^40 - 2^32) / 2^40 = 255/256, so rate = 2^16 * 255/256 = 65,280.
+        vm.store(address(registry), bytes32(uint256(0)), bytes32(uint256(2 ** 24)));
+        assertEq(registry.refillRate(), 65_280);
+    }
+
+    function test_RefillRate_AtQuarterSpace() public {
+        // n = 2^36 names (2^28 batches) -> rate = 2^16 * 15/16 = 61,440.
+        vm.store(address(registry), bytes32(uint256(0)), bytes32(uint256(2 ** 28)));
+        assertEq(registry.refillRate(), 61_440);
+    }
+
+    function test_RefillRate_IsFlooredNearCap() public {
+        // Walk the private _batches.length slot near the cap: remaining = 2^24
+        // names yields a raw rate of ~0.024 tokens/day, floored to 1.
+        vm.store(address(registry), bytes32(uint256(0)), bytes32(uint256(2 ** 32 - 1)));
+        assertEq(registry.refillRate(), 1);
+    }
+
     function test_EstimatedWaitTime_ReturnsZeroAtStart() public view {
         assertEq(registry.estimatedWaitTime(), 0);
     }
@@ -414,19 +438,19 @@ contract MNSRegistryTest is Test {
     function test_EstimatedWaitTime_ReturnsZeroAfterRefill() public {
         _exhaustBucket();
         assertGt(registry.estimatedWaitTime(), 0);
-        vm.warp(block.timestamp + 22);
+        vm.warp(block.timestamp + 338);
         assertEq(registry.estimatedWaitTime(), 0);
     }
 
     function test_Register_RevertsWhenBucketEmpty() public {
         _exhaustBucket();
-        vm.expectRevert(abi.encodeWithSelector(MNSRegistry.RateLimit.selector, 22));
+        vm.expectRevert(abi.encodeWithSelector(MNSRegistry.RateLimit.selector, 338));
         registry.register(bytes32(0), "s");
     }
 
     function test_Register_RefillsForRegistrationAfterElapsed() public {
         _exhaustBucket();
-        vm.warp(block.timestamp + 22);
+        vm.warp(block.timestamp + 338);
         registry.register(bytes32(0), "s");
     }
 
@@ -434,7 +458,7 @@ contract MNSRegistryTest is Test {
         _exhaustBucket();
         vm.warp(block.timestamp + 1 days);
         _exhaustBucket();
-        vm.expectRevert(abi.encodeWithSelector(MNSRegistry.RateLimit.selector, 22));
+        vm.expectRevert(abi.encodeWithSelector(MNSRegistry.RateLimit.selector, 338));
         registry.register(bytes32(0), "s");
     }
 
@@ -442,18 +466,39 @@ contract MNSRegistryTest is Test {
         assertEq(registry.estimatedWaitTime(), 0);
         _exhaustBucket();
         assertGt(registry.estimatedWaitTime(), 0);
-        vm.warp(block.timestamp + 22);
+        vm.warp(block.timestamp + 338);
         assertEq(registry.estimatedWaitTime(), 0);
         registry.register(bytes32(0), "s");
     }
 
     function test_ConsumeBucketToken_CarriesOverFractionalAccrual() public {
         _exhaustBucket();
-        vm.warp(block.timestamp + 22);
+        vm.warp(block.timestamp + 338);
         registry.register(bytes32(0), "s");
-        vm.warp(block.timestamp + 20);
+        // The bucket banks 337s of the 338s elapsed (256 tokens * 86400/65536s),
+        // carrying ~1s forward. So the next batch must arrive after only +337s,
+        // proving the fractional accrual was not lost.
+        assertGt(registry.estimatedWaitTime(), 0);
+        vm.warp(block.timestamp + 337);
         assertEq(registry.estimatedWaitTime(), 0);
         registry.register(bytes32(0), "s");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // name-space asymptote / guard
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_Register_RevertsAtMaxBatches() public {
+        // Push _batches.length to MAX_BATCHES (2^32): the next register() must
+        // revert even though the token bucket still has capacity.
+        vm.store(address(registry), bytes32(uint256(0)), bytes32(uint256(2 ** 32)));
+        vm.expectRevert("ID space exhausted, what year is this?");
+        registry.register(bytes32(0), "s");
+    }
+
+    function test_NextOrdinal_StaysBelowMaxNames() public {
+        vm.store(address(registry), bytes32(uint256(0)), bytes32(uint256(2 ** 32 - 1)));
+        assertLt(registry.nextOrdinal(), registry.MAX_NAMES());
     }
 
     // ─────────────────────────────────────────────────────────────────────────
