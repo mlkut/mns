@@ -9,25 +9,15 @@
   "cross_join_bad_words": 0,
   "prefix": {
     "size": 4096,
-    "lookalike_pairs_1char": 49571
+    "lookalike_pairs_1char": 49770
   },
   "suffix": {
     "size": 4096,
-    "lookalike_pairs_1char": 49731
+    "lookalike_pairs_1char": 49016
   },
-  "shared_tokens": 2038,
-  "reduplication_within_word_rate": 0.0001214742660522461,
-  "first_1char_twin_ordinal_estimate": 3407382,
-  "nearest_neighbor": {
-    "prefix": {
-      "dist1": 4096,
-      "dist2": 0,
-      "dist3plus": 0
-    },
-    "suffix": {
-      "dist1": 4096,
-      "dist2": 0,
-      "dist3plus": 0
-    }
-  }
+  "shared_tokens": 1843,
+  "reduplication_within_word_rate": 0.00010985136032104492,
+  "first_1char_twin_ordinal_estimate": 3416270,
+  "quality_name_p10": -1.933,
+  "quality_name_p50": -1.6766
 }

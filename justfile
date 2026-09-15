@@ -22,6 +22,14 @@ curate:
 closeness:
     python3 scripts/curate/closeness.py
 
+# Name-quality score + tradeoff (needs wordfreq; falls back to offline dict)
+quality:
+    .venv/bin/python scripts/curate/quality.py || python3 scripts/curate/quality.py --lexicon offline
+
+# As above; also print the quality/overlap pruning tradeoff table
+quality-sweep:
+    .venv/bin/python scripts/curate/quality.py sweep || python3 scripts/curate/quality.py --lexicon offline sweep
+
 # Print random names from the curated final lists (defaults: 100, first trillion)
 # ranges/presets: python3 scripts/curate/sample.py --preset first-million|first-billion|first-trillion|--full|--cap N
 sample:

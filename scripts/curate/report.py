@@ -167,6 +167,10 @@ def main() -> int:
         md.append(f"- Prefix list {fin['prefix']['size']:,} tokens, "
                   f"{fin['prefix']['lookalike_pairs_1char']:,} 1-letter-lookalike pairs; "
                   f"suffix {fin['suffix']['lookalike_pairs_1char']:,}.")
+        md.append("- Then `quality.py substitute` re-admitted 182 prefix + 500 suffix "
+                  "join-pruned-but-good tokens (swapping out the worst-quality list members): "
+                  "pool grew to 6,349, range stays 2^48, redup improved. Details: "
+                  "[name_quality.md](./name_quality.md).")
         jo = lambda n: n if n == "inf" else f"{n:,}"
         md.append(f"- Shared tokens {fin['shared_tokens']:,} → reduplication inside a word "
                   f"~1 in {int(1/max(fin['reduplication_within_word_rate'],1e-9)):,}.")
@@ -175,6 +179,13 @@ def main() -> int:
         md.append("  Name space at 4096/slot: **2^48 ≈ {:,}** names.".format(2**48))
         md.append("")
         md.append("Sample: `python3 scripts/curate/sample.py --count 100 --seed 1`\n")
+        md.append("Closeness at scale (P(random name has a ≤1-letter registered twin)) is measured")
+        md.append("in [name_closeness.md](./name_closeness.md) — regenerate with "
+                  "`python3 scripts/curate/closeness.py`.")
+        md.append("Name quality (phonotactic probability) is measured in "
+                  "[name_quality.md](./name_quality.md) — regenerate with "
+                  "`.venv/bin/python scripts/curate/quality.py` (wordfreq) or "
+                  "`python3 scripts/curate/quality.py --lexicon offline`.\n")
 
     md.append("## 8. Reproduce\n")
     md.append("```bash")
@@ -184,6 +195,8 @@ def main() -> int:
     md.append("python3 scripts/curate/select.py")
     md.append("python3 scripts/curate/report.py")
     md.append("python3 scripts/curate/sample.py --count 100 --seed 1")
+    md.append("python3 scripts/curate/closeness.py")
+    md.append(".venv/bin/python scripts/curate/quality.py && .venv/bin/python scripts/curate/quality.py sweep")
     md.append("```\n")
     md.append("Next step (separate change): flatten the code path to direct 4-letter token")
     md.append("lookup from `scripts/data/final/prefixes.txt` + `suffixes.txt`, upgrade the")
