@@ -135,15 +135,17 @@ vertex cover of the bad-word graph), assign survivors to prefix/suffix slots
 minimizing 1-letter lookalikes, then borrow across slots to reach 4096 each.
 
 - Clean pool after join-prune: **6,154** tokens (now 0 offensive words across the whole 4096×4096 = 16.8M word table — verified 0).
-- Prefix list 4,096 tokens, 49,571 1-letter-lookalike pairs; suffix 49,731.
-- Shared tokens 2,038 → reduplication inside a word ~1 in 8,232.
-- Estimated first 1-letter-twin name: ~3,407,382 ordinal (current 1024-scheme: ~265k → ~13× better).
+- Prefix list 4,096 tokens, 49,770 1-letter-lookalike pairs; suffix 49,016.
+- Then `quality.py substitute` re-admitted 182 prefix + 500 suffix join-pruned-but-good tokens (swapping out the worst-quality list members): pool grew to 6,349, range stays 2^48, redup improved. Details: [name_quality.md](./name_quality.md).
+- Shared tokens 1,843 → reduplication inside a word ~1 in 9,103.
+- Estimated first 1-letter-twin name: ~3,416,270 ordinal (current 1024-scheme: ~265k → ~13× better).
   Name space at 4096/slot: **2^48 ≈ 281,474,976,710,656** names.
 
 Sample: `python3 scripts/curate/sample.py --count 100 --seed 1`
 
 Closeness at scale (P(random name has a ≤1-letter registered twin)) is measured
 in [name_closeness.md](./name_closeness.md) — regenerate with `python3 scripts/curate/closeness.py`.
+Name quality (phonotactic probability) is measured in [name_quality.md](./name_quality.md) — regenerate with `.venv/bin/python scripts/curate/quality.py` (wordfreq) or `python3 scripts/curate/quality.py --lexicon offline`.
 
 ## 8. Reproduce
 
@@ -155,6 +157,7 @@ python3 scripts/curate/select.py
 python3 scripts/curate/report.py
 python3 scripts/curate/sample.py --count 100 --seed 1
 python3 scripts/curate/closeness.py
+.venv/bin/python scripts/curate/quality.py && .venv/bin/python scripts/curate/quality.py sweep
 ```
 
 Next step (separate change): flatten the code path to direct 4-letter token
