@@ -10,6 +10,19 @@ run:
 bind:
     ./scripts/bind.sh
 
+# Regenerate name-word candidate pools + feasibility report
+curate:
+    python3 scripts/curate/generate.py
+    python3 scripts/curate/filter.py
+    python3 scripts/curate/scan.py --matrix CVCV,CVCC,CVVC,CCVC
+    python3 scripts/curate/select.py
+    python3 scripts/curate/report.py
+
+# Print random names from the curated final lists (defaults: 100, first trillion)
+# ranges/presets: python3 scripts/curate/sample.py --preset first-million|first-billion|first-trillion|--full|--cap N
+sample:
+    python3 scripts/curate/sample.py
+
 # Build and deploy to a directory
 build dir:
     ./scripts/build.sh {{ dir }}

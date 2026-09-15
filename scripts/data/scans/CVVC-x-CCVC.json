@@ -1,0 +1,27 @@
+{
+  "CVVC-x-CCVC": {
+    "prefix_pool": "CVVC",
+    "suffix_pool": "CCVC",
+    "prefix_count": 7224,
+    "suffix_count": 1946,
+    "pairs_total": 14057904,
+    "pairs_clean": 12834074,
+    "pairs_offensive": 57205,
+    "pairs_awkward": 1166625,
+    "offense_rate": 0.00407,
+    "examples_offensive": [
+      "baasshab",
+      "baasshad",
+      "baasshaf",
+      "baasshag",
+      "baasshah"
+    ],
+    "examples_awkward": [
+      "baabblab  (b+b)",
+      "baabblad  (b+b)",
+      "baabblaf  (b+b)",
+      "baabblag  (b+b)",
+      "baabblah  (b+b)"
+    ]
+  }
+}
