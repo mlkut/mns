@@ -142,6 +142,9 @@ minimizing 1-letter lookalikes, then borrow across slots to reach 4096 each.
 
 Sample: `python3 scripts/curate/sample.py --count 100 --seed 1`
 
+Closeness at scale (P(random name has a ≤1-letter registered twin)) is measured
+in [name_closeness.md](./name_closeness.md) — regenerate with `python3 scripts/curate/closeness.py`.
+
 ## 8. Reproduce
 
 ```bash
@@ -151,6 +154,7 @@ python3 scripts/curate/scan.py --matrix CVCV,CVCC,CVVC,CCVC
 python3 scripts/curate/select.py
 python3 scripts/curate/report.py
 python3 scripts/curate/sample.py --count 100 --seed 1
+python3 scripts/curate/closeness.py
 ```
 
 Next step (separate change): flatten the code path to direct 4-letter token

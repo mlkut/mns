@@ -18,6 +18,10 @@ curate:
     python3 scripts/curate/select.py
     python3 scripts/curate/report.py
 
+# Regenerate the closeness-at-scale analysis (design/name_closeness.md)
+closeness:
+    python3 scripts/curate/closeness.py
+
 # Print random names from the curated final lists (defaults: 100, first trillion)
 # ranges/presets: python3 scripts/curate/sample.py --preset first-million|first-billion|first-trillion|--full|--cap N
 sample:
