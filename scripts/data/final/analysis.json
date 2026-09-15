@@ -1,0 +1,33 @@
+{
+  "clean_pool": 6154,
+  "slot_size": 4096,
+  "namespace": {
+    "b": 12,
+    "total_names": 281474976710656,
+    "wire_bytes": 6
+  },
+  "cross_join_bad_words": 0,
+  "prefix": {
+    "size": 4096,
+    "lookalike_pairs_1char": 49571
+  },
+  "suffix": {
+    "size": 4096,
+    "lookalike_pairs_1char": 49731
+  },
+  "shared_tokens": 2038,
+  "reduplication_within_word_rate": 0.0001214742660522461,
+  "first_1char_twin_ordinal_estimate": 3407382,
+  "nearest_neighbor": {
+    "prefix": {
+      "dist1": 4096,
+      "dist2": 0,
+      "dist3plus": 0
+    },
+    "suffix": {
+      "dist1": 4096,
+      "dist2": 0,
+      "dist3plus": 0
+    }
+  }
+}

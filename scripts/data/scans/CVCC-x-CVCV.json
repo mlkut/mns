@@ -1,0 +1,27 @@
+{
+  "CVCC-x-CVCV": {
+    "prefix_pool": "CVCC",
+    "suffix_pool": "CVCV",
+    "prefix_count": 2191,
+    "suffix_count": 7175,
+    "pairs_total": 15720425,
+    "pairs_clean": 14328955,
+    "pairs_offensive": 5020,
+    "pairs_awkward": 1386450,
+    "offense_rate": 0.00032,
+    "examples_offensive": [
+      "badshita",
+      "badshite",
+      "badshiti",
+      "badshito",
+      "badshitu"
+    ],
+    "examples_awkward": [
+      "badssaba  (s+s)",
+      "badssabe  (s+s)",
+      "badssabi  (s+s)",
+      "badssabo  (s+s)",
+      "badssabu  (s+s)"
+    ]
+  }
+}

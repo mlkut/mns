@@ -1,0 +1,27 @@
+{
+  "CCVC-x-CVVC": {
+    "prefix_pool": "CCVC",
+    "suffix_pool": "CVVC",
+    "prefix_count": 1946,
+    "suffix_count": 7224,
+    "pairs_total": 14057904,
+    "pairs_clean": 11810361,
+    "pairs_offensive": 23630,
+    "pairs_awkward": 2223913,
+    "offense_rate": 0.00168,
+    "examples_offensive": [
+      "blarseab",
+      "blarsead",
+      "blarseaf",
+      "blarseag",
+      "blarseah"
+    ],
+    "examples_awkward": [
+      "blabbaab  (b+b)",
+      "blabbaad  (b+b)",
+      "blabbaaf  (b+b)",
+      "blabbaag  (b+b)",
+      "blabbaah  (b+b)"
+    ]
+  }
+}

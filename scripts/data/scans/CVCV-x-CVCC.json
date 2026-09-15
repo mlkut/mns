@@ -1,0 +1,21 @@
+{
+  "CVCV-x-CVCC": {
+    "prefix_pool": "CVCV",
+    "suffix_pool": "CVCC",
+    "prefix_count": 7175,
+    "suffix_count": 2191,
+    "pairs_total": 15720425,
+    "pairs_clean": 15613537,
+    "pairs_offensive": 106888,
+    "pairs_awkward": 0,
+    "offense_rate": 0.0068,
+    "examples_offensive": [
+      "babumads",
+      "babumaft",
+      "babumaks",
+      "babumald",
+      "babumalf"
+    ],
+    "examples_awkward": []
+  }
+}
