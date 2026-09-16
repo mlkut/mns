@@ -1,0 +1,81 @@
+{
+  "_readme": "Reviewable curation rules for the 4-letter token pools. Edit freely and re-run filter.py. Alphabet is fixed by generate.py (consonants bdfghjklmnprstvwz, vowels aeiou; no c/q/x/y), so profanity written with 'c'/'y' cannot occur and is omitted. The profanity list is a STARTER set: it must be human-expanded, reviewed, and internationalized before it is used for a live namespace. Every substring rule is checked as a 'substring anywhere inside the token' (3-letter substrings also catch embedded profanity). Boundary (token1[3]+token2[0]) rules apply only inside scan.py, not to single tokens.",
+  "profanity": {
+    "banned_words": [
+      "arse",
+      "damn",
+      "dick",
+      "dung",
+      "fags",
+      "kike",
+      "knob",
+      "kunt",
+      "piss",
+      "poop",
+      "shit",
+      "slut",
+      "tits",
+      "turd",
+      "wank"
+    ],
+    "banned_substrings_3": [
+      "ass",
+      "azz",
+      "bum",
+      "dik",
+      "fag",
+      "fuk",
+      "kik",
+      "kum",
+      "pis",
+      "sht",
+      "suk",
+      "tit",
+      "wop"
+    ],
+    "banned_boundary_substrings_3": [
+      "ass",
+      "azz",
+      "bum",
+      "dik",
+      "fag",
+      "fuk",
+      "kik",
+      "kum",
+      "pis",
+      "sht",
+      "suk",
+      "tit",
+      "wop"
+    ]
+  },
+  "pronunciation": {
+    "banned_2grams": [
+      "bb", "dd", "ff", "gg", "hh", "jj", "kk", "ll", "mm", "nn", "pp", "rr", "ss", "tt", "vv", "ww", "zz",
+      "bj", "dv", "fv", "fw", "gz", "hz", "jh", "jv", "jw", "jz", "kh", "mz", "nz", "vh", "vf", "vj", "vz",
+"wf", "wj", "wz", "zb", "zd", "zh", "zj", "zv", "zw", "zr", "zm", "zn", "zj",
+      "uw"
+    ],
+    "ban_full_reduplication": true,
+    "banned_3grams": ["kkk", "zzz", "ggg", "sss", "nnn", "www", "rrr"],
+    "onset_clusters": [
+      "bl", "br", "dr", "dw", "fl", "fr", "gl", "gr", "kl", "kr",
+      "pl", "pr", "sh", "sk", "sl", "sm", "sn", "sp", "st", "sw",
+      "tr", "tw", "wr"
+    ],
+    "coda_clusters": [
+      "ds", "ft", "ks", "ld", "lf", "lk", "lp", "mb", "mp", "ms",
+      "nd", "ng", "nk", "nt", "pt", "rd", "rk", "rl", "rm", "rn",
+      "rp", "rt", "sk", "sp", "st", "ts"
+    ],
+    "banned_boundary_2grams": [
+      "bb", "dd", "ff", "gg", "hh", "jj", "kk", "ll", "mm", "nn", "pp", "rr", "ss", "tt", "vv", "ww", "zz",
+      "bj", "dv", "fv", "fw", "gz", "hz", "jh", "jv", "jw", "jz", "kh", "mz", "nz", "vh", "vf", "vj", "vz",
+      "wf", "wj", "wz", "zb", "zd", "zh", "zj", "zv", "zw", "zr", "zm", "zn"
+    ]
+  },
+  "single_letters": {
+    "banned_initial": [],
+    "banned_final": []
+  }
+}

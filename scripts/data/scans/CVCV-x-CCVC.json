@@ -1,0 +1,21 @@
+{
+  "CVCV-x-CCVC": {
+    "prefix_pool": "CVCV",
+    "suffix_pool": "CCVC",
+    "prefix_count": 7175,
+    "suffix_count": 1946,
+    "pairs_total": 13962550,
+    "pairs_clean": 13805972,
+    "pairs_offensive": 156578,
+    "pairs_awkward": 0,
+    "offense_rate": 0.01121,
+    "examples_offensive": [
+      "badiklab",
+      "badiklad",
+      "badiklaf",
+      "badiklag",
+      "badiklah"
+    ],
+    "examples_awkward": []
+  }
+}
