@@ -81,7 +81,6 @@ blur
 blus
 blut
 bluv
-bluw
 bluz
 brab
 brad
@@ -166,7 +165,6 @@ brur
 brus
 brut
 bruv
-bruw
 bruz
 drab
 drad
@@ -251,7 +249,6 @@ drur
 drus
 drut
 druv
-druw
 druz
 dwab
 dwad
@@ -335,7 +332,6 @@ dwur
 dwus
 dwut
 dwuv
-dwuw
 dwuz
 flab
 flad
@@ -420,7 +416,6 @@ flur
 flus
 flut
 fluv
-fluw
 fluz
 frab
 frad
@@ -505,7 +500,6 @@ frur
 frus
 frut
 fruv
-fruw
 fruz
 glab
 glad
@@ -590,7 +584,6 @@ glur
 glus
 glut
 gluv
-gluw
 gluz
 grab
 grad
@@ -675,7 +668,6 @@ grur
 grus
 grut
 gruv
-gruw
 gruz
 klab
 klad
@@ -760,7 +752,6 @@ klur
 klus
 klut
 kluv
-kluw
 kluz
 krab
 krad
@@ -845,7 +836,6 @@ krur
 krus
 krut
 kruv
-kruw
 kruz
 plab
 plad
@@ -930,7 +920,6 @@ plur
 plus
 plut
 pluv
-pluw
 pluz
 prab
 prad
@@ -1015,7 +1004,6 @@ prur
 prus
 prut
 pruv
-pruw
 pruz
 shab
 shad
@@ -1099,7 +1087,6 @@ shur
 shus
 shut
 shuv
-shuw
 shuz
 skab
 skad
@@ -1182,7 +1169,6 @@ skur
 skus
 skut
 skuv
-skuw
 skuz
 slab
 slad
@@ -1266,7 +1252,6 @@ slup
 slur
 slus
 sluv
-sluw
 sluz
 smab
 smad
@@ -1351,7 +1336,6 @@ smur
 smus
 smut
 smuv
-smuw
 smuz
 snab
 snad
@@ -1436,7 +1420,6 @@ snur
 snus
 snut
 snuv
-snuw
 snuz
 spab
 spad
@@ -1520,7 +1503,6 @@ spur
 spus
 sput
 spuv
-spuw
 spuz
 stab
 stad
@@ -1604,7 +1586,6 @@ stur
 stus
 stut
 stuv
-stuw
 stuz
 swab
 swad
@@ -1688,7 +1669,6 @@ swur
 swus
 swut
 swuv
-swuw
 swuz
 trab
 trad
@@ -1773,7 +1753,6 @@ trur
 trus
 trut
 truv
-truw
 truz
 twab
 twad
@@ -1857,7 +1836,6 @@ twur
 twus
 twut
 twuv
-twuw
 twuz
 wrab
 wrad
@@ -1942,5 +1920,4 @@ wrur
 wrus
 wrut
 wruv
-wruw
 wruz

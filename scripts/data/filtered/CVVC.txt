@@ -81,7 +81,6 @@ baur
 baus
 baut
 bauv
-bauw
 bauz
 beab
 bead
@@ -166,7 +165,6 @@ beur
 beus
 beut
 beuv
-beuw
 beuz
 biab
 biad
@@ -251,7 +249,6 @@ biur
 bius
 biut
 biuv
-biuw
 biuz
 boab
 boad
@@ -336,7 +333,6 @@ bour
 bous
 bout
 bouv
-bouw
 bouz
 buab
 buad
@@ -421,7 +417,6 @@ buur
 buus
 buut
 buuv
-buuw
 buuz
 daab
 daad
@@ -506,7 +501,6 @@ daur
 daus
 daut
 dauv
-dauw
 dauz
 deab
 dead
@@ -591,7 +585,6 @@ deur
 deus
 deut
 deuv
-deuw
 deuz
 diab
 diad
@@ -676,7 +669,6 @@ diur
 dius
 diut
 diuv
-diuw
 diuz
 doab
 doad
@@ -761,7 +753,6 @@ dour
 dous
 dout
 douv
-douw
 douz
 duab
 duad
@@ -846,7 +837,6 @@ duur
 duus
 duut
 duuv
-duuw
 duuz
 faab
 faad
@@ -931,7 +921,6 @@ faur
 faus
 faut
 fauv
-fauw
 fauz
 feab
 fead
@@ -1016,7 +1005,6 @@ feur
 feus
 feut
 feuv
-feuw
 feuz
 fiab
 fiad
@@ -1101,7 +1089,6 @@ fiur
 fius
 fiut
 fiuv
-fiuw
 fiuz
 foab
 foad
@@ -1186,7 +1173,6 @@ four
 fous
 fout
 fouv
-fouw
 fouz
 fuab
 fuad
@@ -1271,7 +1257,6 @@ fuur
 fuus
 fuut
 fuuv
-fuuw
 fuuz
 gaab
 gaad
@@ -1356,7 +1341,6 @@ gaur
 gaus
 gaut
 gauv
-gauw
 gauz
 geab
 gead
@@ -1441,7 +1425,6 @@ geur
 geus
 geut
 geuv
-geuw
 geuz
 giab
 giad
@@ -1526,7 +1509,6 @@ giur
 gius
 giut
 giuv
-giuw
 giuz
 goab
 goad
@@ -1611,7 +1593,6 @@ gour
 gous
 gout
 gouv
-gouw
 gouz
 guab
 guad
@@ -1696,7 +1677,6 @@ guur
 guus
 guut
 guuv
-guuw
 guuz
 haab
 haad
@@ -1781,7 +1761,6 @@ haur
 haus
 haut
 hauv
-hauw
 hauz
 heab
 head
@@ -1866,7 +1845,6 @@ heur
 heus
 heut
 heuv
-heuw
 heuz
 hiab
 hiad
@@ -1951,7 +1929,6 @@ hiur
 hius
 hiut
 hiuv
-hiuw
 hiuz
 hoab
 hoad
@@ -2036,7 +2013,6 @@ hour
 hous
 hout
 houv
-houw
 houz
 huab
 huad
@@ -2121,7 +2097,6 @@ huur
 huus
 huut
 huuv
-huuw
 huuz
 jaab
 jaad
@@ -2206,7 +2181,6 @@ jaur
 jaus
 jaut
 jauv
-jauw
 jauz
 jeab
 jead
@@ -2291,7 +2265,6 @@ jeur
 jeus
 jeut
 jeuv
-jeuw
 jeuz
 jiab
 jiad
@@ -2376,7 +2349,6 @@ jiur
 jius
 jiut
 jiuv
-jiuw
 jiuz
 joab
 joad
@@ -2461,7 +2433,6 @@ jour
 jous
 jout
 jouv
-jouw
 jouz
 juab
 juad
@@ -2546,7 +2517,6 @@ juur
 juus
 juut
 juuv
-juuw
 juuz
 kaab
 kaad
@@ -2631,7 +2601,6 @@ kaur
 kaus
 kaut
 kauv
-kauw
 kauz
 keab
 kead
@@ -2716,7 +2685,6 @@ keur
 keus
 keut
 keuv
-keuw
 keuz
 kiab
 kiad
@@ -2801,7 +2769,6 @@ kiur
 kius
 kiut
 kiuv
-kiuw
 kiuz
 koab
 koad
@@ -2886,7 +2853,6 @@ kour
 kous
 kout
 kouv
-kouw
 kouz
 kuab
 kuad
@@ -2971,7 +2937,6 @@ kuur
 kuus
 kuut
 kuuv
-kuuw
 kuuz
 laab
 laad
@@ -3056,7 +3021,6 @@ laur
 laus
 laut
 lauv
-lauw
 lauz
 leab
 lead
@@ -3141,7 +3105,6 @@ leur
 leus
 leut
 leuv
-leuw
 leuz
 liab
 liad
@@ -3226,7 +3189,6 @@ liur
 lius
 liut
 liuv
-liuw
 liuz
 loab
 load
@@ -3311,7 +3273,6 @@ lour
 lous
 lout
 louv
-louw
 louz
 luab
 luad
@@ -3396,7 +3357,6 @@ luur
 luus
 luut
 luuv
-luuw
 luuz
 maab
 maad
@@ -3481,7 +3441,6 @@ maur
 maus
 maut
 mauv
-mauw
 mauz
 meab
 mead
@@ -3566,7 +3525,6 @@ meur
 meus
 meut
 meuv
-meuw
 meuz
 miab
 miad
@@ -3651,7 +3609,6 @@ miur
 mius
 miut
 miuv
-miuw
 miuz
 moab
 moad
@@ -3736,7 +3693,6 @@ mour
 mous
 mout
 mouv
-mouw
 mouz
 muab
 muad
@@ -3821,7 +3777,6 @@ muur
 muus
 muut
 muuv
-muuw
 muuz
 naab
 naad
@@ -3906,7 +3861,6 @@ naur
 naus
 naut
 nauv
-nauw
 nauz
 neab
 nead
@@ -3991,7 +3945,6 @@ neur
 neus
 neut
 neuv
-neuw
 neuz
 niab
 niad
@@ -4076,7 +4029,6 @@ niur
 nius
 niut
 niuv
-niuw
 niuz
 noab
 noad
@@ -4161,7 +4113,6 @@ nour
 nous
 nout
 nouv
-nouw
 nouz
 nuab
 nuad
@@ -4246,7 +4197,6 @@ nuur
 nuus
 nuut
 nuuv
-nuuw
 nuuz
 paab
 paad
@@ -4331,7 +4281,6 @@ paur
 paus
 paut
 pauv
-pauw
 pauz
 peab
 pead
@@ -4416,7 +4365,6 @@ peur
 peus
 peut
 peuv
-peuw
 peuz
 piab
 piad
@@ -4501,7 +4449,6 @@ piur
 pius
 piut
 piuv
-piuw
 piuz
 poab
 poad
@@ -4585,7 +4532,6 @@ pour
 pous
 pout
 pouv
-pouw
 pouz
 puab
 puad
@@ -4670,7 +4616,6 @@ puur
 puus
 puut
 puuv
-puuw
 puuz
 raab
 raad
@@ -4755,7 +4700,6 @@ raur
 raus
 raut
 rauv
-rauw
 rauz
 reab
 read
@@ -4840,7 +4784,6 @@ reur
 reus
 reut
 reuv
-reuw
 reuz
 riab
 riad
@@ -4925,7 +4868,6 @@ riur
 rius
 riut
 riuv
-riuw
 riuz
 roab
 road
@@ -5010,7 +4952,6 @@ rour
 rous
 rout
 rouv
-rouw
 rouz
 ruab
 ruad
@@ -5095,7 +5036,6 @@ ruur
 ruus
 ruut
 ruuv
-ruuw
 ruuz
 saab
 saad
@@ -5180,7 +5120,6 @@ saur
 saus
 saut
 sauv
-sauw
 sauz
 seab
 sead
@@ -5265,7 +5204,6 @@ seur
 seus
 seut
 seuv
-seuw
 seuz
 siab
 siad
@@ -5350,7 +5288,6 @@ siur
 sius
 siut
 siuv
-siuw
 siuz
 soab
 soad
@@ -5435,7 +5372,6 @@ sour
 sous
 sout
 souv
-souw
 souz
 suab
 suad
@@ -5520,7 +5456,6 @@ suur
 suus
 suut
 suuv
-suuw
 suuz
 taab
 taad
@@ -5605,7 +5540,6 @@ taur
 taus
 taut
 tauv
-tauw
 tauz
 teab
 tead
@@ -5690,7 +5624,6 @@ teur
 teus
 teut
 teuv
-teuw
 teuz
 tiab
 tiad
@@ -5775,7 +5708,6 @@ tiur
 tius
 tiut
 tiuv
-tiuw
 tiuz
 toab
 toad
@@ -5860,7 +5792,6 @@ tour
 tous
 tout
 touv
-touw
 touz
 tuab
 tuad
@@ -5945,7 +5876,6 @@ tuur
 tuus
 tuut
 tuuv
-tuuw
 tuuz
 vaab
 vaad
@@ -6030,7 +5960,6 @@ vaur
 vaus
 vaut
 vauv
-vauw
 vauz
 veab
 vead
@@ -6115,7 +6044,6 @@ veur
 veus
 veut
 veuv
-veuw
 veuz
 viab
 viad
@@ -6200,7 +6128,6 @@ viur
 vius
 viut
 viuv
-viuw
 viuz
 voab
 voad
@@ -6285,7 +6212,6 @@ vour
 vous
 vout
 vouv
-vouw
 vouz
 vuab
 vuad
@@ -6370,7 +6296,6 @@ vuur
 vuus
 vuut
 vuuv
-vuuw
 vuuz
 waab
 waad
@@ -6455,7 +6380,6 @@ waur
 waus
 waut
 wauv
-wauw
 wauz
 weab
 wead
@@ -6540,7 +6464,6 @@ weur
 weus
 weut
 weuv
-weuw
 weuz
 wiab
 wiad
@@ -6625,7 +6548,6 @@ wiur
 wius
 wiut
 wiuv
-wiuw
 wiuz
 woab
 woad
@@ -6710,7 +6632,6 @@ wour
 wous
 wout
 wouv
-wouw
 wouz
 wuab
 wuad
@@ -6795,7 +6716,6 @@ wuur
 wuus
 wuut
 wuuv
-wuuw
 wuuz
 zaab
 zaad
@@ -6880,7 +6800,6 @@ zaur
 zaus
 zaut
 zauv
-zauw
 zauz
 zeab
 zead
@@ -6965,7 +6884,6 @@ zeur
 zeus
 zeut
 zeuv
-zeuw
 zeuz
 ziab
 ziad
@@ -7050,7 +6968,6 @@ ziur
 zius
 ziut
 ziuv
-ziuw
 ziuz
 zoab
 zoad
@@ -7135,7 +7052,6 @@ zour
 zous
 zout
 zouv
-zouw
 zouz
 zuab
 zuad
@@ -7220,5 +7136,4 @@ zuur
 zuus
 zuut
 zuuv
-zuuw
 zuuz

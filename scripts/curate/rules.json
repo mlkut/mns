@@ -53,7 +53,8 @@
     "banned_2grams": [
       "bb", "dd", "ff", "gg", "hh", "jj", "kk", "ll", "mm", "nn", "pp", "rr", "ss", "tt", "vv", "ww", "zz",
       "bj", "dv", "fv", "fw", "gz", "hz", "jh", "jv", "jw", "jz", "kh", "mz", "nz", "vh", "vf", "vj", "vz",
-      "wf", "wj", "wz", "zb", "zd", "zh", "zj", "zv", "zw", "zr", "zm", "zn", "zj"
+      "wf", "wj", "wz", "zb", "zd", "zh", "zj", "zv", "zw", "zr", "zm", "zn", "zj",
+      "uw"
     ],
     "banned_3grams": ["kkk", "zzz", "ggg", "sss", "nnn", "www", "rrr"],
     "onset_clusters": [

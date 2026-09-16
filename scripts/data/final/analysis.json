@@ -1,5 +1,5 @@
 {
-  "clean_pool": 6154,
+  "clean_pool": 6080,
   "slot_size": 4096,
   "namespace": {
     "b": 12,
@@ -9,15 +9,15 @@
   "cross_join_bad_words": 0,
   "prefix": {
     "size": 4096,
-    "lookalike_pairs_1char": 49770
+    "lookalike_pairs_1char": 49990
   },
   "suffix": {
     "size": 4096,
-    "lookalike_pairs_1char": 49016
+    "lookalike_pairs_1char": 49257
   },
-  "shared_tokens": 1843,
-  "reduplication_within_word_rate": 0.00010985136032104492,
-  "first_1char_twin_ordinal_estimate": 3416270,
-  "quality_name_p10": -1.933,
-  "quality_name_p50": -1.6766
+  "shared_tokens": 1895,
+  "reduplication_within_word_rate": 0.00011295080184936523,
+  "first_1char_twin_ordinal_estimate": 3408326,
+  "quality_name_p10": -1.914,
+  "quality_name_p50": -1.6765
 }
