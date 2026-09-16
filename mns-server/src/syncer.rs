@@ -87,9 +87,10 @@ impl<R: RegistryReader, S: ZoneStore> Syncer<R, S> {
                                     );
                                 }
                                 // Evict any cached signed packet
-                                let name = Name::from_ordinal(ordinal);
-                                if let Err(e) = self.store.remove_signed_packet(&name).await {
-                                    error!("failed to evict packet for ordinal {ordinal}: {e}");
+                                if let Ok(name) = Name::from_ordinal(ordinal) {
+                                    if let Err(e) = self.store.remove_signed_packet(&name).await {
+                                        error!("failed to evict packet for ordinal {ordinal}: {e}");
+                                    }
                                 }
                             }
                         }
