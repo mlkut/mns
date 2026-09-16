@@ -34,6 +34,10 @@ quality-sweep:
 texture:
     .venv/bin/python scripts/curate/texture.py report && .venv/bin/python scripts/curate/texture.py experiment
 
+# Verify final lists: no duplicates, well-formed CVCV, no banned/reduplicated tokens
+verify:
+    python3 scripts/curate/verify.py
+
 # Print random names from the curated final lists (defaults: 100, first trillion)
 # ranges/presets: python3 scripts/curate/sample.py --preset first-million|first-billion|first-trillion|--full|--cap N
 sample:

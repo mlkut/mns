@@ -45,10 +45,17 @@ def check_list(name: str, toks: list[str], errors: list[str]) -> None:
             errors.append(f"{name}[{i}]: reduplicated token: '{t}'")
 
 
+def resolve_arg(name: str) -> Path:
+    p = Path(name)
+    if p.is_absolute() or (Path.cwd() / p).exists():
+        return p
+    return FINAL_DIR / p
+
+
 def main() -> int:
     a, b = sys.argv[1:3] if len(sys.argv) >= 3 else ("prefixes.txt", "suffixes.txt")
-    p_path = FINAL_DIR / a
-    s_path = FINAL_DIR / b
+    p_path = resolve_arg(a)
+    s_path = resolve_arg(b)
 
     rules = json.loads((SCRIPT_DIR / "rules.json").read_text())
     bans = (rules["profanity"]["banned_substrings_3"]
