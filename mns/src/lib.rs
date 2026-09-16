@@ -1,3 +1,4 @@
+mod avatar;
 mod keys;
 mod name;
 pub mod networks;
