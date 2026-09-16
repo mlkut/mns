@@ -1,7 +1,8 @@
 # Names
 
 Names are the human-readable identifiers of mns. This document specifies the
-name format and the prefix/suffix pools the system uses.
+name format and the prefix/suffix pools the system uses. A name looks like
+`davufezo-hosojise`.
 
 ## Format
 
@@ -15,34 +16,7 @@ Each word is 8 letters long and made of two 4-letter pieces. Every piece is
 **CVCV** (consonant–vowel–consonant–vowel) and always ends in a vowel — so
 every word, and every name, ends in a vowel and flows cleanly.
 
-### How a name is generated from an ordinal
-
-Registration hands out ordinals in order, and each ordinal maps to exactly one
-name:
-
-1. the ordinal is passed through a fixed 48-bit permutation (a bijection, so
-   no two ordinals can ever produce the same name),
-2. the permuted value is split into four 12-bit indexes,
-3. the first two indexes pick the pieces of the first word (a prefix then a
-   suffix), the last two pick the pieces of the second word.
-
-Early ordinals are therefore the first names anyone sees, and every name is
-guaranteed to be used eventually.
-
-## Pools
-
-Two fixed, ordered lists of **4,096** four-letter CVCV pieces each:
-
-The alphabet is 17 consonants — `b d f g h j k l m n p r s t v w z` — and
-5 vowels — `a e i o u`.
-
-With 4,096 choices per slot, the name space is 4096⁴, roughly **281 trillion**
-distinct names.
-
-The pools are fixed and shipped: the Rust crate carries them as `mns::PREFIXES`
-and `mns::SUFFIXES` (`mns/src/pools.rs`) — nothing is generated at run time.
-
-## Guarantees
+## Design goals
 
 Every name produced by these pools has the same properties:
 
@@ -55,8 +29,78 @@ Every name produced by these pools has the same properties:
   checked, not just the pieces.
 - **Unremarkable** — deliberately childish repeats like `kaka` or `wuwu` are
   excluded, and a word that repeats the same piece is extremely rare.
+- **Far apart** — registration is capped well below the name space, so a
+  name you are given almost never has a registered near-twin; typos and
+  phishing lookalikes usually point nowhere.
+- **Fair by construction** — every domain is uniform, with nothing that
+  incentivizes grabbing or selling any particular one; no early number is
+  special and all names are interchangeable, like hashes.
 
-## Why
+## The registration cap
+
+Registration is capped at **2^40 ≈ 1 trillion names** — far below the full
+name space (281 trillion) — so most names stay far apart.
+
+**How likely is it that someone finds a name similar to yours?**
+
+| registered so far | name 1 letter away | name within 2 letters |
+|---|---|---|
+| 1,000,000,000 | ~0.03% | ~1.7% |
+| 1,000,000,000,000 (the cap) | ~29% | ~100% |
+
+Even at the full cap, a name only *expects* its first close (≤1-letter)
+neighbour after ~2.9 trillion registrations — beyond the cap.
+
+## Pools
+
+Two fixed, ordered lists of **4,096** four-letter CVCV pieces — a prefix
+pool and a suffix pool, using the alphabet:
+
+17 consonants — `b d f g h j k l m n p r s t v w z` — and 5 vowels — `a e i o u`.
+
+With 4,096 choices per slot, the name space is 4096⁴, roughly **281 trillion**
+distinct names.
+
+The pools are fixed and shipped: the Rust crate carries them as `mns::PREFIXES`
+and `mns::SUFFIXES` (`mns/src/pools.rs`) — nothing is generated at run time.
+
+## How a name is generated from an ordinal
+
+Registration hands out ordinals in order, and each ordinal maps to exactly one
+name. The raw ordinal is a number, so it is scrambled and then written as
+words:
+
+1. the ordinal is passed through a fixed 48-bit permutation (a bijection, so
+   no two ordinals can ever produce the same name, no small ordinal looks
+   special, and neighbouring ordinals turn into unrelated names),
+2. the permuted value is split into four 12-bit indexes,
+3. the first two indexes pick the pieces of the first word (a prefix then a
+   suffix), the last two pick the pieces of the second word.
+
+Words are what we show instead of the number, because a word is far easier to
+read, type, pronounce, and remember than the twelve hex digits it stands for:
+
+```
+ordinal 0  →  0x12728e48358a  →  davufezo-hosojise
+ordinal 1  →  0x1164ec8a5e16  →  danuhuni-mojavake
+ordinal 42 →  0x747ebaf58d49  →  lehuwadi-zakatari
+```
+
+Early ordinals are therefore the first names anyone sees, and every name is
+guaranteed to be used eventually.
+
+## Why names at all
+
+Any registry could simply hand out ordinals — an *ordinal* is the cheapest way
+to address something. Our goal is that every mns.alt domain is uniform and
+nothing incentivizes grabbing or selling any one of them, the way a memorable
+number would. Permuting every ordinal keeps all domains interchangeable — like
+hashes — while the permutation above still lets anyone verify a name's
+ordinal on lookup. And the thing people actually see is a name, not the
+permuted number, because a name can be read, typed, pronounced, and remembered
+without effort.
+
+## Why these pools
 
 We started from a scheme based on lightly modified Urbit prefixes and
 suffixes, with a vowel appended to each, giving a **2^40** namespace — about
