@@ -16,41 +16,6 @@ Each word is 8 letters long and made of two 4-letter pieces. Every piece is
 **CVCV** (consonant–vowel–consonant–vowel) and always ends in a vowel — so
 every word, and every name, ends in a vowel and flows cleanly.
 
-## Design goals
-
-Every name produced by these pools has the same properties:
-
-- **Fixed shape** — always 17 characters, always lowercase, always the same rhythm.
-- **Easy to say** — every piece is open (vowel-final), there are no consonant
-  clusters, and awkward letter pairs or doubled letters never appear.
-- **Clean as far as we can tell** — known offensive words and fragments are
-  removed both from individual pieces and from every possible joining of a
-  prefix and a suffix inside a word; the entire set of word combinations is
-  checked, not just the pieces.
-- **Unremarkable** — deliberately childish repeats like `kaka` or `wuwu` are
-  excluded, and a word that repeats the same piece is extremely rare.
-- **Far apart** — registration is capped well below the name space, so a
-  name you are given almost never has a registered near-twin; typos and
-  phishing lookalikes usually point nowhere.
-- **Fair by construction** — every domain is uniform, with nothing that
-  incentivizes grabbing or selling any particular one; no early number is
-  special and all names are interchangeable, like hashes.
-
-## The registration cap
-
-Registration is capped at **2^40 ≈ 1 trillion names** — far below the full
-name space (281 trillion) — so most names stay far apart.
-
-**How likely is it that someone finds a name similar to yours?**
-
-| registered so far | name 1 letter away | name within 2 letters |
-|---|---|---|
-| 1,000,000,000 | ~0.03% | ~1.7% |
-| 1,000,000,000,000 (the cap) | ~29% | ~100% |
-
-Even at the full cap, a name only *expects* its first close (≤1-letter)
-neighbour after ~2.9 trillion registrations — beyond the cap.
-
 ## Pools
 
 Two fixed, ordered lists of **4,096** four-letter CVCV pieces — a prefix
@@ -89,16 +54,61 @@ ordinal 42 →  0x747ebaf58d49  →  lehuwadi-zakatari
 Early ordinals are therefore the first names anyone sees, and every name is
 guaranteed to be used eventually.
 
-## Why names at all
+## Design goals
 
-Any registry could simply hand out ordinals — an *ordinal* is the cheapest way
-to address something. Our goal is that every mns.alt domain is uniform and
-nothing incentivizes grabbing or selling any one of them, the way a memorable
-number would. Permuting every ordinal keeps all domains interchangeable — like
-hashes — while the permutation above still lets anyone verify a name's
-ordinal on lookup. And the thing people actually see is a name, not the
-permuted number, because a name can be read, typed, pronounced, and remembered
-without effort.
+Names are designed around four goals; each is expanded below.
+
+- **Fair** — the fixed shape and the permutation keep every domain uniform.
+- **Human readable** — a name is easy to read, type, pronounce, and remember.
+- **Safe** — no known offense and no deliberately awkward or childish strings,
+  as far as we can tell.
+- **Phishing resistant** — registered names stay far apart, so near-twin
+  lookalikes are rare (see [Phishing resistance](#phishing-resistance)).
+
+### Fair
+
+Every ordinal maps to a name with the exact same fixed shape — 17 characters,
+lowercase, the same rhythm — so no name looks better than another. Because the
+permutation scrambles ordinals, no small number is special and early
+registrations don't get nicer names. Any registry could simply hand out
+ordinals, but an ordinal invites hoarding: "1" or "42" would be the name
+everyone wants. Permuting makes all domains interchangeable — like hashes —
+so there is no particular name worth grabbing or selling, and anyone can
+verify a name's ordinal on lookup.
+
+### Human readable
+
+An ordinal is the cheapest way to address something, but a number is not
+something people can read, type, pronounce, or remember without effort. So we
+show a name instead. Every name is two words made of open (vowel-final) CVCV
+pieces — easy to say across many languages, with no consonant clusters and no
+awkward letter pairs.
+
+### Safe
+
+Known offensive words and fragments are removed both from individual pieces
+and from every possible joining of a prefix and a suffix inside a word; the
+entire set of word combinations is checked, not just the pieces. Deliberately
+childish repeats like `kaka` or `wuwu` are excluded, and a word that repeats
+the same piece is extremely rare. Offense can't be defined perfectly, so the
+blocklist is conservative, pattern-based, and open to review.
+
+## Phishing resistance
+
+Registration is capped at **2^40 ≈ 1 trillion names** — far below the full
+name space (281 trillion). Most of the space stays unused, and that is what
+makes lookalike domains rare: near-twin names are almost never registered.
+
+**How likely is it that someone finds a name similar to yours?**
+
+| registered so far | name 1 letter away | name within 2 letters |
+|---|---|---|
+| 1,000,000,000 | ~0.03% | ~1.7% |
+| 1,000,000,000,000 (the cap) | ~29% | ~100% |
+
+Even at the full cap, a name only *expects* its first close (≤1-letter)
+neighbour after ~2.9 trillion registrations — beyond the cap, so phishing
+lookalikes mostly point nowhere.
 
 ## Why these pools
 
