@@ -167,10 +167,11 @@ def main() -> int:
         md.append(f"- Prefix list {fin['prefix']['size']:,} tokens, "
                   f"{fin['prefix']['lookalike_pairs_1char']:,} 1-letter-lookalike pairs; "
                   f"suffix {fin['suffix']['lookalike_pairs_1char']:,}.")
-        md.append("- Then `quality.py substitute` re-admitted 182 prefix + 500 suffix "
-                  "join-pruned-but-good tokens (swapping out the worst-quality list members): "
-                  "pool grew to 6,349, range stays 2^48, redup improved. Details: "
-                  "[name_quality.md](./name_quality.md).")
+        md.append("- Then `quality.py substitute` re-admitted join-pruned-but-good tokens "
+                  "(swapping out the worst-quality list members): pool grew, range stays 2^48, "
+                  "redup improved. A full-reduplication ban (kaka/wuwu…) is also enforced at the "
+                  "pool via `rules.json` (see measurement: [name_texture.md](./name_texture.md)). "
+                  "Details: [name_quality.md](./name_quality.md).")
         jo = lambda n: n if n == "inf" else f"{n:,}"
         md.append(f"- Shared tokens {fin['shared_tokens']:,} → reduplication inside a word "
                   f"~1 in {int(1/max(fin['reduplication_within_word_rate'],1e-9)):,}.")

@@ -393,6 +393,8 @@ def substitute(lm, rng, pre_swaps, suf_swaps, apply):
              + _rules["pronunciation"]["banned_3grams"])
     _bad = [t for t in pre_new + suf_new if any(b in t for b in _bans)]
     assert not _bad, f"banned substrings in final lists after substitution: {_bad[:10]}"
+    _redup = [t for t in pre_new + suf_new if len(t) == 4 and t[0] == t[2] and t[1] == t[3]]
+    assert not _redup, f"reduplicated tokens leaked after substitution: {_redup[:10]}"
     analysis = {
         "clean_pool": len(pruned), "slot_size": 4096,
         "namespace": {"b": 12, "total_names": 2 ** 48, "wire_bytes": 6},

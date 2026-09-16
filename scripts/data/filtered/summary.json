@@ -6,8 +6,9 @@
   "patterns": {
     "CVCV": {
       "raw": 7225,
-      "filtered": 7090,
+      "filtered": 7008,
       "rejected": {
+        "reduplicated syllable (kaka/wuwu...) ": 82,
         "profane substring 'bum'": 5,
         "banned 2-gram 'uw'": 85,
         "profane substring 'dik'": 5,
@@ -599,8 +600,9 @@
     },
     "VCVC": {
       "raw": 7225,
-      "filtered": 7007,
+      "filtered": 6925,
       "rejected": {
+        "reduplicated syllable (kaka/wuwu...) ": 82,
         "profane substring 'bum'": 5,
         "banned 2-gram 'uw'": 168,
         "profane substring 'dik'": 5,

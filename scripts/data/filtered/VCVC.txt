@@ -1,4 +1,3 @@
-abab
 abad
 abaf
 abag
@@ -82,7 +81,6 @@ abut
 abuv
 abuz
 adab
-adad
 adaf
 adag
 adah
@@ -166,7 +164,6 @@ aduv
 aduz
 afab
 afad
-afaf
 afah
 afaj
 afak
@@ -249,7 +246,6 @@ afuz
 agab
 agad
 agaf
-agag
 agah
 agaj
 agak
@@ -334,7 +330,6 @@ ahab
 ahad
 ahaf
 ahag
-ahah
 ahaj
 ahak
 ahal
@@ -419,7 +414,6 @@ ajad
 ajaf
 ajag
 ajah
-ajaj
 ajak
 ajal
 ajam
@@ -504,7 +498,6 @@ akaf
 akag
 akah
 akaj
-akak
 akal
 akam
 akan
@@ -587,7 +580,6 @@ alag
 alah
 alaj
 alak
-alal
 alam
 alan
 alap
@@ -672,7 +664,6 @@ amah
 amaj
 amak
 amal
-amam
 aman
 amap
 amar
@@ -757,7 +748,6 @@ anaj
 anak
 anal
 anam
-anan
 anap
 anar
 anas
@@ -842,7 +832,6 @@ apak
 apal
 apam
 apan
-apap
 apar
 apas
 apat
@@ -926,7 +915,6 @@ aral
 aram
 aran
 arap
-arar
 aras
 arat
 arav
@@ -1011,7 +999,6 @@ asam
 asan
 asap
 asar
-asas
 asat
 asav
 asaw
@@ -1095,7 +1082,6 @@ atan
 atap
 atar
 atas
-atat
 atav
 ataw
 ataz
@@ -1179,7 +1165,6 @@ avap
 avar
 avas
 avat
-avav
 avaw
 avaz
 aveb
@@ -1264,7 +1249,6 @@ awar
 awas
 awat
 awav
-awaw
 awaz
 aweb
 awed
@@ -1348,7 +1332,6 @@ azas
 azat
 azav
 azaw
-azaz
 azeb
 azed
 azef
@@ -1433,7 +1416,6 @@ ebat
 ebav
 ebaw
 ebaz
-ebeb
 ebed
 ebef
 ebeg
@@ -1517,7 +1499,6 @@ edav
 edaw
 edaz
 edeb
-eded
 edef
 edeg
 edeh
@@ -1600,7 +1581,6 @@ efaw
 efaz
 efeb
 efed
-efef
 efeg
 efeh
 efej
@@ -1684,7 +1664,6 @@ egaz
 egeb
 eged
 egef
-egeg
 egeh
 egej
 egek
@@ -1769,7 +1748,6 @@ eheb
 ehed
 ehef
 eheg
-eheh
 ehej
 ehek
 ehel
@@ -1854,7 +1832,6 @@ ejed
 ejef
 ejeg
 ejeh
-ejej
 ejek
 ejel
 ejem
@@ -1939,7 +1916,6 @@ ekef
 ekeg
 ekeh
 ekej
-ekek
 ekel
 ekem
 eken
@@ -2022,7 +1998,6 @@ eleg
 eleh
 elej
 elek
-elel
 elem
 elen
 elep
@@ -2107,7 +2082,6 @@ emeh
 emej
 emek
 emel
-emem
 emen
 emep
 emer
@@ -2192,7 +2166,6 @@ enej
 enek
 enel
 enem
-enen
 enep
 ener
 enes
@@ -2277,7 +2250,6 @@ epek
 epel
 epem
 epen
-epep
 eper
 epes
 epet
@@ -2361,7 +2333,6 @@ erel
 erem
 eren
 erep
-erer
 eres
 eret
 erev
@@ -2446,7 +2417,6 @@ esem
 esen
 esep
 eser
-eses
 eset
 esev
 esew
@@ -2530,7 +2500,6 @@ eten
 etep
 eter
 etes
-etet
 etev
 etew
 etez
@@ -2614,7 +2583,6 @@ evep
 ever
 eves
 evet
-evev
 evew
 evez
 evib
@@ -2699,7 +2667,6 @@ ewer
 ewes
 ewet
 ewev
-ewew
 ewez
 ewib
 ewid
@@ -2783,7 +2750,6 @@ ezes
 ezet
 ezev
 ezew
-ezez
 ezib
 ezid
 ezif
@@ -2868,7 +2834,6 @@ ibet
 ibev
 ibew
 ibez
-ibib
 ibid
 ibif
 ibig
@@ -2952,7 +2917,6 @@ idev
 idew
 idez
 idib
-idid
 idif
 idig
 idih
@@ -3035,7 +2999,6 @@ ifew
 ifez
 ifib
 ifid
-ifif
 ifig
 ifih
 ifij
@@ -3119,7 +3082,6 @@ igez
 igib
 igid
 igif
-igig
 igih
 igij
 igik
@@ -3204,7 +3166,6 @@ ihib
 ihid
 ihif
 ihig
-ihih
 ihij
 ihik
 ihil
@@ -3289,7 +3250,6 @@ ijid
 ijif
 ijig
 ijih
-ijij
 ijik
 ijil
 ijim
@@ -3457,7 +3417,6 @@ ilig
 ilih
 ilij
 ilik
-ilil
 ilim
 ilin
 ilip
@@ -3542,7 +3501,6 @@ imih
 imij
 imik
 imil
-imim
 imin
 imip
 imir
@@ -3627,7 +3585,6 @@ inij
 inik
 inil
 inim
-inin
 inip
 inir
 inis
@@ -3712,7 +3669,6 @@ ipik
 ipil
 ipim
 ipin
-ipip
 ipir
 ipit
 ipiv
@@ -3796,7 +3752,6 @@ iril
 irim
 irin
 irip
-irir
 iris
 irit
 iriv
@@ -3881,7 +3836,6 @@ isim
 isin
 isip
 isir
-isis
 isit
 isiv
 isiw
@@ -4049,7 +4003,6 @@ ivip
 ivir
 ivis
 ivit
-iviv
 iviw
 iviz
 ivob
@@ -4134,7 +4087,6 @@ iwir
 iwis
 iwit
 iwiv
-iwiw
 iwiz
 iwob
 iwod
@@ -4218,7 +4170,6 @@ izis
 izit
 iziv
 iziw
-iziz
 izob
 izod
 izof
@@ -4303,7 +4254,6 @@ obit
 obiv
 obiw
 obiz
-obob
 obod
 obof
 obog
@@ -4386,7 +4336,6 @@ odiv
 odiw
 odiz
 odob
-odod
 odof
 odog
 odoh
@@ -4470,7 +4419,6 @@ ofiw
 ofiz
 ofob
 ofod
-ofof
 ofog
 ofoh
 ofoj
@@ -4554,7 +4502,6 @@ ogiz
 ogob
 ogod
 ogof
-ogog
 ogoh
 ogoj
 ogok
@@ -4639,7 +4586,6 @@ ohob
 ohod
 ohof
 ohog
-ohoh
 ohoj
 ohok
 ohol
@@ -4724,7 +4670,6 @@ ojod
 ojof
 ojog
 ojoh
-ojoj
 ojok
 ojol
 ojom
@@ -4808,7 +4753,6 @@ okof
 okog
 okoh
 okoj
-okok
 okol
 okom
 okon
@@ -4892,7 +4836,6 @@ olog
 oloh
 oloj
 olok
-olol
 olom
 olon
 olop
@@ -4977,7 +4920,6 @@ omoh
 omoj
 omok
 omol
-omom
 omon
 omop
 omor
@@ -5062,7 +5004,6 @@ onoj
 onok
 onol
 onom
-onon
 onop
 onor
 onos
@@ -5146,7 +5087,6 @@ opok
 opol
 opom
 opon
-opop
 opor
 opos
 opot
@@ -5231,7 +5171,6 @@ orol
 orom
 oron
 orop
-oror
 oros
 orot
 orov
@@ -5316,7 +5255,6 @@ osom
 oson
 osop
 osor
-osos
 osot
 osov
 osow
@@ -5399,7 +5337,6 @@ oton
 otop
 otor
 otos
-otot
 otov
 otow
 otoz
@@ -5484,7 +5421,6 @@ ovop
 ovor
 ovos
 ovot
-ovov
 ovow
 ovoz
 ovub
@@ -5568,7 +5504,6 @@ owor
 owos
 owot
 owov
-owow
 owoz
 owub
 owud
@@ -5653,7 +5588,6 @@ ozos
 ozot
 ozov
 ozow
-ozoz
 ozub
 ozud
 ozuf
@@ -5738,7 +5672,6 @@ ubot
 ubov
 ubow
 uboz
-ubub
 ubud
 ubuf
 ubug
@@ -5821,7 +5754,6 @@ udov
 udow
 udoz
 udub
-udud
 uduf
 udug
 uduh
@@ -5905,7 +5837,6 @@ ufow
 ufoz
 ufub
 ufud
-ufuf
 ufug
 ufuh
 ufuj
@@ -5989,7 +5920,6 @@ ugoz
 ugub
 ugud
 uguf
-ugug
 uguh
 uguj
 uguk
@@ -6074,7 +6004,6 @@ uhub
 uhud
 uhuf
 uhug
-uhuh
 uhuj
 uhuk
 uhul
@@ -6159,7 +6088,6 @@ ujud
 ujuf
 ujug
 ujuh
-ujuj
 ujuk
 ujul
 ujum
@@ -6243,7 +6171,6 @@ ukuf
 ukug
 ukuh
 ukuj
-ukuk
 ukul
 ukun
 ukup
@@ -6327,7 +6254,6 @@ ulug
 uluh
 uluj
 uluk
-ulul
 ulum
 ulun
 ulup
@@ -6412,7 +6338,6 @@ umuh
 umuj
 umuk
 umul
-umum
 umun
 umup
 umur
@@ -6497,7 +6422,6 @@ unuj
 unuk
 unul
 unum
-unun
 unup
 unur
 unus
@@ -6581,7 +6505,6 @@ upuk
 upul
 upum
 upun
-upup
 upur
 upus
 uput
@@ -6666,7 +6589,6 @@ urul
 urum
 urun
 urup
-urur
 urus
 urut
 uruv
@@ -6750,7 +6672,6 @@ usum
 usun
 usup
 usur
-usus
 usut
 usuv
 usuz
@@ -6834,7 +6755,6 @@ utun
 utup
 utur
 utus
-utut
 utuv
 utuz
 uvab
@@ -6919,7 +6839,6 @@ uvup
 uvur
 uvus
 uvut
-uvuv
 uvuz
 uzab
 uzad
@@ -7004,4 +6923,3 @@ uzur
 uzus
 uzut
 uzuv
-uzuz
