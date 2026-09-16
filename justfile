@@ -38,6 +38,15 @@ texture:
 verify:
     python3 scripts/curate/verify.py
 
+# Blind LLM judging pipeline: redraw a 120-name early-ordinal sample, aggregate
+# ratings across rounds. (The judging runs as fresh context-free subagents.)
+judge-sample:
+    python3 scripts/curate/judge.py sample --id 1 --count 120 --cap 1000000000
+    python3 scripts/curate/judge.py sample --id 2 --count 120 --cap 1000000000
+
+judge-report:
+    .venv/bin/python scripts/curate/judge.py aggregate --ids 1,2
+
 # Print random names from the curated final lists (defaults: 100, first trillion)
 # ranges/presets: python3 scripts/curate/sample.py --preset first-million|first-billion|first-trillion|--full|--cap N
 sample:
