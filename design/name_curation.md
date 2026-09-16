@@ -35,12 +35,12 @@ Rules applied per token (from `scripts/curate/rules.json`): profane word /
 
 | pattern | raw | kept | kept % | top reject reasons |
 |---------|-----|------|--------|--------------------|
-| CVCV | 7,225 | **7,175** | 99.3% | profane substring 'bum'×5, profane substring 'dik'×5, profane substring 'fag'×5 |
-| CVCC | 24,565 | **2,191** | 8.9% | banned 2-gram 'bb'×85, bad coda 'bd'×85, bad coda 'bf'×85 |
-| CCVC | 24,565 | **1,946** | 7.9% | bad onset 'bg'×85, bad onset 'bh'×85, banned 2-gram 'bj'×85 |
-| CVVC | 7,225 | **7,224** | 100.0% | profane word×1 |
-| VCVC | 7,225 | **7,175** | 99.3% | profane substring 'bum'×5, profane substring 'dik'×5, profane substring 'fag'×5 |
-| VCCV | 7,225 | **650** | 9.0% | banned 2-gram 'bb'×25, bad mid cluster 'bd'×25, bad mid cluster 'bf'×25 |
+| CVCV | 7,225 | **7,090** | 98.1% | banned 2-gram 'uw'×85, profane substring 'bum'×5, profane substring 'dik'×5 |
+| CVCC | 24,565 | **2,191** | 8.9% | banned 2-gram 'uw'×221, banned 2-gram 'bb'×85, bad coda 'bd'×85 |
+| CCVC | 24,565 | **1,923** | 7.8% | banned 2-gram 'uw'×243, banned 2-gram 'bj'×85, banned 2-gram 'dv'×85 |
+| CVVC | 7,225 | **7,139** | 98.8% | banned 2-gram 'uw'×85, profane word×1 |
+| VCVC | 7,225 | **7,007** | 97.0% | banned 2-gram 'uw'×168, profane substring 'bum'×5, profane substring 'dik'×5 |
+| VCCV | 7,225 | **650** | 9.0% | banned 2-gram 'uw'×65, banned 2-gram 'bb'×25, bad mid cluster 'bd'×25 |
 | CCVV | 7,225 | **575** | 8.0% | banned 2-gram 'bb'×25, bad onset 'bd'×25, bad onset 'bf'×25 |
 
 ## 4. Pairwise word scan (phase 2b)
@@ -99,18 +99,18 @@ Per filtered pool, the largest power-of-two list size each one can feed:
 
 | pattern | kept tokens | supports list size | resulting name space |
 |---------|-------------|--------------------|----------------------|
-| CVCV | 7,175 | **1,024** (bit 10) | 2^40 ≈ 1,099,511,627,776 |
-| CVCV | 7,175 | **2,048** (bit 11) | 2^44 ≈ 17,592,186,044,416 |
-| CVCV | 7,175 | **4,096** (bit 12) | 2^48 ≈ 281,474,976,710,656 |
+| CVCV | 7,090 | **1,024** (bit 10) | 2^40 ≈ 1,099,511,627,776 |
+| CVCV | 7,090 | **2,048** (bit 11) | 2^44 ≈ 17,592,186,044,416 |
+| CVCV | 7,090 | **4,096** (bit 12) | 2^48 ≈ 281,474,976,710,656 |
 | CVCC | 2,191 | **1,024** (bit 10) | 2^40 ≈ 1,099,511,627,776 |
 | CVCC | 2,191 | **2,048** (bit 11) | 2^44 ≈ 17,592,186,044,416 |
-| CCVC | 1,946 | **1,024** (bit 10) | 2^40 ≈ 1,099,511,627,776 |
-| CVVC | 7,224 | **1,024** (bit 10) | 2^40 ≈ 1,099,511,627,776 |
-| CVVC | 7,224 | **2,048** (bit 11) | 2^44 ≈ 17,592,186,044,416 |
-| CVVC | 7,224 | **4,096** (bit 12) | 2^48 ≈ 281,474,976,710,656 |
-| VCVC | 7,175 | **1,024** (bit 10) | 2^40 ≈ 1,099,511,627,776 |
-| VCVC | 7,175 | **2,048** (bit 11) | 2^44 ≈ 17,592,186,044,416 |
-| VCVC | 7,175 | **4,096** (bit 12) | 2^48 ≈ 281,474,976,710,656 |
+| CCVC | 1,923 | **1,024** (bit 10) | 2^40 ≈ 1,099,511,627,776 |
+| CVVC | 7,139 | **1,024** (bit 10) | 2^40 ≈ 1,099,511,627,776 |
+| CVVC | 7,139 | **2,048** (bit 11) | 2^44 ≈ 17,592,186,044,416 |
+| CVVC | 7,139 | **4,096** (bit 12) | 2^48 ≈ 281,474,976,710,656 |
+| VCVC | 7,007 | **1,024** (bit 10) | 2^40 ≈ 1,099,511,627,776 |
+| VCVC | 7,007 | **2,048** (bit 11) | 2^44 ≈ 17,592,186,044,416 |
+| VCVC | 7,007 | **4,096** (bit 12) | 2^48 ≈ 281,474,976,710,656 |
 > Each doubling of the list size multiplies the name space by 4. Beyond the
 > 1024-per-pool (10-bit) scheme the wire format, `MASK_40`, the Feistel word
 > width, the 9×9 avatar, and the LMDB key all change — that is a **breaking**
@@ -134,11 +134,11 @@ Greedy pipeline: remove tokens that cause offensive *joins* (approximate minimum
 vertex cover of the bad-word graph), assign survivors to prefix/suffix slots
 minimizing 1-letter lookalikes, then borrow across slots to reach 4096 each.
 
-- Clean pool after join-prune: **6,154** tokens (now 0 offensive words across the whole 4096×4096 = 16.8M word table — verified 0).
-- Prefix list 4,096 tokens, 49,770 1-letter-lookalike pairs; suffix 49,016.
+- Clean pool after join-prune: **6,080** tokens (now 0 offensive words across the whole 4096×4096 = 16.8M word table — verified 0).
+- Prefix list 4,096 tokens, 49,990 1-letter-lookalike pairs; suffix 49,257.
 - Then `quality.py substitute` re-admitted 182 prefix + 500 suffix join-pruned-but-good tokens (swapping out the worst-quality list members): pool grew to 6,349, range stays 2^48, redup improved. Details: [name_quality.md](./name_quality.md).
-- Shared tokens 1,843 → reduplication inside a word ~1 in 9,103.
-- Estimated first 1-letter-twin name: ~3,416,270 ordinal (current 1024-scheme: ~265k → ~13× better).
+- Shared tokens 1,895 → reduplication inside a word ~1 in 8,853.
+- Estimated first 1-letter-twin name: ~3,408,326 ordinal (current 1024-scheme: ~265k → ~13× better).
   Name space at 4096/slot: **2^48 ≈ 281,474,976,710,656** names.
 
 Sample: `python3 scripts/curate/sample.py --count 100 --seed 1`

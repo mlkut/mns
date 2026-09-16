@@ -386,6 +386,13 @@ def substitute(lm, rng, pre_swaps, suf_swaps, apply):
     m = list_metrics(lm, pre_new, suf_new, rng)
     lp, ls = S.lookalikes(pre_new), S.lookalikes(suf_new)
     shared = len(pre_set & suf_set)
+    # Guard: no final-list token may contain any banned substring from rules.json.
+    _rules = json.loads((SCRIPT_DIR / "rules.json").read_text())
+    _bans = (_rules["profanity"]["banned_substrings_3"]
+             + _rules["pronunciation"]["banned_2grams"]
+             + _rules["pronunciation"]["banned_3grams"])
+    _bad = [t for t in pre_new + suf_new if any(b in t for b in _bans)]
+    assert not _bad, f"banned substrings in final lists after substitution: {_bad[:10]}"
     analysis = {
         "clean_pool": len(pruned), "slot_size": 4096,
         "namespace": {"b": 12, "total_names": 2 ** 48, "wire_bytes": 6},

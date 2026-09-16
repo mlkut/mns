@@ -80,7 +80,6 @@ abur
 abus
 abut
 abuv
-abuw
 abuz
 adab
 adad
@@ -164,7 +163,6 @@ adur
 adus
 adut
 aduv
-aduw
 aduz
 afab
 afad
@@ -247,7 +245,6 @@ afur
 afus
 afut
 afuv
-afuw
 afuz
 agab
 agad
@@ -332,7 +329,6 @@ agur
 agus
 agut
 aguv
-aguw
 aguz
 ahab
 ahad
@@ -417,7 +413,6 @@ ahur
 ahus
 ahut
 ahuv
-ahuw
 ahuz
 ajab
 ajad
@@ -502,7 +497,6 @@ ajur
 ajus
 ajut
 ajuv
-ajuw
 ajuz
 akab
 akad
@@ -585,7 +579,6 @@ akur
 akus
 akut
 akuv
-akuw
 akuz
 alab
 alad
@@ -670,7 +663,6 @@ alur
 alus
 alut
 aluv
-aluw
 aluz
 amab
 amad
@@ -755,7 +747,6 @@ amur
 amus
 amut
 amuv
-amuw
 amuz
 anab
 anad
@@ -840,7 +831,6 @@ anur
 anus
 anut
 anuv
-anuw
 anuz
 apab
 apad
@@ -924,7 +914,6 @@ apur
 apus
 aput
 apuv
-apuw
 apuz
 arab
 arad
@@ -1009,7 +998,6 @@ arur
 arus
 arut
 aruv
-aruw
 aruz
 asab
 asad
@@ -1093,7 +1081,6 @@ asur
 asus
 asut
 asuv
-asuw
 asuz
 atab
 atad
@@ -1177,7 +1164,6 @@ atur
 atus
 atut
 atuv
-atuw
 atuz
 avab
 avad
@@ -1262,7 +1248,6 @@ avur
 avus
 avut
 avuv
-avuw
 avuz
 awab
 awad
@@ -1346,7 +1331,6 @@ awur
 awus
 awut
 awuv
-awuw
 awuz
 azab
 azad
@@ -1431,7 +1415,6 @@ azur
 azus
 azut
 azuv
-azuw
 azuz
 ebab
 ebad
@@ -1515,7 +1498,6 @@ ebur
 ebus
 ebut
 ebuv
-ebuw
 ebuz
 edab
 edad
@@ -1599,7 +1581,6 @@ edur
 edus
 edut
 eduv
-eduw
 eduz
 efab
 efad
@@ -1682,7 +1663,6 @@ efur
 efus
 efut
 efuv
-efuw
 efuz
 egab
 egad
@@ -1767,7 +1747,6 @@ egur
 egus
 egut
 eguv
-eguw
 eguz
 ehab
 ehad
@@ -1852,7 +1831,6 @@ ehur
 ehus
 ehut
 ehuv
-ehuw
 ehuz
 ejab
 ejad
@@ -1937,7 +1915,6 @@ ejur
 ejus
 ejut
 ejuv
-ejuw
 ejuz
 ekab
 ekad
@@ -2020,7 +1997,6 @@ ekur
 ekus
 ekut
 ekuv
-ekuw
 ekuz
 elab
 elad
@@ -2105,7 +2081,6 @@ elur
 elus
 elut
 eluv
-eluw
 eluz
 emab
 emad
@@ -2190,7 +2165,6 @@ emur
 emus
 emut
 emuv
-emuw
 emuz
 enab
 enad
@@ -2275,7 +2249,6 @@ enur
 enus
 enut
 enuv
-enuw
 enuz
 epab
 epad
@@ -2359,7 +2332,6 @@ epur
 epus
 eput
 epuv
-epuw
 epuz
 erab
 erad
@@ -2444,7 +2416,6 @@ erur
 erus
 erut
 eruv
-eruw
 eruz
 esab
 esad
@@ -2528,7 +2499,6 @@ esur
 esus
 esut
 esuv
-esuw
 esuz
 etab
 etad
@@ -2612,7 +2582,6 @@ etur
 etus
 etut
 etuv
-etuw
 etuz
 evab
 evad
@@ -2697,7 +2666,6 @@ evur
 evus
 evut
 evuv
-evuw
 evuz
 ewab
 ewad
@@ -2781,7 +2749,6 @@ ewur
 ewus
 ewut
 ewuv
-ewuw
 ewuz
 ezab
 ezad
@@ -2866,7 +2833,6 @@ ezur
 ezus
 ezut
 ezuv
-ezuw
 ezuz
 ibab
 ibad
@@ -2950,7 +2916,6 @@ ibur
 ibus
 ibut
 ibuv
-ibuw
 ibuz
 idab
 idad
@@ -3034,7 +2999,6 @@ idur
 idus
 idut
 iduv
-iduw
 iduz
 ifab
 ifad
@@ -3117,7 +3081,6 @@ ifur
 ifus
 ifut
 ifuv
-ifuw
 ifuz
 igab
 igad
@@ -3202,7 +3165,6 @@ igur
 igus
 igut
 iguv
-iguw
 iguz
 ihab
 ihad
@@ -3287,7 +3249,6 @@ ihur
 ihus
 ihut
 ihuv
-ihuw
 ihuz
 ijab
 ijad
@@ -3372,7 +3333,6 @@ ijur
 ijus
 ijut
 ijuv
-ijuw
 ijuz
 ikab
 ikad
@@ -3455,7 +3415,6 @@ ikur
 ikus
 ikut
 ikuv
-ikuw
 ikuz
 ilab
 ilad
@@ -3540,7 +3499,6 @@ ilur
 ilus
 ilut
 iluv
-iluw
 iluz
 imab
 imad
@@ -3625,7 +3583,6 @@ imur
 imus
 imut
 imuv
-imuw
 imuz
 inab
 inad
@@ -3710,7 +3667,6 @@ inur
 inus
 inut
 inuv
-inuw
 inuz
 ipab
 ipad
@@ -3794,7 +3750,6 @@ ipur
 ipus
 iput
 ipuv
-ipuw
 ipuz
 irab
 irad
@@ -3879,7 +3834,6 @@ irur
 irus
 irut
 iruv
-iruw
 iruz
 isab
 isad
@@ -3963,7 +3917,6 @@ isur
 isus
 isut
 isuv
-isuw
 isuz
 itab
 itad
@@ -4047,7 +4000,6 @@ itur
 itus
 itut
 ituv
-ituw
 ituz
 ivab
 ivad
@@ -4132,7 +4084,6 @@ ivur
 ivus
 ivut
 ivuv
-ivuw
 ivuz
 iwab
 iwad
@@ -4216,7 +4167,6 @@ iwur
 iwus
 iwut
 iwuv
-iwuw
 iwuz
 izab
 izad
@@ -4301,7 +4251,6 @@ izur
 izus
 izut
 izuv
-izuw
 izuz
 obab
 obad
@@ -4385,7 +4334,6 @@ obur
 obus
 obut
 obuv
-obuw
 obuz
 odab
 odad
@@ -4469,7 +4417,6 @@ odur
 odus
 odut
 oduv
-oduw
 oduz
 ofab
 ofad
@@ -4552,7 +4499,6 @@ ofur
 ofus
 ofut
 ofuv
-ofuw
 ofuz
 ogab
 ogad
@@ -4637,7 +4583,6 @@ ogur
 ogus
 ogut
 oguv
-oguw
 oguz
 ohab
 ohad
@@ -4722,7 +4667,6 @@ ohur
 ohus
 ohut
 ohuv
-ohuw
 ohuz
 ojab
 ojad
@@ -4807,7 +4751,6 @@ ojur
 ojus
 ojut
 ojuv
-ojuw
 ojuz
 okab
 okad
@@ -4890,7 +4833,6 @@ okur
 okus
 okut
 okuv
-okuw
 okuz
 olab
 olad
@@ -4975,7 +4917,6 @@ olur
 olus
 olut
 oluv
-oluw
 oluz
 omab
 omad
@@ -5060,7 +5001,6 @@ omur
 omus
 omut
 omuv
-omuw
 omuz
 onab
 onad
@@ -5145,7 +5085,6 @@ onur
 onus
 onut
 onuv
-onuw
 onuz
 opab
 opad
@@ -5229,7 +5168,6 @@ opur
 opus
 oput
 opuv
-opuw
 opuz
 orab
 orad
@@ -5314,7 +5252,6 @@ orur
 orus
 orut
 oruv
-oruw
 oruz
 osab
 osad
@@ -5398,7 +5335,6 @@ osur
 osus
 osut
 osuv
-osuw
 osuz
 otab
 otad
@@ -5482,7 +5418,6 @@ otur
 otus
 otut
 otuv
-otuw
 otuz
 ovab
 ovad
@@ -5567,7 +5502,6 @@ ovur
 ovus
 ovut
 ovuv
-ovuw
 ovuz
 owab
 owad
@@ -5651,7 +5585,6 @@ owur
 owus
 owut
 owuv
-owuw
 owuz
 ozab
 ozad
@@ -5736,7 +5669,6 @@ ozur
 ozus
 ozut
 ozuv
-ozuw
 ozuz
 ubab
 ubad
@@ -5820,7 +5752,6 @@ ubur
 ubus
 ubut
 ubuv
-ubuw
 ubuz
 udab
 udad
@@ -5904,7 +5835,6 @@ udur
 udus
 udut
 uduv
-uduw
 uduz
 ufab
 ufad
@@ -5987,7 +5917,6 @@ ufur
 ufus
 ufut
 ufuv
-ufuw
 ufuz
 ugab
 ugad
@@ -6072,7 +6001,6 @@ ugur
 ugus
 ugut
 uguv
-uguw
 uguz
 uhab
 uhad
@@ -6157,7 +6085,6 @@ uhur
 uhus
 uhut
 uhuv
-uhuw
 uhuz
 ujab
 ujad
@@ -6242,7 +6169,6 @@ ujur
 ujus
 ujut
 ujuv
-ujuw
 ujuz
 ukab
 ukad
@@ -6325,7 +6251,6 @@ ukur
 ukus
 ukut
 ukuv
-ukuw
 ukuz
 ulab
 ulad
@@ -6410,7 +6335,6 @@ ulur
 ulus
 ulut
 uluv
-uluw
 uluz
 umab
 umad
@@ -6495,7 +6419,6 @@ umur
 umus
 umut
 umuv
-umuw
 umuz
 unab
 unad
@@ -6580,7 +6503,6 @@ unur
 unus
 unut
 unuv
-unuw
 unuz
 upab
 upad
@@ -6664,7 +6586,6 @@ upur
 upus
 uput
 upuv
-upuw
 upuz
 urab
 urad
@@ -6749,7 +6670,6 @@ urur
 urus
 urut
 uruv
-uruw
 uruz
 usab
 usad
@@ -6833,7 +6753,6 @@ usur
 usus
 usut
 usuv
-usuw
 usuz
 utab
 utad
@@ -6917,7 +6836,6 @@ utur
 utus
 utut
 utuv
-utuw
 utuz
 uvab
 uvad
@@ -7002,92 +6920,7 @@ uvur
 uvus
 uvut
 uvuv
-uvuw
 uvuz
-uwab
-uwad
-uwaf
-uwag
-uwah
-uwaj
-uwak
-uwal
-uwam
-uwan
-uwap
-uwar
-uwas
-uwat
-uwav
-uwaw
-uwaz
-uweb
-uwed
-uwef
-uweg
-uweh
-uwej
-uwek
-uwel
-uwem
-uwen
-uwep
-uwer
-uwes
-uwet
-uwev
-uwew
-uwez
-uwib
-uwid
-uwif
-uwig
-uwih
-uwij
-uwik
-uwil
-uwim
-uwin
-uwip
-uwir
-uwis
-uwit
-uwiv
-uwiw
-uwiz
-uwob
-uwod
-uwof
-uwog
-uwoh
-uwoj
-uwok
-uwol
-uwom
-uwon
-uwor
-uwos
-uwot
-uwov
-uwow
-uwoz
-uwub
-uwud
-uwuf
-uwug
-uwuh
-uwuj
-uwuk
-uwul
-uwum
-uwun
-uwup
-uwur
-uwus
-uwut
-uwuv
-uwuw
-uwuz
 uzab
 uzad
 uzaf
@@ -7171,5 +7004,4 @@ uzur
 uzus
 uzut
 uzuv
-uzuw
 uzuz
