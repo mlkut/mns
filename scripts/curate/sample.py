@@ -17,6 +17,7 @@ Usage:
   sample.py --full                       # whole 2^48 space
   sample.py --cap 5000000 --count 50 --seed 7
   sample.py --ordinals 0,1,2,999999,1000000
+  sample.py --compare                    # same ordinals through new vs status quo
 """
 import argparse
 import random
@@ -80,6 +81,41 @@ def preset_cap(name: str) -> int:
             "first-trillion": 10**12}[name]
 
 
+# ---- status quo (committed name.rs) rendering ----
+
+MASK40 = (1 << 40) - 1
+R20 = [0x9E377, 0x6C62D, 0xB5A4B, 0xD2F3E]  # name.rs constants, 20-bit halves
+
+
+def permute40(ordinal: int) -> int:
+    hm = 0xF_FFFF
+    x = (ordinal + 1) & MASK40
+    left = (x >> 20) & hm
+    right = x & hm
+    for r in R20:
+        nxt = left ^ (((right * r) ^ (right >> 7) ^ (right << 13)) & hm)
+        left, right = right, nxt
+    return (left << 20) | right
+
+
+def _sq_lists():
+    import closeness
+    pref, suff, pv, sv = closeness.parse_name_rs()
+    return pref, suff, pv, sv
+
+
+def status_quo_name(ordinal: int, sq: tuple) -> str:
+    pref, suff, pv, sv = sq
+    v = permute40(ordinal)
+
+    def word(w: int) -> str:
+        hi = (w >> 10) & 0x3FF
+        lo = w & 0x3FF
+        return (pref[(hi >> 2) & 0xFF] + pv[hi & 3]
+                + suff[(lo >> 2) & 0xFF] + sv[lo & 3])
+    return word((v >> 20) & 0xF_FFFF) + "-" + word(v & 0xF_FFFF)
+
+
 def verify_bijection(n: int = 1000) -> bool:
     seen = set()
     for o in range(n):
@@ -101,6 +137,8 @@ def main() -> int:
     ap.add_argument("--full", action="store_true", help="sample the whole 2^48 space")
     ap.add_argument("--ordinals", type=str, default="", help="exact ordinals, comma list")
     ap.add_argument("--show-ordinals", action="store_true")
+    ap.add_argument("--compare", action="store_true",
+                    help="print new vs status-quo names for the same ordinals")
     args = ap.parse_args()
 
     if sum([args.cap is not None, bool(args.preset), args.full]) > 1:
@@ -131,6 +169,18 @@ def main() -> int:
                 continue
             o = int(tok.strip())
             print(f"{o:>12}: {ordinal_to_name(o, pre_pool, suf_pool)}")
+
+    if args.compare:
+        sq = _sq_lists()
+        print(f"\n# {args.count} ordinals:  new (2^48 lists)  vs  status quo (name.rs)")
+        print(f"{'ordinal':>12}  {'NEW':28}  STATUS QUO")
+        rng = random.Random(args.seed)
+        ords = [int(t) for t in args.ordinals.split(",") if t.strip()] if args.ordinals else []
+        for o in (ords[: args.count] if ords else [rng.randrange(min(cap, MASK40)) for _ in range(args.count)]):
+            new_n = ordinal_to_name(o, pre_pool, suf_pool)
+            sq_n = status_quo_name(o, sq)
+            print(f"{o:>12,}  {new_n:<28}  {sq_n}")
+        return 0
 
     rng = random.Random(args.seed)
     print(f"\n# {args.count} random ordinals from {label} (seed={args.seed})")
