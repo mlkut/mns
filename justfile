@@ -30,6 +30,10 @@ quality:
 quality-sweep:
     .venv/bin/python scripts/curate/quality.py sweep || python3 scripts/curate/quality.py --lexicon offline sweep
 
+# Measure name-texture + experiment rules (read-only, lists untouched)
+texture:
+    .venv/bin/python scripts/curate/texture.py report && .venv/bin/python scripts/curate/texture.py experiment
+
 # Print random names from the curated final lists (defaults: 100, first trillion)
 # ranges/presets: python3 scripts/curate/sample.py --preset first-million|first-billion|first-trillion|--full|--cap N
 sample:

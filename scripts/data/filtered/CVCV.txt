@@ -1,4 +1,3 @@
-baba
 babe
 babi
 babo
@@ -84,7 +83,6 @@ bazi
 bazo
 bazu
 beba
-bebe
 bebi
 bebo
 bebu
@@ -170,7 +168,6 @@ bezo
 bezu
 biba
 bibe
-bibi
 bibo
 bibu
 bida
@@ -256,7 +253,6 @@ bizu
 boba
 bobe
 bobi
-bobo
 bobu
 boda
 bode
@@ -342,7 +338,6 @@ buba
 bube
 bubi
 bubo
-bubu
 buda
 bude
 budi
@@ -418,7 +413,6 @@ dabe
 dabi
 dabo
 dabu
-dada
 dade
 dadi
 dado
@@ -504,7 +498,6 @@ debi
 debo
 debu
 deda
-dede
 dedi
 dedo
 dedu
@@ -590,7 +583,6 @@ dibo
 dibu
 dida
 dide
-didi
 dido
 didu
 difa
@@ -671,7 +663,6 @@ dobu
 doda
 dode
 dodi
-dodo
 dodu
 dofa
 dofe
@@ -757,7 +748,6 @@ duda
 dude
 dudi
 dudo
-dudu
 dufa
 dufe
 dufi
@@ -838,7 +828,6 @@ fade
 fadi
 fado
 fadu
-fafa
 fafe
 fafi
 fafo
@@ -919,7 +908,6 @@ fedi
 fedo
 fedu
 fefa
-fefe
 fefi
 fefo
 fefu
@@ -1005,7 +993,6 @@ fido
 fidu
 fifa
 fife
-fifi
 fifo
 fifu
 figa
@@ -1091,7 +1078,6 @@ fodu
 fofa
 fofe
 fofi
-fofo
 fofu
 foga
 foge
@@ -1177,7 +1163,6 @@ fufa
 fufe
 fufi
 fufo
-fufu
 fuga
 fuge
 fugi
@@ -1253,7 +1238,6 @@ gafe
 gafi
 gafo
 gafu
-gaga
 gage
 gagi
 gago
@@ -1339,7 +1323,6 @@ gefi
 gefo
 gefu
 gega
-gege
 gegi
 gego
 gegu
@@ -1425,7 +1408,6 @@ gifo
 gifu
 giga
 gige
-gigi
 gigo
 gigu
 giha
@@ -1511,7 +1493,6 @@ gofu
 goga
 goge
 gogi
-gogo
 gogu
 goha
 gohe
@@ -1597,7 +1578,6 @@ guga
 guge
 gugi
 gugo
-gugu
 guha
 guhe
 guhi
@@ -1678,7 +1658,6 @@ hage
 hagi
 hago
 hagu
-haha
 hahe
 hahi
 haho
@@ -1764,7 +1743,6 @@ hegi
 hego
 hegu
 heha
-hehe
 hehi
 heho
 hehu
@@ -1850,7 +1828,6 @@ higo
 higu
 hiha
 hihe
-hihi
 hiho
 hihu
 hija
@@ -1936,7 +1913,6 @@ hogu
 hoha
 hohe
 hohi
-hoho
 hohu
 hoja
 hoje
@@ -2022,7 +1998,6 @@ huha
 huhe
 huhi
 huho
-huhu
 huja
 huje
 huji
@@ -2103,7 +2078,6 @@ jahe
 jahi
 jaho
 jahu
-jaja
 jaje
 jaji
 jajo
@@ -2189,7 +2163,6 @@ jehi
 jeho
 jehu
 jeja
-jeje
 jeji
 jejo
 jeju
@@ -2275,7 +2248,6 @@ jiho
 jihu
 jija
 jije
-jiji
 jijo
 jiju
 jika
@@ -2361,7 +2333,6 @@ johu
 joja
 joje
 joji
-jojo
 joju
 joka
 joke
@@ -2447,7 +2418,6 @@ juja
 juje
 juji
 jujo
-juju
 juka
 juke
 juki
@@ -2528,7 +2498,6 @@ kaje
 kaji
 kajo
 kaju
-kaka
 kake
 kaki
 kako
@@ -2614,7 +2583,6 @@ keji
 kejo
 keju
 keka
-keke
 keki
 keko
 keku
@@ -2781,7 +2749,6 @@ koju
 koka
 koke
 koki
-koko
 koku
 kola
 kole
@@ -2867,7 +2834,6 @@ kuka
 kuke
 kuki
 kuko
-kuku
 kula
 kule
 kuli
@@ -2943,7 +2909,6 @@ lake
 laki
 lako
 laku
-lala
 lale
 lali
 lalo
@@ -3029,7 +2994,6 @@ leki
 leko
 leku
 lela
-lele
 leli
 lelo
 lelu
@@ -3115,7 +3079,6 @@ liko
 liku
 lila
 lile
-lili
 lilo
 lilu
 lima
@@ -3201,7 +3164,6 @@ loku
 lola
 lole
 loli
-lolo
 lolu
 loma
 lome
@@ -3287,7 +3249,6 @@ lula
 lule
 luli
 lulo
-lulu
 luma
 lume
 lumi
@@ -3368,7 +3329,6 @@ male
 mali
 malo
 malu
-mama
 mame
 mami
 mamo
@@ -3454,7 +3414,6 @@ meli
 melo
 melu
 mema
-meme
 memi
 memo
 memu
@@ -3540,7 +3499,6 @@ milo
 milu
 mima
 mime
-mimi
 mimo
 mimu
 mina
@@ -3626,7 +3584,6 @@ molu
 moma
 mome
 momi
-momo
 momu
 mona
 mone
@@ -3712,7 +3669,6 @@ muma
 mume
 mumi
 mumo
-mumu
 muna
 mune
 muni
@@ -3793,7 +3749,6 @@ name
 nami
 namo
 namu
-nana
 nane
 nani
 nano
@@ -3879,7 +3834,6 @@ nemi
 nemo
 nemu
 nena
-nene
 neni
 neno
 nenu
@@ -3965,7 +3919,6 @@ nimo
 nimu
 nina
 nine
-nini
 nino
 ninu
 nipa
@@ -4051,7 +4004,6 @@ nomu
 nona
 none
 noni
-nono
 nonu
 nopa
 nope
@@ -4137,7 +4089,6 @@ nuna
 nune
 nuni
 nuno
-nunu
 nupa
 nupe
 nupi
@@ -4218,7 +4169,6 @@ pane
 pani
 pano
 panu
-papa
 pape
 papi
 papo
@@ -4304,7 +4254,6 @@ peni
 peno
 penu
 pepa
-pepe
 pepi
 pepo
 pepu
@@ -4390,7 +4339,6 @@ pino
 pinu
 pipa
 pipe
-pipi
 pipo
 pipu
 pira
@@ -4471,7 +4419,6 @@ ponu
 popa
 pope
 popi
-popo
 popu
 pora
 pore
@@ -4557,7 +4504,6 @@ pupa
 pupe
 pupi
 pupo
-pupu
 pura
 pure
 puri
@@ -4638,7 +4584,6 @@ rape
 rapi
 rapo
 rapu
-rara
 rare
 rari
 raro
@@ -4724,7 +4669,6 @@ repi
 repo
 repu
 rera
-rere
 reri
 rero
 reru
@@ -4810,7 +4754,6 @@ ripo
 ripu
 rira
 rire
-riri
 riro
 riru
 risa
@@ -4896,7 +4839,6 @@ ropu
 rora
 rore
 rori
-roro
 roru
 rosa
 rose
@@ -4982,7 +4924,6 @@ rura
 rure
 ruri
 ruro
-ruru
 rusa
 ruse
 rusi
@@ -5063,7 +5004,6 @@ sare
 sari
 saro
 saru
-sasa
 sase
 sasi
 saso
@@ -5149,7 +5089,6 @@ seri
 sero
 seru
 sesa
-sese
 sesi
 seso
 sesu
@@ -5235,7 +5174,6 @@ siro
 siru
 sisa
 sise
-sisi
 siso
 sisu
 sita
@@ -5321,7 +5259,6 @@ soru
 sosa
 sose
 sosi
-soso
 sosu
 sota
 sote
@@ -5402,7 +5339,6 @@ susa
 suse
 susi
 suso
-susu
 suta
 sute
 suti
@@ -5483,7 +5419,6 @@ tase
 tasi
 taso
 tasu
-tata
 tate
 tati
 tato
@@ -5569,7 +5504,6 @@ tesi
 teso
 tesu
 teta
-tete
 teti
 teto
 tetu
@@ -5736,7 +5670,6 @@ tosu
 tota
 tote
 toti
-toto
 totu
 tova
 tove
@@ -5822,7 +5755,6 @@ tuta
 tute
 tuti
 tuto
-tutu
 tuva
 tuve
 tuvi
@@ -5903,7 +5835,6 @@ vate
 vati
 vato
 vatu
-vava
 vave
 vavi
 vavo
@@ -5989,7 +5920,6 @@ veti
 veto
 vetu
 veva
-veve
 vevi
 vevo
 vevu
@@ -6075,7 +6005,6 @@ vito
 vitu
 viva
 vive
-vivi
 vivo
 vivu
 viwa
@@ -6161,7 +6090,6 @@ votu
 vova
 vove
 vovi
-vovo
 vovu
 vowa
 vowe
@@ -6247,7 +6175,6 @@ vuva
 vuve
 vuvi
 vuvo
-vuvu
 vuza
 vuze
 vuzi
@@ -6328,7 +6255,6 @@ wave
 wavi
 wavo
 wavu
-wawa
 wawe
 wawi
 wawo
@@ -6414,7 +6340,6 @@ wevi
 wevo
 wevu
 wewa
-wewe
 wewi
 wewo
 wewu
@@ -6500,7 +6425,6 @@ wivo
 wivu
 wiwa
 wiwe
-wiwi
 wiwo
 wiwu
 wiza
@@ -6581,7 +6505,6 @@ wovu
 wowa
 wowe
 wowi
-wowo
 wowu
 woza
 woze
@@ -6748,7 +6671,6 @@ zawe
 zawi
 zawo
 zawu
-zaza
 zaze
 zazi
 zazo
@@ -6834,7 +6756,6 @@ zewi
 zewo
 zewu
 zeza
-zeze
 zezi
 zezo
 zezu
@@ -6920,7 +6841,6 @@ ziwo
 ziwu
 ziza
 zize
-zizi
 zizo
 zizu
 zoba
@@ -7006,7 +6926,6 @@ zowu
 zoza
 zoze
 zozi
-zozo
 zozu
 zuba
 zube
@@ -7087,4 +7006,3 @@ zuza
 zuze
 zuzi
 zuzo
-zuzu

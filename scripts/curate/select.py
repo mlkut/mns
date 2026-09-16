@@ -238,6 +238,8 @@ def main() -> int:
              + _rules["pronunciation"]["banned_3grams"])
     _bad = [t for t in prefixes + suffixes if any(b in t for b in _bans)]
     assert not _bad, f"banned substrings in final lists: {_bad[:10]}"
+    _redup = [t for t in prefixes + suffixes if len(t) == 4 and t[0] == t[2] and t[1] == t[3]]
+    assert not _redup, f"reduplicated tokens leaked into final lists: {_redup[:10]}"
 
     lp = lookalikes(prefixes)
     ls = lookalikes(suffixes)

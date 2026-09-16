@@ -57,6 +57,9 @@ def reject_reason(token: str, pattern: str, rules: dict) -> str | None:
         return f"banned initial {token[0]!r}"
     if token[-1] in single["banned_final"]:
         return f"banned final {token[-1]!r}"
+    if (pron.get("ban_full_reduplication")
+            and len(token) == 4 and token[0] == token[2] and token[1] == token[3]):
+        return "reduplicated syllable (kaka/wuwu...) "
     return None
 
 
