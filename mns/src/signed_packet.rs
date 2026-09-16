@@ -11,7 +11,7 @@
 //!
 //! 2. **Name-based origin.** Instead of normalising record names against a
 //!    z-base-32 encoded public key, the origin here is the human-readable
-//!    [crate::Name] (e.g. `mokomedu-tasosuna`) whose 40-bit internal value
+//!    [crate::Name] (e.g. `davufezo-hosojise`) whose 48-bit internal value
 //!    is embedded in the wire format. This lets [`resource_records`] filter
 //!    and normalise names the same way Pkarr does, but against a name the
 //!    user actually sees in their browser.
@@ -19,7 +19,7 @@
 //! Wire format (all integers big-endian):
 //!
 //! ```text
-//! <1 byte key type><key bytes><signature bytes><5 byte name><8 byte timestamp><encoded dns packet>
+//! <1 byte key type><key bytes><signature bytes><6 byte name><8 byte timestamp><encoded dns packet>
 //! ```
 //!
 //! `key bytes` and `signature bytes` both have lengths implied by the key
@@ -27,7 +27,7 @@
 //! of every field is computable once the type byte has been read.
 //!
 //! The signature covers everything after the signature itself in the wire
-//! format — i.e. `name (5) || timestamp (8) || encoded dns packet`.
+//! format — i.e. `name (6) || timestamp (8) || encoded dns packet`.
 
 use crate::Name;
 use crate::keys::{KeyError, KeyType, Keypair, PublicKey, ZSK_LEN};
@@ -176,7 +176,7 @@ impl SignedPacket {
         let pubkey_end = 1 + key_type.public_key_len();
 
         let sig_end = pubkey_end + key_type.signature_len();
-        let name_end = sig_end + 5;
+        let name_end = sig_end + 6;
         let timestamp_end = name_end + 8;
         if bytes.len() < timestamp_end {
             return Err(SignedPacketError::TooShort {
@@ -191,7 +191,7 @@ impl SignedPacket {
             .verify(&bytes[sig_end..], signature)
             .map_err(|_| SignedPacketError::InvalidSignature)?;
 
-        let name_wire: [u8; 5] = bytes[sig_end..name_end]
+        let name_wire: [u8; 6] = bytes[sig_end..name_end]
             .try_into()
             .expect("length checked above");
         let name = Name::from_wire_bytes(&name_wire);
@@ -263,7 +263,7 @@ impl SignedPacket {
 
     pub fn timestamp(&self) -> Timestamp {
         Timestamp::from(u64::from_be_bytes(
-            self.bytes[self.sig_end + 5..self.timestamp_end]
+            self.bytes[self.sig_end + 6..self.timestamp_end]
                 .try_into()
                 .expect("length fixed at construction"),
         ))
@@ -472,7 +472,7 @@ mod tests {
     #[test]
     fn rejects_unknown_key_type_byte() {
         let mut bytes = vec![42u8];
-        bytes.extend_from_slice(&[0u8; 32 + 64 + 8 + 5]);
+        bytes.extend_from_slice(&[0u8; 32 + 64 + 8 + 6]);
         let err = SignedPacket::verify(&bytes).unwrap_err();
         assert!(matches!(
             err,
@@ -706,78 +706,78 @@ mod tests {
 
     #[test]
     fn test_normalize_record_name_complex() {
-        let zone: Name = "mokomedu-tasosuna".parse().unwrap();
+        let zone: Name = "davufezo-hosojise".parse().unwrap();
 
         // 1. Bare relative queries
         assert_eq!(
             normalize_record_name(zone, "@"),
-            "mokomedu-tasosuna.mns.alt"
+            "davufezo-hosojise.mns.alt"
         );
         assert_eq!(
             normalize_record_name(zone, "_foo"),
-            "_foo.mokomedu-tasosuna.mns.alt"
+            "_foo.davufezo-hosojise.mns.alt"
         );
 
         // 2. Standard queries matching various suffixes
         assert_eq!(
-            normalize_record_name(zone, "_foo.mokomedu-tasosuna.mns.alt"),
-            "_foo.mokomedu-tasosuna.mns.alt"
+            normalize_record_name(zone, "_foo.davufezo-hosojise.mns.alt"),
+            "_foo.davufezo-hosojise.mns.alt"
         );
         assert_eq!(
-            normalize_record_name(zone, "_foo.mokomedu-tasosuna.mns.mlkut.org"),
-            "_foo.mokomedu-tasosuna.mns.alt"
+            normalize_record_name(zone, "_foo.davufezo-hosojise.mns.mlkut.org"),
+            "_foo.davufezo-hosojise.mns.alt"
         );
         assert_eq!(
-            normalize_record_name(zone, "mokomedu-tasosuna.mns"),
-            "mokomedu-tasosuna.mns.alt"
+            normalize_record_name(zone, "davufezo-hosojise.mns"),
+            "davufezo-hosojise.mns.alt"
         );
 
         // 3. Vulnerability Edge Case: Multiple `.mns` or deceptive subdomains
         // A subdomain containing ".mns" before the true apex
         assert_eq!(
-            normalize_record_name(zone, "mns-service.foo.mokomedu-tasosuna.mns.mlkut.org"),
-            "mns-service.foo.mokomedu-tasosuna.mns.alt"
+            normalize_record_name(zone, "mns-service.foo.davufezo-hosojise.mns.mlkut.org"),
+            "mns-service.foo.davufezo-hosojise.mns.alt"
         );
 
         // Another valid name structure acting as a subdomain prefix
         assert_eq!(
-            normalize_record_name(zone, "sikuteby-natubeku.mns.foo.mokomedu-tasosuna.mns.alt"),
-            "sikuteby-natubeku.mns.foo.mokomedu-tasosuna.mns.alt"
+            normalize_record_name(zone, "sikuteby-natubeku.mns.foo.davufezo-hosojise.mns.alt"),
+            "sikuteby-natubeku.mns.foo.davufezo-hosojise.mns.alt"
         );
         assert_eq!(
-            normalize_record_name(zone, "_foo.mokomedu-tasosuna.mns.mnsfoo.mlkut.org"),
-            "_foo.mokomedu-tasosuna.mns.alt"
+            normalize_record_name(zone, "_foo.davufezo-hosojise.mns.mnsfoo.mlkut.org"),
+            "_foo.davufezo-hosojise.mns.alt"
         );
 
         // 4. Invalid Name before the right most mns.
         // shorter than 17 characters
         assert_eq!(
-            normalize_record_name(zone, "_foo.mokomedu-tasosuna.mns.tasosuna.mns.mlkut.org"),
-            "_foo.mokomedu-tasosuna.mns.alt"
+            normalize_record_name(zone, "_foo.davufezo-hosojise.mns.tasosuna.mns.mlkut.org"),
+            "_foo.davufezo-hosojise.mns.alt"
         );
         // longer than 17 characters
         assert_eq!(
             normalize_record_name(
                 zone,
-                "_foo.mokomedu-tasosuna.mns.mokomedu-tasosunatasosuna.mns.mlkut.org"
+                "_foo.davufezo-hosojise.mns.davufezo-hosojisetasosuna.mns.mlkut.org"
             ),
-            "_foo.mokomedu-tasosuna.mns.alt"
+            "_foo.davufezo-hosojise.mns.alt"
         );
         // no dash in the middle
         assert_eq!(
             normalize_record_name(
                 zone,
-                "_foo.mokomedu-tasosuna.mns.mokomedu_tasosuna.mns.mlkut.org"
+                "_foo.davufezo-hosojise.mns.mokomedu_tasosuna.mns.mlkut.org"
             ),
-            "_foo.mokomedu-tasosuna.mns.alt"
+            "_foo.davufezo-hosojise.mns.alt"
         );
         // not valid name
         assert_eq!(
             normalize_record_name(
                 zone,
-                "_foo.mokomedu-tasosuna.mns.mokomedu-tasofoob.mns.mlkut.org"
+                "_foo.davufezo-hosojise.mns.mokomedu-tasofoob.mns.mlkut.org"
             ),
-            "_foo.mokomedu-tasosuna.mns.alt"
+            "_foo.davufezo-hosojise.mns.alt"
         );
     }
 }
