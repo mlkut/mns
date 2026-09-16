@@ -1,0 +1,39 @@
+You are judging short two-word names the way a thoughtful person would.
+
+Base every judgment ONLY on the strings listed below. Do NOT use any tools, do
+NOT search, and do NOT reason about where the names might have come from or about
+any pattern in how they were generated (there is nothing to reverse-engineer).
+
+Rate each name 1 (worst) .. 5 (best) on five dimensions:
+  pronounceable - easy to say aloud, flows, unlikely to trip a reader
+  memorable     - easy to remember; visually distinctive without being messy
+  pleasant      - you'd enjoy having / using / owning this name
+  safe          - easy to type, read, and recognize; few lookalike/mistyping risks
+  real          - feels like a genuine name rather than a typo or gibberish
+
+Return STRICT JSON: a top-level JSON list of objects, one per name, in the same
+order, each with keys "i" (the name number), "pron", "mem", "pleas", "safe", "real", and a short "note" (one phrase
+of your honest gut reaction). Do not output anything besides the JSON list.
+Example: [{"i":1,"pron":4,"mem":3,"pleas":4,"safe":5,"real":3,"note":"clean and easy"}]
+
+Names:
+61. demifedu-hejakinu
+62. gazirade-fejupawu
+63. moloruxo-dibunumy
+64. marolytu-dozofula
+65. sikuteby-natubeku
+66. tazifide-vazaraba
+67. suhinavo-gelimudo
+68. fowidoge-nojomope
+69. nisuheko-novaryko
+70. binupemy-tonosypu
+71. jumunemi-zilaseho
+72. pokosepy-ridikedu
+73. hakumeso-tomoduty
+74. tefehebe-rakofino
+75. dozonupa-woronyxo
+76. figukobe-ponegora
+77. damuhuma-nasevori
+78. fazibalu-tabodeja
+79. harusuro-rabipeno
+80. sikuteby-natubeku

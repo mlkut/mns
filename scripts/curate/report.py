@@ -186,7 +186,9 @@ def main() -> int:
         md.append("Name quality (phonotactic probability) is measured in "
                   "[name_quality.md](./name_quality.md) — regenerate with "
                   "`.venv/bin/python scripts/curate/quality.py` (wordfreq) or "
-                  "`python3 scripts/curate/quality.py --lexicon offline`.\n")
+                  "`python3 scripts/curate/quality.py --lexicon offline`.")
+        md.append("A **blind LLM judgment** (60 names, context-free judge) rated the new system "
+                  "higher on every dimension — see [name_judgment.md](./name_judgment.md).\n")
 
     md.append("## 8. Reproduce\n")
     md.append("```bash")
