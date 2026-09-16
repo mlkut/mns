@@ -13,7 +13,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 import generate
 
-DESIGN_DIR = SCRIPT_DIR.parent.parent / "design"
+DESIGN_DIR = generate.FILTERED_DIR.parent / "quality" / "reports"
 OUT = DESIGN_DIR / "name_curation.md"
 
 RAW_COUNTS = json.loads((generate.RAW_DIR / "counts.json").read_text())
@@ -169,9 +169,8 @@ def main() -> int:
                   f"suffix {fin['suffix']['lookalike_pairs_1char']:,}.")
         md.append("- Then `quality.py substitute` re-admitted join-pruned-but-good tokens "
                   "(swapping out the worst-quality list members): pool grew, range stays 2^48, "
-                  "redup improved. A full-reduplication ban (kaka/wuwu…) is also enforced at the "
-                  "pool via `rules.json` (see measurement: [name_texture.md](./name_texture.md)). "
-                  "Details: [name_quality.md](./name_quality.md).")
+                  "redup improved. A full-reduplication ban (kaka/wuwu…) and the `uw` rule are "
+                  "also enforced at the pool via `rules.json`.\n")
         jo = lambda n: n if n == "inf" else f"{n:,}"
         md.append(f"- Shared tokens {fin['shared_tokens']:,} → reduplication inside a word "
                   f"~1 in {int(1/max(fin['reduplication_within_word_rate'],1e-9)):,}.")
@@ -180,15 +179,10 @@ def main() -> int:
         md.append("  Name space at 4096/slot: **2^48 ≈ {:,}** names.".format(2**48))
         md.append("")
         md.append("Sample: `python3 scripts/curate/sample.py --count 100 --seed 1`\n")
-        md.append("Closeness at scale (P(random name has a ≤1-letter registered twin)) is measured")
-        md.append("in [name_closeness.md](./name_closeness.md) — regenerate with "
-                  "`python3 scripts/curate/closeness.py`.")
-        md.append("Name quality (phonotactic probability) is measured in "
-                  "[name_quality.md](./name_quality.md) — regenerate with "
-                  "`.venv/bin/python scripts/curate/quality.py` (wordfreq) or "
-                  "`python3 scripts/curate/quality.py --lexicon offline`.")
-        md.append("A **blind LLM judgment** (60 names, context-free judge) rated the new system "
-                  "higher on every dimension — see [name_judgment.md](./name_judgment.md).\n")
+        md.append("Why this pool, the full journey, and all cross-checks (closeness, quality, "
+                  "texture, blind LLM judgment) live in the single canonical doc: "
+                  "**`design/names.md`**; live tables are regenerated into "
+                  "`scripts/data/quality/reports/`.\n")
 
     md.append("## 8. Reproduce\n")
     md.append("```bash")

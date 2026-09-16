@@ -26,7 +26,7 @@ import generate
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT = SCRIPT_DIR.parent.parent
 FINAL_DIR = generate.FILTERED_DIR.parent / "final"
-DESIGN_DIR = PROJECT / "design"
+DESIGN_DIR = generate.FILTERED_DIR.parent / "quality" / "reports"
 NAME_RS = PROJECT / "mns" / "src" / "name.rs"
 
 MILESTONES = [10 ** 6, 10 ** 9, 10 ** 12]

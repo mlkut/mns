@@ -136,17 +136,15 @@ minimizing 1-letter lookalikes, then borrow across slots to reach 4096 each.
 
 - Clean pool after join-prune: **6,010** tokens (now 0 offensive words across the whole 4096×4096 = 16.8M word table — verified 0).
 - Prefix list 4,096 tokens, 50,224 1-letter-lookalike pairs; suffix 49,436.
-- Then `quality.py substitute` re-admitted join-pruned-but-good tokens (swapping out the worst-quality list members): pool grew, range stays 2^48, redup improved. A full-reduplication ban (kaka/wuwu…) is also enforced at the pool via `rules.json` (see measurement: [name_texture.md](./name_texture.md)). Details: [name_quality.md](./name_quality.md).
+- Then `quality.py substitute` re-admitted join-pruned-but-good tokens (swapping out the worst-quality list members): pool grew, range stays 2^48, redup improved. A full-reduplication ban (kaka/wuwu…) and the `uw` rule are also enforced at the pool via `rules.json`.
+
 - Shared tokens 2,001 → reduplication inside a word ~1 in 8,384.
 - Estimated first 1-letter-twin name: ~3,401,257 ordinal (current 1024-scheme: ~265k → ~13× better).
   Name space at 4096/slot: **2^48 ≈ 281,474,976,710,656** names.
 
 Sample: `python3 scripts/curate/sample.py --count 100 --seed 1`
 
-Closeness at scale (P(random name has a ≤1-letter registered twin)) is measured
-in [name_closeness.md](./name_closeness.md) — regenerate with `python3 scripts/curate/closeness.py`.
-Name quality (phonotactic probability) is measured in [name_quality.md](./name_quality.md) — regenerate with `.venv/bin/python scripts/curate/quality.py` (wordfreq) or `python3 scripts/curate/quality.py --lexicon offline`.
-A **blind LLM judgment** (60 names, context-free judge) rated the new system higher on every dimension — see [name_judgment.md](./name_judgment.md).
+Why this pool, the full journey, and all cross-checks (closeness, quality, texture, blind LLM judgment) live in the single canonical doc: **`design/names.md`**; live tables are regenerated into `scripts/data/quality/reports/`.
 
 ## 8. Reproduce
 
