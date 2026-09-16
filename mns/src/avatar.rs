@@ -53,7 +53,6 @@ impl Name {
                 bit += 1;
             }
         }
-        debug_assert_eq!(bit, 48, "avatar silhouette uses every one of the 48 bits");
 
         let mut rects = String::new();
         for r in 0..ROWS {

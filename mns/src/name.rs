@@ -168,7 +168,9 @@ fn decode(encoded: &str) -> Result<u64, &'static str> {
 
 /// Decode an 8-byte slice (PREFIX 4 chars + SUFFIX 4 chars) into 24 bits.
 fn decode_word(word: &[u8]) -> Result<u64, &'static str> {
-    debug_assert_eq!(word.len(), 8);
+    if word.len() != 8 {
+        return Err("word must be 8 bytes");
+    }
 
     let prefix_str = std::str::from_utf8(&word[0..4]).map_err(|_| "invalid UTF-8 in prefix")?;
     let suffix_str = std::str::from_utf8(&word[4..8]).map_err(|_| "invalid UTF-8 in suffix")?;
