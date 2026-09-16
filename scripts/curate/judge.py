@@ -29,7 +29,7 @@ import sample as S
 
 JUDGE_DIR = generate.FILTERED_DIR.parent / "quality" / "judge"
 PROMPT_DIR = JUDGE_DIR / "prompts"
-DESIGN_DIR = SCRIPT_DIR.parent.parent / "design"
+DESIGN_DIR = generate.FILTERED_DIR.parent / "quality" / "reports"
 
 DIMS = ["pron", "mem", "pleas", "safe", "real"]
 DIM_LABEL = {"pron": "pronounceable", "mem": "memorable",

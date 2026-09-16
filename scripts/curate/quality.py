@@ -34,7 +34,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 PROJECT = SCRIPT_DIR.parent.parent
 FINAL_DIR = generate.FILTERED_DIR.parent / "final"
 QUALITY_DIR = generate.FILTERED_DIR.parent / "quality"
-DESIGN_DIR = PROJECT / "design"
+DESIGN_DIR = generate.FILTERED_DIR.parent / "quality" / "reports"
 WATCHLIST = QUALITY_DIR / "watchlist.txt"
 
 import select as S
@@ -374,6 +374,10 @@ def substitute(lm, rng, pre_swaps, suf_swaps, apply):
                   and R not in set(prefixes)]
     suf_new = swap_in_list(suffixes, usable_suf, suf_swaps, lm,
                            set(suffixes) | set(usable_suf))
+
+    # Keep the committed files sorted (slot order is arbitrary).
+    pre_new.sort()
+    suf_new.sort()
 
     # Validations
     pre_set, suf_set = set(pre_new), set(suf_new)

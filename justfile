@@ -17,8 +17,16 @@ curate:
     python3 scripts/curate/scan.py --matrix CVCV,CVCC,CVVC,CCVC
     python3 scripts/curate/select.py
     python3 scripts/curate/report.py
+    python3 scripts/curate/export.py
 
-# Regenerate the closeness-at-scale analysis (design/name_closeness.md)
+# Export the curated pools into the crate (mns/src/pools.rs)
+export:
+    python3 scripts/curate/export.py
+
+export-check:
+    python3 scripts/curate/export.py --check
+
+# Regenerate the closeness-at-scale analysis (-> reports/, see design/names.md)
 closeness:
     python3 scripts/curate/closeness.py
 
