@@ -2,7 +2,7 @@
 
 Names are the human-readable identifiers of mns. This document specifies the
 name format and the prefix/suffix pools the system uses. A name looks like
-`davufezo-hosojise`.
+`luzojawu-lodusamu`.
 
 ## Format
 
@@ -46,9 +46,9 @@ Words are what we show instead of the number, because a word is far easier to
 read, type, pronounce, and remember than the twelve hex digits it stands for:
 
 ```
-ordinal 0  →  0x12728e48358a  →  davufezo-hosojise
-ordinal 1  →  0x1164ec8a5e16  →  danuhuni-mojavake
-ordinal 42 →  0x747ebaf58d49  →  lehuwadi-zakatari
+ordinal 0  →  0x7fa5327a4c35  →  luzojawu-lodusamu
+ordinal 1  →  0x0da2612093a9  →  bukefede-famegode
+ordinal 42 →  0xf0cfd67f1655  →  wofezogo-lusokine
 ```
 
 Early ordinals are therefore the first names anyone sees, and every name is

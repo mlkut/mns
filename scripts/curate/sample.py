@@ -34,9 +34,12 @@ BITS = 48
 MASK_48 = (1 << BITS) - 1
 HALF = BITS // 2
 MASK_HALF = (1 << HALF) - 1
-# Placeholder shims of the name.rs round constants, shifted to fit 24-bit halves;
-# final values get locked in the Rust encoding.
-R = [0x9E3770, 0x6C62D0, 0xB5A4B0, 0xD2F3E0]
+# Mirrors name.rs's ROUND_KEYS exactly (24-bit odd values; 6 rounds). These
+# are derived from successive 24-bit windows of the golden-ratio constant
+# 0x9E3779B97F4A7C15, forced odd — see name.rs. Round keys MUST stay odd,
+# or the permutation develops a measurable linear bias. Keep in sync with
+# mns/src/name.rs.
+R = [0x4a7c15, 0x7f4a7d, 0xb97f4b, 0x79b97f, 0x3779b9, 0x9e3779]
 
 
 def round_f(val: int, r: int) -> int:
