@@ -11,7 +11,7 @@
 //!
 //! 2. **Name-based origin.** Instead of normalising record names against a
 //!    z-base-32 encoded public key, the origin here is the human-readable
-//!    [crate::Name] (e.g. `davufezo-hosojise`) whose 48-bit internal value
+//!    [crate::Name] (e.g. `mafojefo-logivada`) whose 48-bit internal value
 //!    is embedded in the wire format. This lets [`resource_records`] filter
 //!    and normalise names the same way Pkarr does, but against a name the
 //!    user actually sees in their browser.
@@ -706,78 +706,78 @@ mod tests {
 
     #[test]
     fn test_normalize_record_name_complex() {
-        let zone: Name = "davufezo-hosojise".parse().unwrap();
+        let zone: Name = "mafojefo-logivada".parse().unwrap();
 
         // 1. Bare relative queries
         assert_eq!(
             normalize_record_name(zone, "@"),
-            "davufezo-hosojise.mns.alt"
+            "mafojefo-logivada.mns.alt"
         );
         assert_eq!(
             normalize_record_name(zone, "_foo"),
-            "_foo.davufezo-hosojise.mns.alt"
+            "_foo.mafojefo-logivada.mns.alt"
         );
 
         // 2. Standard queries matching various suffixes
         assert_eq!(
-            normalize_record_name(zone, "_foo.davufezo-hosojise.mns.alt"),
-            "_foo.davufezo-hosojise.mns.alt"
+            normalize_record_name(zone, "_foo.mafojefo-logivada.mns.alt"),
+            "_foo.mafojefo-logivada.mns.alt"
         );
         assert_eq!(
-            normalize_record_name(zone, "_foo.davufezo-hosojise.mns.mlkut.org"),
-            "_foo.davufezo-hosojise.mns.alt"
+            normalize_record_name(zone, "_foo.mafojefo-logivada.mns.mlkut.org"),
+            "_foo.mafojefo-logivada.mns.alt"
         );
         assert_eq!(
-            normalize_record_name(zone, "davufezo-hosojise.mns"),
-            "davufezo-hosojise.mns.alt"
+            normalize_record_name(zone, "mafojefo-logivada.mns"),
+            "mafojefo-logivada.mns.alt"
         );
 
         // 3. Vulnerability Edge Case: Multiple `.mns` or deceptive subdomains
         // A subdomain containing ".mns" before the true apex
         assert_eq!(
-            normalize_record_name(zone, "mns-service.foo.davufezo-hosojise.mns.mlkut.org"),
-            "mns-service.foo.davufezo-hosojise.mns.alt"
+            normalize_record_name(zone, "mns-service.foo.mafojefo-logivada.mns.mlkut.org"),
+            "mns-service.foo.mafojefo-logivada.mns.alt"
         );
 
         // Another valid name structure acting as a subdomain prefix
         assert_eq!(
-            normalize_record_name(zone, "sikuteby-natubeku.mns.foo.davufezo-hosojise.mns.alt"),
-            "sikuteby-natubeku.mns.foo.davufezo-hosojise.mns.alt"
+            normalize_record_name(zone, "sikuteby-natubeku.mns.foo.mafojefo-logivada.mns.alt"),
+            "sikuteby-natubeku.mns.foo.mafojefo-logivada.mns.alt"
         );
         assert_eq!(
-            normalize_record_name(zone, "_foo.davufezo-hosojise.mns.mnsfoo.mlkut.org"),
-            "_foo.davufezo-hosojise.mns.alt"
+            normalize_record_name(zone, "_foo.mafojefo-logivada.mns.mnsfoo.mlkut.org"),
+            "_foo.mafojefo-logivada.mns.alt"
         );
 
         // 4. Invalid Name before the right most mns.
         // shorter than 17 characters
         assert_eq!(
-            normalize_record_name(zone, "_foo.davufezo-hosojise.mns.tasosuna.mns.mlkut.org"),
-            "_foo.davufezo-hosojise.mns.alt"
+            normalize_record_name(zone, "_foo.mafojefo-logivada.mns.tasosuna.mns.mlkut.org"),
+            "_foo.mafojefo-logivada.mns.alt"
         );
         // longer than 17 characters
         assert_eq!(
             normalize_record_name(
                 zone,
-                "_foo.davufezo-hosojise.mns.davufezo-hosojisetasosuna.mns.mlkut.org"
+                "_foo.mafojefo-logivada.mns.mafojefo-logivadatasosuna.mns.mlkut.org"
             ),
-            "_foo.davufezo-hosojise.mns.alt"
+            "_foo.mafojefo-logivada.mns.alt"
         );
         // no dash in the middle
         assert_eq!(
             normalize_record_name(
                 zone,
-                "_foo.davufezo-hosojise.mns.mokomedu_tasosuna.mns.mlkut.org"
+                "_foo.mafojefo-logivada.mns.mokomedu_tasosuna.mns.mlkut.org"
             ),
-            "_foo.davufezo-hosojise.mns.alt"
+            "_foo.mafojefo-logivada.mns.alt"
         );
         // not valid name
         assert_eq!(
             normalize_record_name(
                 zone,
-                "_foo.davufezo-hosojise.mns.mokomedu-tasofoob.mns.mlkut.org"
+                "_foo.mafojefo-logivada.mns.mokomedu-tasofoob.mns.mlkut.org"
             ),
-            "_foo.davufezo-hosojise.mns.alt"
+            "_foo.mafojefo-logivada.mns.alt"
         );
     }
 }

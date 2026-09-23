@@ -1,151 +1,122 @@
 # Names
 
-Names are the human-readable identifiers of mns. This document specifies the
-name format and the prefix/suffix pools the system uses. A name looks like
-`luzojawu-lodusamu`.
+Names are the human labels for mns addresses. Each name is two words joined by
+a dash, e.g. `mafojefo-logivada`.
 
-## Format
+## What a name looks like
 
-A name is two words joined by a dash:
-
-```
-<prefix><suffix>-<prefix><suffix>
-```
-
-Each word is 8 letters long and made of two 4-letter pieces. Every piece is
-**CVCV** (consonant–vowel–consonant–vowel) and always ends in a vowel — so
-every word, and every name, ends in a vowel and flows cleanly.
-
-## Pools
-
-Two fixed, ordered lists of **4,096** four-letter CVCV pieces — a prefix
-pool and a suffix pool, using the alphabet:
-
-17 consonants — `b d f g h j k l m n p r s t v w z` — and 5 vowels — `a e i o u`.
-
-With 4,096 choices per slot, the name space is 4096⁴, roughly **281 trillion**
-distinct names.
-
-The pools are fixed and shipped: the Rust crate carries them as `mns::PREFIXES`
-and `mns::SUFFIXES` (`mns/src/pools.rs`) — nothing is generated at run time.
-
-## How a name is generated from an ordinal
-
-Registration hands out ordinals in order, and each ordinal maps to exactly one
-name. The raw ordinal is a number, so it is scrambled and then written as
-words:
-
-1. the ordinal is passed through a fixed 48-bit permutation (a bijection, so
-   no two ordinals can ever produce the same name, no small ordinal looks
-   special, and neighbouring ordinals turn into unrelated names),
-2. the permuted value is split into four 12-bit indexes,
-3. the first two indexes pick the pieces of the first word (a prefix then a
-   suffix), the last two pick the pieces of the second word.
-
-Words are what we show instead of the number, because a word is far easier to
-read, type, pronounce, and remember than the twelve hex digits it stands for:
+Every name is **17 characters** (two 8-letter words, dash between them). A word
+is built from two 3-letter pieces plus two fixed vowels:
 
 ```
-ordinal 0  →  0x7fa5327a4c35  →  luzojawu-lodusamu
-ordinal 1  →  0x0da2612093a9  →  bukefede-famegode
-ordinal 42 →  0xf0cfd67f1655  →  wofezogo-lusokine
+prefix + mid-vowel + suffix + end-vowel
 ```
 
-Early ordinals are therefore the first names anyone sees, and every name is
-guaranteed to be used eventually.
+- **prefix** and **suffix** — 3-letter pieces from two fixed lists (above),
+- **mid-vowel** — one of `PREFIX_EXTRA_VOWEL = "iaou"`,
+- **end-vowel** — one of `SUFFIX_EXTRA_VOWEL = "yaou"`.
 
-## Design goals
+So a word always reads consonant-vowel-consonant-vowel… and always ends in a
+vowel. The vowels are squeezed in deliberately — `e` is left out because a
+silent/weak `e` makes the word stumble (`wofe`-style breaks) and every word
+closes cleanly.
 
-Names are designed around four goals; each is expanded below.
+## The two fixed piece lists
 
-- **Fair** — the fixed shape and the permutation keep every domain uniform.
-- **Human readable** — a name is easy to read, type, pronounce, and remember.
-- **Safe** — no known offense and no deliberately awkward or childish strings,
-  as far as we can tell.
-- **Phishing resistant** — registered names stay far apart, so near-twin
-  lookalikes are rare (see [Phishing resistance](#phishing-resistance)).
+There are two frozen lists of **1,024 pieces each** — one for the prefix slot,
+one for the suffix slot. Every client ships and uses the same lists (they live
+in `mns::luts`, together with the code that looks pieces up). Nothing is
+generated at run time and nothing is generated later: the lists are fixed.
 
-### Fair
+Pieces are 3 letters, built like **CVC** from:
 
-Every ordinal maps to a name with the exact same fixed shape — 17 characters,
-lowercase, the same rhythm — so no name looks better than another. Because the
-permutation scrambles ordinals, no small number is special and early
-registrations don't get nicer names. Any registry could simply hand out
-ordinals, but an ordinal invites hoarding: "1" or "42" would be the name
-everyone wants. Permuting makes all domains interchangeable — like hashes —
-so there is no particular name worth grabbing or selling, and anyone can
-verify a name's ordinal on lookup.
+| position | letters |
+|---|---|
+| first | `b d f g h j k l m n p r s t v w z` |
+| middle | `a e i o u` |
+| last | `b d f g h j k l m n p r s t v w z` |
 
-### Human readable
+Some letters are left out on purpose:
 
-An ordinal is the cheapest way to address something, but a number is not
-something people can read, type, pronounce, or remember without effort. So we
-show a name instead. Every name is two words made of open (vowel-final) CVCV
-pieces — easy to say across many languages, with no consonant clusters and no
-awkward letter pairs.
+- `c` and `q` — confusing (a hard/soft pair, `c` reads like s/k/q).
+- `x` and `y` — look like typos in the middle of a word (`syxy`, `nuxy`).
 
-### Safe
+The lists started life as the old Urbit piece lists, were expanded, and the
+expansions were ranked by how naturally the whole word flows in Spanish /
+Italian / Portuguese / Catalan. Then the result was checked by blind testers
+(name taste, not objective fact) — more on that at the bottom.
 
-Known offensive words and fragments are removed both from individual pieces
-and from every possible joining of a prefix and a suffix inside a word; the
-entire set of word combinations is checked, not just the pieces. Deliberately
-childish repeats like `kaka` or `wuwu` are excluded, and a word that repeats
-the same piece is extremely rare. Offense can't be defined perfectly, so the
-blocklist is conservative, pattern-based, and open to review.
+## How many names exist
 
-## Phishing resistance
+- **Full space:** ~**281 trillion** possible names.
+- **Registration cap:** ~**1 trillion** names (regardless of the space).
 
-Registration is capped at **2^40 ≈ 1 trillion names** — far below the full
-name space (281 trillion). Most of the space stays unused, and that is what
-makes lookalike domains rare: near-twin names are almost never registered.
+## What to expect, in numbers
 
-**How likely is it that someone finds a name similar to yours?**
+- **A name built from the same piece twice**, like `wapuhiva-zazozaza` (the
+  piece `zaz` appears in both halves of one word), happens about **1 in every
+  844 names** — roughly **1,184 per million** names, or **~1.3 billion** of the
+  trillion names that can ever exist. It reads like a mild rhyme, it's
+  harmless, and it's a deliberate trade-off (the two lists share 621 pieces so
+  the name space can stay full).
+- **A lookalike** — a *registered* name that's one letter away from yours:
 
-| registered so far | name 1 letter away | name within 2 letters |
+| active names | one letter away | within two letters |
 |---|---|---|
-| 1,000,000,000 | ~0.03% | ~1.7% |
-| 1,000,000,000,000 (the cap) | ~29% | ~100% |
+| 1 billion | ~0.05% | ~2.7% |
+| 1 trillion (the cap) | ~36% | ~100% |
 
-Even at the full cap, a name only *expects* its first close (≤1-letter)
-neighbour after ~2.9 trillion registrations — beyond the cap, so phishing
-lookalikes mostly point nowhere.
+  Your first close lookalike is expected only after **~2.2 trillion**
+  registrations — further than the cap allows, so in practice nobody can
+  impersonate you by taking a near-twin name.
 
-## Why these pools
+## How an ordinal becomes a name
 
-We started from a scheme based on lightly modified Urbit prefixes and
-suffixes, with a vowel appended to each, giving a **2^40** namespace — about
-a trillion names. It worked, but a trillion names felt small: once that many
-are registered, a name close to the one you were given becomes likely. The
-pools below exist mainly for a **larger namespace** — 2^48, about 281
-trillion — so that even if we ever mint all trillion names, close neighbours
-stay rare. (The new names were also compared with the earlier scheme on sound
-and closeness; those were checks, not the reason.)
+Registration hands out numbers (ordinals) in order. To keep small numbers from
+being special and worth squatting (`1`, `42`), the ordinal is scrambled with a
+fixed 48-bit permutation and then split into two 24-bit halves; each half picks
+a prefix, a vowel, a suffix, and a vowel:
 
-The goals behind the current choices, in plain terms:
+```
+ordinal 0   → mafojefo-logivada
+ordinal 1   → bugofema-fatagipa
+ordinal 42  → wubizuko-mabakasa
+```
 
-- **Why CVCV pieces.** A piece that ends in a vowel — and a name where every
-  piece ends in a vowel — is easier to say, spell, and remember across many
-  languages. Consonant endings and clusters, such as endings like `-by`, `-y`,
-  `-x` or `-gy`, are exactly what make invented names stumble and look like
-  typos.
-- **Why these letters.** The `c` is dropped because its hard/soft ambiguity is
-  unnecessary (the hard sound is written `k`). `q` and `x` are dropped because
-  they have no consistent sound across languages. `y` is dropped because it was
-  the single biggest source of names that look like typos.
-- **Why two pools of 4,096.** This is a pool size that keeps names
-  pronounceable while making the space spacious enough that the names people
-  actually use stay far apart from each other — a lookalike name is unlikely to
-  already exist. Keeping prefixes and suffixes as *separate* lists means a word
-  is always built from two different parts.
-- **Why the strict bans.** Offense can't be defined perfectly — languages and
-  standards differ — so the blocklist is deliberately conservative and open to
-  review, and it is checked across joins, not just individual pieces. Banning
-  patterns (like `uw`) rather than single words is what keeps the pools easy to
-  maintain and hard to slip past.
-- **Why we believe this is an improvement.** When a fresh, context-free
-  evaluator is handed samples without knowing the source, it consistently
-  prefers these pools over the earlier scheme — especially how names sound and
-  how unlikely they are to be misread or mistyped.
+The scrambling is one-to-one: every ordinal yields a different name, and any
+name can be turned back into its ordinal.
 
-There is taste in all of this; the pools reflect judgment, not a theorem, and
-they are revised whenever that judgment changes.
+## Design goals, in one line each
+
+- **Fair** — every name has the same shape, and no small ordinal looks special;
+  permuting makes names interchangeable (like hashes), so there is nothing to
+  hoard.
+- **Readable** — open syllables, always ends in a vowel, no tricky letters.
+- **Safe** — banned 3-letter strings (`fuk`, `sik`, `jod`, …) are excluded, and
+  profanity that can *form* inside a word (e.g. `fak` in `lofakin`) was
+  measured while picking the lists.
+- **Phishing resistant** — see the lookalike numbers above.
+
+## Why the lists overlap (the one compromise)
+
+A repeated-piece word like `zazozaza` exists only because the prefix and
+suffix lists are not fully separate: **621 of the 1,024** prefix pieces are
+also usable as suffixes. That overlap is the price of keeping the full
+~281-trillion space. The only way to make repeats impossible is 512-piece
+lists, which gives **2^44 ≈ 17.6 trillion** names — 16× smaller.
+
+## How the lists were picked (for the record)
+
+The script that made them is gone; this is what was done once:
+
+1. generated every possible 3-letter CVC piece from the alphabet;
+2. dropped pieces that spell banned English/Romance words (`fuk`, `sik`, …);
+3. seeded from the old Urbit lists and scored the rest by how the whole word
+   flows in Spanish/Italian/Portuguese/Catalan;
+4. kept the best 1,024 for each slot, minimising lookalike pieces and the
+   overlap;
+5. blind testers confirmed these read better than the old lists, and the lists
+   were frozen.
+
+There is taste in all of this — the lists reflect judgment as much as numbers.
+They can change, but any change is a breaking change.

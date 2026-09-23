@@ -1,4 +1,0 @@
-# Names/tokens the maintainers dislike. One per line; '#' comments allowed.
-# Each entry is scored in quality.py report; the sweep recommends the smallest
-# prune that removes all 4-letter tokens listed here from the final lists.
-tuwuwaha
