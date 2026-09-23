@@ -78,6 +78,7 @@ and say exactly when the first lookalike could exist. For `mafojefo-logivada`:
 A 1-character lookalike is expected only after ~2.2 trillion registrations —
 more than the 1-trillion cap ever allows — so in practice your name never has
 one. Even at the full cap, only ~36% of names sit within one character of another.
+(Avatars have the same anti-phishing story — see [avatars.md](./avatars.md).)
 
 ## How an ordinal becomes a name
 
