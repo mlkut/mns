@@ -7,56 +7,77 @@ you've got the right domain.
 
 ## How an avatar is made
 
-1. the name's 48-bit value (the same permuted value the string is encoded
-   from) is read as 48 source pixels,
-2. the 48 pixels are laid into a circle silhouette — 6 mirrored columns wide,
-   11 rows tall, rounded at top and bottom (`mns::avatar`),
-3. each source pixel is mirrored left-to-right, so the left half determines
-   the whole shape.
+Every name has a fixed 48-bit internal value (the same permuted value the name
+string is encoded from). The avatar is simply that value drawn on a grid —
+nothing random, nothing stored.
 
-That means one bit of the value turns on one pixel in the left half and its
-mirror on the right. Two names with values a few bits apart therefore have very
-similar avatars — which is what matters for phishing (see below).
+1. **48 bits = 6 columns × 8 rows.** The value is read as 6 source columns of
+   8 pixels each.
+2. **The 6 columns mirror to 11.** Each column is repeated left-to-right, so a
+   pixel near the left edge also lights its mirrored pixel on the right. 6
+   source columns become 11 drawn columns (6·2−1; the centre column is its own
+   mirror).
+3. **A circle silhouette picks which cells the 48 bits fill.** The 11×11 grid
+   is shaped like a rounded disc — 2 cells wide at the very top and bottom,
+   growing to 4, then 5, and the middle row stretches across all 6. Reading
+   the 48 bits row-major over this silhouette gives the pattern; here it is
+   (each `[#]` is a cell the silhouette fills, `[ ]` is outside the avatar):
 
-**No two names share an avatar.** A different value always lights a different
-set of pixels ([`mns::avatar`]). Two avatars can only *look* similar.
+```
+[ ][ ][ ][ ][#][#][#][ ][ ][ ][ ]
+[ ][ ][#][#][#][#][#][#][#][ ][ ]
+[ ][#][#][#][#][#][#][#][#][#][ ]
+[ ][#][#][#][#][#][#][#][#][#][ ]
+[ ][#][#][#][#][#][#][#][#][#][ ]
+[#][#][#][#][#][#][#][#][#][#][#]
+[ ][#][#][#][#][#][#][#][#][#][ ]
+[ ][#][#][#][#][#][#][#][#][#][ ]
+[ ][#][#][#][#][#][#][#][#][#][ ]
+[ ][ ][#][#][#][#][#][#][#][ ][ ]
+[ ][ ][ ][ ][#][#][#][ ][ ][ ][ ]
+```
+
+   Because the disc is left-right symmetric, the bits only need to describe
+   its left half — each source pixel fills its cell **and** the mirror on the
+   right. (The `[#]`s above are the filled mirrors; the bottom three rows are
+   where the corners of a plain 6×8 block would have been pushed out to.)
+
+Per bit, that means: a bit whose source cell is on the **centre column** turns
+on **1 pixel**; every other bit turns on **2 pixels** (itself + the mirror).
+The SVG is an 11×11 grid of squares (25 px cells, centred, single fill
+colour).
+
+Because the 48 bits map one-to-one onto the lit pattern, **no two different
+names ever share an avatar** — they can only *look* similar.
 
 ## How close avatars can be
 
-One changed bit flips **1 pixel** (down the centre column) or **2 pixels**
-(everywhere else, mirrored) — on average **~1.8 pixels per bit**. So avatars
-`d` bits apart differ by roughly `2·d` pixels. Measured over the shipped pool
-tables, for a given name:
+One changed bit = 1–2 pixels (~1.8 pixels per bit on average), so avatars `d`
+bits apart differ by roughly `2·d` pixels. Here is how close the closest
+*registered* avatar gets to yours (`mafojefo-logivada`, ordinal 0) as the
+registry fills — each one is a real avatar found by scanning the actual
+ledger:
 
-| your avatar vs the rest | first registered avatar ≤d bits off (at ~N registered names) | at the 1T cap: avatars ≤d bits from yours |
-|---|---:|---:|
-| ≤1 bit (~2 px) | ~6×10¹² — beyond the cap | ~0.2 (≈1 name in 6 has one) |
-| ≤2 bits (~4 px) | ~2×10¹¹ | ~4.6 (near-certain) |
-| ≤3 bits (~5 px) | ~2×10¹⁰ | ~72 |
-| ≤4 bits (~7 px) | ~10⁹ | ~830 |
-| ≤5 bits (~9 px) | ~10⁸ | ~7,500 |
-| ≤6 bits (~11 px) | ~2×10⁷ | ~55,000 |
+| milestone | name (ordinal) | hidden pixels | avatar |
+|---|---|---|---|
+| yours | `mafojefo-logivada` (0) | — | ![ordinal 0](assets/avatars/o0-mafojefo-logivada.svg) |
+| after ~200k | `lufihugo-lamihafa` (199,229) | 8 bits / 14 px | ![199,229](assets/avatars/near-199229.svg) |
+| after ~3.5M | `lubojido-zisivava` (3,470,688) | 7 bits / 13 px | ![3,470,688](assets/avatars/near-3470688.svg) |
+| after ~15M | `zufojegu-gotivoza` (15,368,224) | 6 bits / 9 px | ![15,368,224](assets/avatars/near-15368224.svg) |
+| after ~24M | `mafojasu-lopivada` (23,759,741) | 5 bits / 8 px | ![23,759,741](assets/avatars/near-23759741.svg) |
 
-**Eventually always differ by at least 1 pixel** (injectivity), and in practice
-a given name's nearest registered avatar stays several pixels away until very
-deep in the registry: among the **first 3 million** registered names, the
-closest avatar to ordinal 0 (`mafojefo-logivada`) is `lufihugo-lamihafa`
-(ordinal 199,229), which differs by **8 bits / 14 pixels**:
-
-| `mafojefo-logivada` (ordinal 0) | `lufihugo-lamihafa` (ordinal 199,229) |
-|---|---|
-| ![ordinal 0](assets/avatars/o0-mafojefo-logivada.svg) | ![ordinal 199,229](assets/avatars/near-lufihugo-lamihafa.svg) |
+The closest doppelgänger creeps closer only very slowly — a full year of
+registrations buys just a few pixels, and a truly confusing twin (≤1–2 bits)
+is expected only around ~240 billion names (~11,000 years) or beyond the cap.
+Every avatar stays different by at least one pixel.
 
 ## Why aren't near-identical pairs simply impossible?
 
-The registry only ever uses 2^40 of the 2^48 values — a lot of spare room — so
-it is tempting to think avatars could be guaranteed far apart. They can't:
-the 48-bit value is a scrambled bijection over the *whole* 2^48 space, not a
-"40 payload + 8 spare bits" encoding. The nearest registered avatar is decided
-by how many registered values happen to sit within a few bits, which is exactly
-the table above: a ~2-pixel twin is rare but possible (~1 name in 6 at the
-cap), a ~4-pixel twin is the norm, and both need thousands of years of
-registrations to appear first. Combined with the name-level lookalike
-resistance in [names.md](./names.md), a would-be impersonator needs both a
-near-identical name *and* a near-identical avatar — and neither gets within
-reach for the foreseeable future.
+The registry only ever uses 2^40 of the 2^48 values — plenty of spare room — so
+it's tempting to think avatars could be guaranteed far apart. They can't: the
+48-bit value is a scrambled bijection over the *whole* 2^48 space, not a
+"40 payload + 8 spare bits" encoding. How close the nearest avatar gets is set
+by how many registered values happen to land within a few bits of yours.
+Combined with the name-level lookalike resistance in [names.md](./names.md), a
+would-be impersonator needs both a near-identical name *and* a near-identical
+avatar, and neither comes within reach for the foreseeable future.
