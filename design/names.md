@@ -59,16 +59,25 @@ Italian / Portuguese / Catalan. Then the result was checked by blind testers
   trillion names that can ever exist. It reads like a mild rhyme, it's
   harmless, and it's a deliberate trade-off (the two lists share 621 pieces so
   the name space can stay full).
-- **A lookalike** — a *registered* name that's one letter away from yours:
+- **A lookalike** — a registered name that's one character off from yours —
+  is the real phishing risk, so it's measured in *time* and *distance*, not
+  just chances: see the lookalike table below.
 
-| active names | one letter away | within two letters |
-|---|---|---|
-| 1 billion | ~0.05% | ~2.7% |
-| 1 trillion (the cap) | ~36% | ~100% |
+## Lookalikes: how long you're safe
 
-  Your first close lookalike is expected only after **~2.2 trillion**
-  registrations — further than the cap allows, so in practice nobody can
-  impersonate you by taking a near-twin name.
+Every name that's just a few characters off from yours is known up-front (it's
+in the frozen pool tables), so we can reverse each to its registration ordinal
+and say exactly when the first lookalike could exist. For `mafojefo-logivada`:
+
+| how close | first such name | first ordinal | ~time at the rate limit |
+|---|---:|---:|---|
+| 3 characters | `mafojemo-lonivaja` | 61,334,793 | ~3 years |
+| 2 characters | `fafojefo-zogivada` | 28,447,665,756 | ~1,200 years |
+| 1 character | `majojefo-logivada` | 1,465,657,709,275 | never — beyond the cap |
+
+A 1-character lookalike is expected only after ~2.2 trillion registrations —
+more than the 1-trillion cap ever allows — so in practice your name never has
+one. Even at the full cap, only ~36% of names sit within one character of another.
 
 ## How an ordinal becomes a name
 
