@@ -58,13 +58,13 @@ bits apart differ by roughly `2·d` pixels. Here is how close the closest
 registry fills — each one is a real avatar found by scanning the actual
 ledger:
 
-| milestone | name (ordinal) | hidden pixels | avatar |
+| minted after | name (ordinal) | hidden pixels | avatar |
 |---|---|---|---|
-| yours | `mafojefo-logivada` (0) | — | ![ordinal 0](assets/avatars/o0-mafojefo-logivada.svg) |
-| after ~200k | `lufihugo-lamihafa` (199,229) | 8 bits / 14 px | ![199,229](assets/avatars/near-199229.svg) |
-| after ~3.5M | `lubojido-zisivava` (3,470,688) | 7 bits / 13 px | ![3,470,688](assets/avatars/near-3470688.svg) |
-| after ~15M | `zufojegu-gotivoza` (15,368,224) | 6 bits / 9 px | ![15,368,224](assets/avatars/near-15368224.svg) |
-| after ~24M | `mafojasu-lopivada` (23,759,741) | 5 bits / 8 px | ![23,759,741](assets/avatars/near-23759741.svg) |
+| _yours_ | `mafojefo-logivada` (0) | — | ![ordinal 0](assets/avatars/o0-mafojefo-logivada.svg) |
+| ~3 days | `lufihugo-lamihafa` (199,229) | 8 bits / 14 px | ![199,229](assets/avatars/near-199229.svg) |
+| ~2 months | `lubojido-zisivava` (3,470,688) | 7 bits / 13 px | ![3,470,688](assets/avatars/near-3470688.svg) |
+| ~8 months | `zufojegu-gotivoza` (15,368,224) | 6 bits / 9 px | ![15,368,224](assets/avatars/near-15368224.svg) |
+| ~1 year | `mafojasu-lopivada` (23,759,741) | 5 bits / 8 px | ![23,759,741](assets/avatars/near-23759741.svg) |
 
 The closest doppelgänger creeps closer only very slowly — a full year of
 registrations buys just a few pixels, and a truly confusing twin (≤1–2 bits)
