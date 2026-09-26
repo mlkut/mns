@@ -28,7 +28,7 @@ fn ordinal_key(ordinal: u64) -> [u8; 8] {
     ordinal.to_be_bytes()
 }
 
-fn name_key(name: &Name) -> [u8; 5] {
+fn name_key(name: &Name) -> [u8; 6] {
     name.to_wire_bytes()
 }
 
@@ -41,7 +41,7 @@ fn name_key(name: &Name) -> [u8; 5] {
 
 type BatchesDb = DatabaseUnique<SerdeWincode<[u8; 8]>, SerdeWincode<StoredConfig>>;
 type EntriesDb = DatabaseUnique<SerdeWincode<[u8; 8]>, SerdeWincode<StoredConfig>>;
-type PacketDb = DatabaseUnique<SerdeWincode<[u8; 5]>, SerdeWincode<Vec<u8>>>;
+type PacketDb = DatabaseUnique<SerdeWincode<[u8; 6]>, SerdeWincode<Vec<u8>>>;
 type MetaDb = DatabaseUnique<SerdeWincode<String>, SerdeWincode<Vec<u8>>>;
 
 // Owner registry: address -> compact owner id.

@@ -235,7 +235,9 @@ async fn owner_handler<S: ZoneStore>(
     for batch_start in &batches {
         for offset in 0..BATCH_SIZE {
             let ordinal = batch_start + offset;
-            let name = Name::from_ordinal(ordinal);
+            let Some(name) = Name::from_ordinal(ordinal).ok() else {
+                continue;
+            };
             if let Some(entry_owner) = state.store.get_name_owner(&name).await.unwrap_or(None) {
                 if entry_owner != owner_bytes {
                     continue;
@@ -247,7 +249,9 @@ async fn owner_handler<S: ZoneStore>(
 
     if let Ok(entries) = state.store.get_owner_entries(&owner_bytes).await {
         for ordinal in entries {
-            let name = Name::from_ordinal(ordinal);
+            let Some(name) = Name::from_ordinal(ordinal).ok() else {
+                continue;
+            };
             if !names.contains(&name) {
                 names.push(name);
             }

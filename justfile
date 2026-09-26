@@ -10,6 +10,10 @@ run:
 bind:
     ./scripts/bind.sh
 
+# Run the name tests (encoding, permutation, mns::luts pools + LUTs, goldens)
+test-names:
+    cargo test -p mns name::
+
 # Build and deploy to a directory
 build dir:
     ./scripts/build.sh {{ dir }}

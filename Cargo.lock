@@ -2931,7 +2931,6 @@ dependencies = [
  "ntimestamp",
  "proptest",
  "rayon",
- "reqwest",
  "sha2 0.11.0",
  "simple-dns",
  "thiserror",
