@@ -59,22 +59,47 @@ identity. Each source cell gets one of four levels:
 - a per-cell jitter of ±1 adds entropy without breaking the ring structure;
 - mirrored cells share the source level, so the colour is vertically symmetric.
 
-The hue is a display preference (`None` uses the default blue), so the same
-name can be shown in any hue without changing its identity. Light and dark mode
-only change the lightness range:
+The hue is a display preference (`None` uses the default maroon, 353°), so the
+same name can be shown in any hue without changing its identity. Saturation is
+a multiplier on the sampled HSV saturations: `1.0` leaves the palette as
+sampled, `0.0` is grayscale. Light and dark use separately sampled palettes:
 
-| mode | OKLCH L range | page background |
+| mode | levels (HSV hue · saturation · value) | page background |
 |---|---|---|
-| light | 0.30–0.63 | cream `#F7F4EE` |
-| dark | 0.50–0.85 | dark `#08090D` |
+| light | 353° · S 100/87/73/64% · V 39/56/69/84% | cream `#F7F4EE` |
+| dark | 353° · S 76/65/57/33% · V 69/82/97/100% | dark `#08090D` |
 
-Four levels is the readable sweet spot at 28 px: three is too coarse, five
-starts to get subtle. Every level clears 3:1 against its intended background.
-The SVG has no background by default; `render_avatar_svg_with_background` can
-add an optional tile.
+The darkest dark level uses V69 rather than the sampled V67 so every level
+clears 3:1 against the dark tile. Four levels is the readable sweet spot at
+28 px: three is too coarse, five starts to get subtle.
 
-`Name::render_avatar_svg(hue: Option<f32>, dark: bool)` produces this pattern;
-`render_avatar_svg_with_color` remains the flat single-colour renderer.
+The examples below use the default maroon (353°), saturation 1.0, and the
+ring + jitter pattern. The SVG has no background by default;
+`render_avatar_svg_with_background` can add an optional tile.
+
+The generated SVG exposes CSS variables, so the page can retint it without
+re-rendering:
+
+```css
+:root {
+  --mns-avatar-hue: 200;        /* unitless HSV hue */
+  --mns-avatar-saturation: .8;  /* multiplier on the sampled saturation */
+}
+```
+
+Set them on `:root` for every avatar, or on a specific ancestor/`.mns-avatar`
+for a subset.
+
+`--mns-avatar-l0` … `--mns-avatar-l3` can be overridden for exact level
+colours. The hue/saturation variables are applied as a filter, preserving the
+lightness pattern. Use the Rust `hue`/`saturation` arguments when you need the
+colours baked into the SVG instead.
+
+`Name::render_avatar_svg(hue: Option<f32>, saturation: Option<f32>, dark: bool)`
+produces this pattern; `render_avatar_svg_with_color` remains the flat
+single-colour renderer.
+
+Live preview: [`avatars-preview/index.html`](./avatars-preview/index.html).
 
 ## How close avatars can be
 
@@ -102,7 +127,7 @@ The closest documented pair, side by side:
 The lightness pattern is derived from the same 48-bit value, so it does not
 change the shape distance in the table. It does make the near pairs easier to
 tell apart: the 5-bit pair now differs in both the 8 hidden pixels and the
-mirrored lightness texture, not just in one flat blue shape.
+mirrored lightness texture, not just in one flat-colour shape.
 
 The closest doppelgänger creeps closer only very slowly — a full year of
 registrations buys just a few pixels, and a truly confusing twin (≤1–2 bits)
